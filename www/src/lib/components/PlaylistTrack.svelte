@@ -15,12 +15,12 @@
 			class="flex flex-row items-center gap-x-8 px-4"
 		>
 			<button
-				class="bg-amber-800 hover:bg-blue-800 px-2"
+				class="bg-blue-950 hover:bg-blue-800 px-2"
 				on:click|stopPropagation={() => controls.playAlbum(track.album.id)}>Album</button
 			>
 			<span>or</span>
 			<button
-				class="bg-amber-800 hover:bg-blue-800 px-2"
+				class="bg-blue-950 hover:bg-blue-800 px-2"
 				on:click|stopPropagation={() => controls.playTrack(track.id)}>Track</button
 			>
 		</span>

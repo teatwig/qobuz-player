@@ -8,6 +8,7 @@
 	import Button from './Button.svelte';
 	import List from './List.svelte';
 	import PlaylistTracks from './PlaylistTracks.svelte';
+	import { SearchIcon } from 'svelte-feather-icons';
 
 	const searchTab = writable('albums');
 	const artistName = writable('');
@@ -35,26 +36,26 @@
 			type="text"
 			placeholder="Search"
 		/>
-		<Button type="submit">Search</Button>
+		<Button type="submit"><SearchIcon /></Button>
 	</form>
 	<div class="text-2xl xl:text-4xl my-4 gap-x-8 grid grid-cols-4">
 		<button
-			class:bg-yellow-800={$searchTab !== 'albums'}
+			class:bg-blue-950={$searchTab !== 'albums'}
 			class:bg-blue-800={$searchTab === 'albums'}
 			on:click={() => searchTab.set('albums')}>Albums</button
 		>
 		<button
-			class:bg-yellow-800={$searchTab !== 'artists'}
+			class:bg-blue-950={$searchTab !== 'artists'}
 			class:bg-blue-800={$searchTab === 'artists'}
 			on:click={() => searchTab.set('artists')}>Artists</button
 		>
 		<button
-			class:bg-yellow-800={$searchTab !== 'tracks'}
+			class:bg-blue-950={$searchTab !== 'tracks'}
 			class:bg-blue-800={$searchTab === 'tracks'}
 			on:click={() => searchTab.set('tracks')}>Tracks</button
 		>
 		<button
-			class:bg-yellow-800={$searchTab !== 'playlists'}
+			class:bg-blue-950={$searchTab !== 'playlists'}
 			class:bg-blue-800={$searchTab === 'playlists'}
 			on:click={() => searchTab.set('playlists')}>Playlist</button
 		>
@@ -121,9 +122,9 @@
 	</List>
 
 	{#if $showArtistAlbums}
-		<div class="absolute w-full h-full flex flex-col bg-amber-950 top-0 left-0">
-			<div class="flex flex-row justify-between py-4 bg-amber-900 px-4">
-				<h2>albums by <span class="font-bold text-amber-500">{$artistName}</span></h2>
+		<div class="absolute w-full h-full flex flex-col bg-blue-950 top-0 left-0">
+			<div class="flex flex-row justify-between py-4 bg-blue-900 px-4">
+				<h2>albums by <span class="font-bold">{$artistName}</span></h2>
 				<button on:click={() => showArtistAlbums.set(false)}>close</button>
 			</div>
 			<div class="overflow-y-scroll p-4">

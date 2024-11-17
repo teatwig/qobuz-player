@@ -45,8 +45,6 @@
 			showList.set(true);
 		}
 	};
-
-	const navHeight = writable(0);
 </script>
 
 <svelte:head>
@@ -61,28 +59,28 @@
 	}}
 />
 
-<div class="flex flex-col justify-center h-[100dvh] overflow-x-hidden">
-	<div class="flex flex-col h-[100dvh] md:h-auto pb-4 sm:py-4 md:py-0 justify-between md:flex-row">
+<div class="flex flex-col justify-center">
+	<div class="flex flex-col h-[100dvh] md:h-auto pb-8 sm:py-4 md:py-0 justify-between md:flex-row">
 		<CoverArt src={$coverImage} alt={$entityTitle} />
 		<div class="flex md:w-1/2 flex-grow flex-col justify-between">
 			<div
-				class="flex relative flex-col gap-y-4 py-2 flex-grow flex-shrink justify-evenly text-center text-4xl xl:text-6xl"
+				class="flex relative flex-col gap-y-4 py-2 flex-grow flex-shrink justify-evenly text-center text-3xl xl:text-6xl"
 			>
 				{#if $currentTrack}
 					<TrackMetadata />
 				{/if}
 
-				<TrackList {showList} {navHeight} {controls} />
+				<TrackList {showList} {controls} />
 			</div>
 
-			<Navigation {showList} {toggleList} {controls} {navHeight} />
+			<Navigation {toggleList} {controls} />
 		</div>
 	</div>
 </div>
 
 {#if $isBuffering || !$connected || $isLoading}
 	<div class="fixed top-8 right-8 z-10">
-		<h1 class="font-semi text-4xl bg-amber-800 leading-none p-2">
+		<h1 class="font-semi text-4xl bg-blue-800 leading-none p-2">
 			{#if !$connected}
 				DISCONNECTED
 			{:else if $isLoading}

@@ -18,7 +18,7 @@
 			<ListItem>
 				<button
 					class:opacity-60={track.status === 'Played'}
-					class:text-amber-500={track.status === 'Playing'}
+					class:bg-blue-800={track.status === 'Playing'}
 					on:click|stopPropagation={() => controls.skipTo(track.position)}
 					class="flex flex-row text-left gap-x-4 p-4 w-full"
 				>
