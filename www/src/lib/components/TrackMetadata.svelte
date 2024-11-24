@@ -9,6 +9,8 @@
 		position
 	} from '$lib/websocket';
 	import { writable } from 'svelte/store';
+	import { Backward, Forward, Icon, Pause, Play } from 'svelte-hero-icons';
+	import { currentStatus } from '$lib/websocket';
 
 	let titleWidth, titleWrapperWidth;
 
@@ -23,80 +25,71 @@
 	});
 
 	$: progress = ($position / $currentTrack.durationSeconds) * 100;
+
+	export let controls;
 </script>
 
-<div class="flex flex-col items-center">
-	<div class="px-4">{$entityTitle || ''}</div>
-	<div class="text-3xl text-gray-400">
-		<span class="align-baseline">by</span>
-		{$currentTrack?.artist.name || ''}
-	</div>
-	<div class="text-xl text-gray-500 xl:text-4xl mt-4 xl:mt-8 flex flex-row items-center gap-x-8">
-		<span class="font-bold px-2">{$currentTrack.number}</span>
-		<span class="text-2xl">of</span>
-		<span class="font-bold px-2">{$numOfTracks}</span>
-	</div>
-</div>
-
-<div
-	bind:offsetWidth={titleWrapperWidth}
-	class:justify-center={!$enableMarquee}
-	class="flex flex-row relative overflow-hidden"
->
-	<div
-		class:marquee={$enableMarquee}
-		class:pl-[50%]={$enableMarquee}
-		class="md:py-4 flex flex-row leading-[1.15em] xl:py-8 font-semibold py-2 whitespace-nowrap"
-	>
-		<span bind:offsetWidth={titleWidth}>
-			{$currentTrack?.title || ''}
-			{#if $currentTrack.explicit}
-				<svg
-					class="inline-block"
-					xmlns="http://www.w3.org/2000/svg"
-					width="24"
-					height="24"
-					viewBox="0 0 24 24"
-					><path fill="currentColor" d="M21 3H3v18h18V3zm-6 6h-4v2h4v2h-4v2h4v2H9V7h6v2z" /></svg
-				>
-			{/if}
-		</span>
+<div class="flex flex-col gap-8 text-lg text-center">
+	<div class="flex flex-col items-center gap-2">
+		<div>{$entityTitle || ''}</div>
+		<div class="text-gray-400">
+			{$currentTrack?.artist.name || ''}
+		</div>
+		<div class="text-gray-500 text-base xl:text-4xl">{$currentTrack.number} of {$numOfTracks}</div>
 	</div>
 
-	{#if $enableMarquee}
+	<div class="flex flex-col gap-y-4 mx-auto text-2xl w-full">
 		<div
-			class:marquee={$enableMarquee}
-			class:pl-[50%]={$enableMarquee}
-			class="md:py-4 flex flex-row leading-[1.15em] xl:py-8 font-semibold py-2 whitespace-nowrap"
+			bind:offsetWidth={titleWrapperWidth}
+			class:justify-center={!$enableMarquee}
+			class="flex flex-row overflow-hidden"
 		>
-			{$currentTrack?.title || ''}
-			{#if $currentTrack.explicit}
-				<svg
-					class="inline-block align-middle"
-					xmlns="http://www.w3.org/2000/svg"
-					width="24"
-					height="24"
-					viewBox="0 0 24 24"
-					><path fill="currentColor" d="M21 3H3v18h18V3zm-6 6h-4v2h4v2h-4v2h4v2H9V7h6v2z" /></svg
+			<div
+				class:marquee={$enableMarquee}
+				class:pl-[50%]={$enableMarquee}
+				class="md:py-4 flex flex-row leading-[1.15em] xl:py-8 font-semibold py-2 whitespace-nowrap"
+			>
+				<span bind:offsetWidth={titleWidth}>
+					{$currentTrack?.title || ''}
+				</span>
+			</div>
+
+			{#if $enableMarquee}
+				<div
+					class:marquee={$enableMarquee}
+					class:pl-[50%]={$enableMarquee}
+					class="md:py-4 flex flex-row leading-[1.15em] xl:py-8 font-semibold py-2 whitespace-nowrap"
 				>
+					{$currentTrack?.title || ''}
+				</div>
 			{/if}
 		</div>
-	{/if}
-	<div
-		style:width="{progress}%"
-		class="absolute top-full left-0 w-full h-1 bg-blue-600/75 z-10"
-	></div>
-</div>
 
-<div class="flex flex-col gap-y-4 max-w-xs mx-auto">
-	<div class="text-2xl text-gray-500 md:text-5xl grid grid-cols-3">
-		<span>
-			{$positionString}
-		</span>
-		<span>&nbsp;|&nbsp;</span>
-		<span>
-			{$durationString}
-		</span>
+		<div>
+			<div class="grid h-2 rounded-full overflow-clip">
+				<div style="grid-column: 1; grid-row: 1;" class="w-full bg-gray-600"></div>
+				<div
+					style="grid-column: 1; grid-row: 1;"
+					style:width="{progress}%"
+					class=" bg-gray-500"
+				></div>
+			</div>
+			<div class="text-gray-500 flex justify-between text-sm">
+				<span>{$positionString}</span>
+				<span>{$durationString}</span>
+			</div>
+		</div>
+	</div>
+	<div class="flex flex-row justify-center gap-2 flex-grow h-10">
+		<button on:click={() => controls?.previous()}><Icon src={Backward} solid /></button>
+		<button on:click={() => controls?.playPause()}>
+			{#if $currentStatus === 'Playing'}
+				<Icon src={Pause} solid />
+			{:else}
+				<Icon src={Play} solid />
+			{/if}
+		</button>
+		<button on:click={() => controls?.next()}><Icon src={Forward} solid /></button>
 	</div>
 </div>
 

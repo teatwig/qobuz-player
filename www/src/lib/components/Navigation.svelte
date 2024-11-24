@@ -1,30 +1,32 @@
 <script>
-	import Button from './Button.svelte';
-	import { currentStatus } from '$lib/websocket';
+	import { Icon, QueueList, PlayCircle, MagnifyingGlass, Star } from 'svelte-hero-icons';
 
-	export let toggleList, controls;
-	import {
-		MenuIcon,
-		SkipBackIcon,
-		SkipForwardIcon,
-		PlayIcon,
-		PauseIcon
-	} from 'svelte-feather-icons';
+	export let setPage, activePage;
 </script>
 
-<div class="flex flex-row gap-x-4 md:mt-0 px-4 md:px-12 items-end justify-between">
-	<div class="flex flex-row justify-center gap-x-4 flex-grow">
-		<Button onClick={() => controls?.previous()}><SkipBackIcon /></Button>
-		<Button onClick={() => controls?.playPause()}>
-			{#if $currentStatus === 'Playing'}
-				<PauseIcon />
-			{:else}
-				<PlayIcon />
-			{/if}
-		</Button>
-		<Button onClick={() => controls?.next()}><SkipForwardIcon /></Button>
-		<span class="z-20">
-			<Button onClick={toggleList}><MenuIcon /></Button>
-		</span>
-	</div>
-</div>
+<nav class="w-full bg-black *:h-8 flex justify-between py-4 px-8 *:transition-colors">
+	<button
+		class={$activePage === 'playing' ? 'text-blue-500' : 'text-gray-500'}
+		on:click={setPage('playing')}
+	>
+		<Icon src={PlayCircle} solid />
+	</button>
+	<button
+		class={$activePage == 'queue' ? 'text-blue-500' : 'text-gray-500'}
+		on:click={setPage('queue')}
+	>
+		<Icon src={QueueList} solid />
+	</button>
+	<button
+		class={$activePage == 'favorites' ? 'text-blue-500' : 'text-gray-500'}
+		on:click={setPage('favorites')}
+	>
+		<Icon src={Star} solid />
+	</button>
+	<button
+		class={$activePage == 'search' ? 'text-blue-500' : 'text-gray-500'}
+		on:click={setPage('search')}
+	>
+		<Icon src={MagnifyingGlass} solid />
+	</button>
+</nav>

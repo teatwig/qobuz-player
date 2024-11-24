@@ -8,7 +8,7 @@
 	import Button from './Button.svelte';
 	import List from './List.svelte';
 	import PlaylistTracks from './PlaylistTracks.svelte';
-	import { SearchIcon } from 'svelte-feather-icons';
+	import { Icon, MagnifyingGlass } from 'svelte-hero-icons';
 
 	const searchTab = writable('albums');
 	const artistName = writable('');
@@ -28,37 +28,33 @@
 	};
 </script>
 
-<div class="text-xl xl:text-4xl relative h-full px-2 lg:px-4 flex flex-col">
-	<form on:submit={onSubmit} class="flex flex-row pt-4">
-		<input
-			name="query"
-			class="text-black p-2 rounded-none flex-grow"
-			type="text"
-			placeholder="Search"
-		/>
-		<Button type="submit"><SearchIcon /></Button>
-	</form>
-	<div class="text-2xl xl:text-4xl my-4 gap-x-8 grid grid-cols-4">
-		<button
-			class:bg-blue-950={$searchTab !== 'albums'}
-			class:bg-blue-800={$searchTab === 'albums'}
-			on:click={() => searchTab.set('albums')}>Albums</button
-		>
-		<button
-			class:bg-blue-950={$searchTab !== 'artists'}
-			class:bg-blue-800={$searchTab === 'artists'}
-			on:click={() => searchTab.set('artists')}>Artists</button
-		>
-		<button
-			class:bg-blue-950={$searchTab !== 'tracks'}
-			class:bg-blue-800={$searchTab === 'tracks'}
-			on:click={() => searchTab.set('tracks')}>Tracks</button
-		>
-		<button
-			class:bg-blue-950={$searchTab !== 'playlists'}
-			class:bg-blue-800={$searchTab === 'playlists'}
-			on:click={() => searchTab.set('playlists')}>Playlist</button
-		>
+<div class="flex flex-col gap-4 max-h-full">
+	<div class="flex flex-col p-4 gap-4">
+		<form on:submit={onSubmit} class="flex flex-row">
+			<input name="query" class="text-black p-2 rounded w-full" type="text" placeholder="Search" />
+			<Button type="submit"><Icon src={MagnifyingGlass} class="size-6" solid /></Button>
+		</form>
+
+		<div class="flex justify-between *:transition-colors *:px-2 *:py-1 *:rounded-full">
+			<button class:bg-blue-800={$searchTab === 'albums'} on:click={() => searchTab.set('albums')}>
+				Albums
+			</button>
+			<button
+				class:bg-blue-800={$searchTab === 'artists'}
+				on:click={() => searchTab.set('artists')}
+			>
+				Artists
+			</button>
+			<button class:bg-blue-800={$searchTab === 'tracks'} on:click={() => searchTab.set('tracks')}>
+				Tracks
+			</button>
+			<button
+				class:bg-blue-800={$searchTab === 'playlists'}
+				on:click={() => searchTab.set('playlists')}
+			>
+				Playlist
+			</button>
+		</div>
 	</div>
 	<List>
 		{#if $searchTab === 'albums'}
@@ -76,7 +72,7 @@
 			{#each $searchResults.artists as artist}
 				<ListItem>
 					<button
-						class="w-full !text-left p-4"
+						class="w-full text-base text-left p-4"
 						on:click|stopPropagation={() => {
 							$artistAlbums.albums = [];
 							$artistAlbums.id = null;
@@ -93,7 +89,7 @@
 			{#each $searchResults.tracks as track}
 				<ListItem>
 					<button
-						class="w-full !text-left p-4"
+						class="w-full text-base text-left p-4"
 						on:click|stopPropagation={() => controls.playTrack(track.id)}
 					>
 						<h3>{track.title}</h3>
@@ -105,7 +101,7 @@
 			{#each $searchResults.playlists as playlist}
 				<ListItem>
 					<button
-						class="w-full !text-left p-4"
+						class="w-full text-base text-left p-4"
 						on:click|stopPropagation={() => {
 							$playlistTracks.tracks = [];
 							$playlistTracks.id = null;

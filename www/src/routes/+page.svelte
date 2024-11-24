@@ -12,14 +12,17 @@
 	} from '$lib/websocket';
 	import { writable } from 'svelte/store';
 	import { dev } from '$app/environment';
-	import CoverArt from '../lib/components/CoverArt.svelte';
 	import Navigation from '../lib/components/Navigation.svelte';
 	import TrackMetadata from '../lib/components/TrackMetadata.svelte';
-	import TrackList from '../lib/components/TrackList.svelte';
+	import { Icon, LinkSlash, ArrowPath } from 'svelte-hero-icons';
+	import NowPlaying from '../lib/components/NowPlaying.svelte';
+	import Search from '../lib/components/Search.svelte';
+	import MyPlaylists from '../lib/components/MyPlaylists.svelte';
 
 	let controls;
 
-	const showList = writable(false);
+	const activePage = writable('playing');
+	const setPage = (newPage) => activePage.set(newPage);
 
 	onMount(() => {
 		controls = new WS(dev);
@@ -37,57 +40,48 @@
 			window.removeEventListener('focus', onFocus);
 		};
 	});
-
-	const toggleList = () => {
-		if ($showList) {
-			showList.set(false);
-		} else {
-			showList.set(true);
-		}
-	};
 </script>
 
 <svelte:head>
 	<title>hifi.rs: {$currentStatus}</title>
 </svelte:head>
 
-<svelte:body
-	on:click={(e) => {
-		if (e.currentTarget !== document.getElementsByTagName('body') && $showList) {
-			toggleList();
-		}
-	}}
-/>
-
-<div class="flex flex-col justify-center">
-	<div class="flex flex-col h-[100dvh] md:h-auto pb-8 sm:py-4 md:py-0 justify-between md:flex-row">
-		<CoverArt src={$coverImage} alt={$entityTitle} />
-		<div class="flex md:w-1/2 flex-grow flex-col justify-between">
-			<div
-				class="flex relative flex-col gap-y-4 py-2 flex-grow flex-shrink justify-evenly text-center text-3xl xl:text-6xl"
-			>
+<div class="flex flex-col justify-between h-full">
+	<div
+		class="flex flex-col md:h-auto sm:py-4 md:py-0 justify-between md:flex-row overflow-auto h-full"
+	>
+		{#if $activePage == 'playing'}
+			<div class="flex flex-col justify-between p-8 h-full items-center">
+				<div class="max-w-sm">
+					<img src={$coverImage} alt={$entityTitle} class="object-contain rounded-lg shadow-lg" />
+				</div>
 				{#if $currentTrack}
-					<TrackMetadata />
+					<TrackMetadata {controls} />
 				{/if}
-
-				<TrackList {showList} {controls} />
 			</div>
+		{/if}
 
-			<Navigation {toggleList} {controls} />
-		</div>
+		{#if $activePage == 'search'}
+			<Search {controls} />
+		{/if}
+
+		{#if $activePage == 'favorites'}
+			<MyPlaylists {controls} />
+		{/if}
+
+		{#if $activePage == 'queue'}
+			<NowPlaying {controls} />
+		{/if}
 	</div>
+	<Navigation {setPage} {activePage} />
 </div>
 
 {#if $isBuffering || !$connected || $isLoading}
-	<div class="fixed top-8 right-8 z-10">
-		<h1 class="font-semi text-4xl bg-blue-800 leading-none p-2">
-			{#if !$connected}
-				DISCONNECTED
-			{:else if $isLoading}
-				LOADING
-			{:else if $isBuffering}
-				BUFFERING
-			{/if}
-		</h1>
+	<div class="fixed top-8 right-8 z-10 bg-blue-800 p-2 h-12">
+		{#if !$connected}
+			<Icon src={LinkSlash} solid />
+		{:else if $isLoading || $isBuffering}
+			<Icon src={ArrowPath} solid class="animate-spin" />
+		{/if}
 	</div>
 {/if}
