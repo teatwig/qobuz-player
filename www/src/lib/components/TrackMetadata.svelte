@@ -37,85 +37,83 @@
 		<img src={$coverImage} alt={$entityTitle} class="object-contain" />
 	</div>
 
-	<div class="flex flex-col justify-between w-full">
-		<div class="w-full text-center">
+	<div class="flex flex-col flex-grow justify-center w-full">
+		<div class="flex justify-between">
 			<div class="w-full text-xl truncate">
 				{$entityTitle || ''}
 			</div>
-			<div class="text-gray-400">
-				{$currentTrack?.artist.name || ''}
-			</div>
-			<div class="text-base text-gray-500">
+			<div class="text-gray-500 whitespace-nowrap">
 				{$currentTrack.number} of {$numOfTracks}
 			</div>
 		</div>
+		<div class="text-gray-400">
+			{$currentTrack?.artist.name || ''}
+		</div>
 
-		<div class="flex flex-col w-full text-center">
-			<div class="flex flex-col gap-y-4 mx-auto w-full">
-				<div class="flex justify-between items-center">
+		<div class="flex flex-col gap-y-4 mx-auto w-full">
+			<div class="flex justify-between items-center">
+				<div
+					bind:offsetWidth={titleWrapperWidth}
+					class:justify-center={!$enableMarquee}
+					class="flex overflow-hidden flex-row text-2xl"
+				>
 					<div
-						bind:offsetWidth={titleWrapperWidth}
-						class:justify-center={!$enableMarquee}
-						class="flex overflow-hidden flex-row text-2xl"
+						class:marquee={$enableMarquee}
+						class:pl-[50%]={$enableMarquee}
+						class="flex flex-row font-semibold whitespace-nowrap"
 					>
+						<span bind:offsetWidth={titleWidth}>
+							{$currentTrack?.title || ''}
+						</span>
+					</div>
+
+					{#if $enableMarquee}
 						<div
 							class:marquee={$enableMarquee}
 							class:pl-[50%]={$enableMarquee}
 							class="flex flex-row font-semibold whitespace-nowrap"
 						>
-							<span bind:offsetWidth={titleWidth}>
-								{$currentTrack?.title || ''}
-							</span>
+							{$currentTrack?.title || ''}
 						</div>
-
-						{#if $enableMarquee}
-							<div
-								class:marquee={$enableMarquee}
-								class:pl-[50%]={$enableMarquee}
-								class="flex flex-row font-semibold whitespace-nowrap"
-							>
-								{$currentTrack?.title || ''}
-							</div>
-						{/if}
-					</div>
-					<div class="whitespace-nowrap text-gray-400">
-						{#if $currentTrack.explicit}
-							<Explicit />
-						{/if}
-
-						{#if $currentTrack.hiresAvailable}
-							<HiRes />
-						{/if}
-					</div>
-				</div>
-
-				<div>
-					<div class="grid h-2 rounded-full overflow-clip">
-						<div style="grid-column: 1; grid-row: 1;" class="w-full bg-gray-800"></div>
-						<div
-							style="grid-column: 1; grid-row: 1;"
-							style:width="{progress}%"
-							class="bg-gray-500 transition"
-						></div>
-					</div>
-					<div class="flex justify-between text-sm text-gray-500">
-						<span>{$positionString}</span>
-						<span>{$durationString}</span>
-					</div>
-				</div>
-			</div>
-
-			<div class="flex flex-row flex-grow gap-2 justify-center h-10">
-				<button on:click={() => controls?.previous()}><Icon src={Backward} solid /></button>
-				<button on:click={() => controls?.playPause()}>
-					{#if $currentStatus === 'Playing'}
-						<Icon src={Pause} solid />
-					{:else}
-						<Icon src={Play} solid />
 					{/if}
-				</button>
-				<button on:click={() => controls?.next()}><Icon src={Forward} solid /></button>
+				</div>
+				<div class="text-gray-400 whitespace-nowrap">
+					{#if $currentTrack.explicit}
+						<Explicit />
+					{/if}
+
+					{#if $currentTrack.hiresAvailable}
+						<HiRes />
+					{/if}
+				</div>
 			</div>
+
+			<div>
+				<div class="grid h-2 rounded-full overflow-clip">
+					<div style="grid-column: 1; grid-row: 1;" class="w-full bg-gray-800"></div>
+					<div
+						style="grid-column: 1; grid-row: 1;"
+						style:width="{progress}%"
+						class="bg-gray-500 transition"
+					></div>
+				</div>
+				<div class="flex justify-between text-sm text-gray-500">
+					<span>{$positionString}</span>
+					<span>{$durationString}</span>
+				</div>
+			</div>
+		</div>
+
+		<div class="flex flex-row gap-2 justify-center h-10">
+			<button on:click={() => controls?.previous()}><Icon src={Backward} solid /></button>
+			<button on:click={() => controls?.playPause()}>
+				{#if $currentStatus === 'Playing'}
+					<Icon src={Pause} solid />
+				{:else}
+					<Icon src={Play} solid />
+				{/if}
+			</button>
+			<button on:click={() => controls?.next()}><Icon src={Forward} solid /></button>
 		</div>
 	</div>
 </div>
