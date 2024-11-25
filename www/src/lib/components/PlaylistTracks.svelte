@@ -3,20 +3,9 @@
 	import List from './List.svelte';
 	import ListItem from './ListItem.svelte';
 	import PlaylistTrack from './PlaylistTrack.svelte';
-	import { writable } from 'svelte/store';
 	import { XMark, Icon, Play } from 'svelte-hero-icons';
 
 	export let controls, showPlaylistTracks;
-
-	const show = writable(null);
-
-	const toggle = (id) => {
-		if ($show === id) {
-			show.set(null);
-		} else {
-			show.set(id);
-		}
-	};
 </script>
 
 <div class="flex absolute top-0 left-0 flex-col w-full h-full bg-black">
@@ -27,7 +16,6 @@
 		<div class="flex flex-row flex-nowrap gap-x-2">
 			<button
 				on:click={() => {
-					show.set(null);
 					controls.playPlaylist($playlistTracks.id);
 				}}
 			>
@@ -36,7 +24,6 @@
 			<button
 				on:click={() => {
 					showPlaylistTracks.set(false);
-					show.set(null);
 				}}
 			>
 				<Icon src={XMark} class="size-6" />
@@ -47,8 +34,8 @@
 		<List>
 			{#each $playlistTracks.tracks as track}
 				<ListItem>
-					<button class="w-full" on:click={() => toggle(track.id)}>
-						<PlaylistTrack {controls} {track} show={$show === track.id} />
+					<button class="p-4 w-full text-left" on:click={() => controls.playTrack(track.id)}>
+						<PlaylistTrack {controls} {track} />
 					</button>
 				</ListItem>
 			{/each}

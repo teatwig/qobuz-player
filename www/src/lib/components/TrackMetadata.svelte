@@ -9,6 +9,8 @@
 		position,
 		coverImage
 	} from '$lib/websocket';
+	import HiRes from '../icons/HiRes.svelte';
+	import Explicit from '../icons/Explicit.svelte';
 	import { writable } from 'svelte/store';
 	import { Backward, Forward, Icon, Pause, Play } from 'svelte-hero-icons';
 	import { currentStatus } from '$lib/websocket';
@@ -35,7 +37,7 @@
 		<img src={$coverImage} alt={$entityTitle} class="object-contain" />
 	</div>
 
-	<div class="flex flex-col justify-between w-full flex-grow">
+	<div class="flex flex-col justify-between w-full">
 		<div class="w-full text-center">
 			<div class="w-full text-xl truncate">
 				{$entityTitle || ''}
@@ -50,30 +52,41 @@
 
 		<div class="flex flex-col w-full text-center">
 			<div class="flex flex-col gap-y-4 mx-auto w-full">
-				<div
-					bind:offsetWidth={titleWrapperWidth}
-					class:justify-center={!$enableMarquee}
-					class="flex overflow-hidden flex-row text-2xl"
-				>
+				<div class="flex justify-between items-center">
 					<div
-						class:marquee={$enableMarquee}
-						class:pl-[50%]={$enableMarquee}
-						class="flex flex-row py-2 font-semibold whitespace-nowrap"
+						bind:offsetWidth={titleWrapperWidth}
+						class:justify-center={!$enableMarquee}
+						class="flex overflow-hidden flex-row text-2xl"
 					>
-						<span bind:offsetWidth={titleWidth}>
-							{$currentTrack?.title || ''}
-						</span>
-					</div>
-
-					{#if $enableMarquee}
 						<div
 							class:marquee={$enableMarquee}
 							class:pl-[50%]={$enableMarquee}
-							class="flex flex-row py-2 font-semibold whitespace-nowrap"
+							class="flex flex-row font-semibold whitespace-nowrap"
 						>
-							{$currentTrack?.title || ''}
+							<span bind:offsetWidth={titleWidth}>
+								{$currentTrack?.title || ''}
+							</span>
 						</div>
-					{/if}
+
+						{#if $enableMarquee}
+							<div
+								class:marquee={$enableMarquee}
+								class:pl-[50%]={$enableMarquee}
+								class="flex flex-row font-semibold whitespace-nowrap"
+							>
+								{$currentTrack?.title || ''}
+							</div>
+						{/if}
+					</div>
+					<div class="whitespace-nowrap text-gray-400">
+						{#if $currentTrack.explicit}
+							<Explicit />
+						{/if}
+
+						{#if $currentTrack.hiresAvailable}
+							<HiRes />
+						{/if}
+					</div>
 				</div>
 
 				<div>

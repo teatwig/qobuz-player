@@ -73,7 +73,7 @@
 			{#each $searchResults.artists as artist}
 				<ListItem>
 					<button
-						class="p-4 w-full text-base text-left"
+						class="p-4 w-full text-left"
 						on:click|stopPropagation={() => {
 							$artistAlbums.albums = [];
 							$artistAlbums.id = null;
@@ -89,7 +89,10 @@
 		{:else if $searchTab === 'tracks'}
 			{#each $searchResults.tracks as track}
 				<ListItem>
-					<button class="w-full" on:click|stopPropagation={() => controls.playTrack(track.id)}>
+					<button
+						class="p-4 w-full text-left"
+						on:click|stopPropagation={() => controls.playTrack(track.id)}
+					>
 						<PlaylistTrack {track} />
 					</button>
 				</ListItem>
