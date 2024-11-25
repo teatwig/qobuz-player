@@ -1,5 +1,4 @@
 <script>
-	import { afterUpdate } from 'svelte';
 	import {
 		currentTrack,
 		numOfTracks,
@@ -9,23 +8,10 @@
 		position,
 		coverImage
 	} from '$lib/websocket';
-	import HiRes from '../icons/HiRes.svelte';
-	import Explicit from '../icons/Explicit.svelte';
-	import { writable } from 'svelte/store';
+	import Info from './Info.svelte';
 	import { Backward, Forward, Icon, Pause, Play } from 'svelte-hero-icons';
 	import { currentStatus } from '$lib/websocket';
-
-	let titleWidth, titleWrapperWidth;
-
-	const enableMarquee = writable(false);
-
-	afterUpdate(() => {
-		if (titleWidth > titleWrapperWidth) {
-			enableMarquee.set(true);
-		} else {
-			enableMarquee.set(false);
-		}
-	});
+	import Marquee from './Marquee.svelte';
 
 	$: progress = ($position / $currentTrack.durationSeconds) * 100;
 
@@ -38,54 +24,24 @@
 	</div>
 
 	<div class="flex flex-col flex-grow justify-center w-full">
-		<div class="flex justify-between">
-			<div class="w-full text-xl truncate">
-				{$entityTitle || ''}
-			</div>
+		<div class="flex justify-between items-center">
+			<span class="text-xl truncate">
+				<Marquee input={$entityTitle} />
+			</span>
 			<div class="text-gray-500 whitespace-nowrap">
 				{$currentTrack.number} of {$numOfTracks}
 			</div>
 		</div>
 		<div class="text-gray-400">
-			{$currentTrack?.artist.name || ''}
+			<Marquee input={$currentTrack?.artist.name} />
 		</div>
 
 		<div class="flex flex-col gap-y-4 mx-auto w-full">
 			<div class="flex justify-between items-center">
-				<div
-					bind:offsetWidth={titleWrapperWidth}
-					class:justify-center={!$enableMarquee}
-					class="flex overflow-hidden flex-row text-2xl"
-				>
-					<div
-						class:marquee={$enableMarquee}
-						class:pl-[50%]={$enableMarquee}
-						class="flex flex-row font-semibold whitespace-nowrap"
-					>
-						<span bind:offsetWidth={titleWidth}>
-							{$currentTrack?.title || ''}
-						</span>
-					</div>
-
-					{#if $enableMarquee}
-						<div
-							class:marquee={$enableMarquee}
-							class:pl-[50%]={$enableMarquee}
-							class="flex flex-row font-semibold whitespace-nowrap"
-						>
-							{$currentTrack?.title || ''}
-						</div>
-					{/if}
-				</div>
-				<div class="text-gray-400 whitespace-nowrap">
-					{#if $currentTrack.explicit}
-						<Explicit />
-					{/if}
-
-					{#if $currentTrack.hiresAvailable}
-						<HiRes />
-					{/if}
-				</div>
+				<span class="text-2xl truncate">
+					<Marquee input={$currentTrack?.title} />
+				</span>
+				<Info explicit={$currentTrack.explicit} hiresAvailable={$currentTrack.hiresAvailable} />
 			</div>
 
 			<div>
@@ -117,22 +73,3 @@
 		</div>
 	</div>
 </div>
-
-<style lang="postcss">
-	.marquee {
-		animation-name: marquee;
-		animation-duration: 15s;
-		animation-iteration-count: infinite;
-		animation-timing-function: linear;
-	}
-
-	@keyframes marquee {
-		from {
-			transform: translateX(0);
-		}
-
-		to {
-			transform: translateX(-100%);
-		}
-	}
-</style>

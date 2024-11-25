@@ -1,6 +1,4 @@
 <script>
-	export let controls;
-
 	import { searchResults, playlistTracks, artistAlbums, playlistTitle } from '$lib/websocket';
 	import { writable } from 'svelte/store';
 	import ListItem from './ListItem.svelte';
@@ -10,6 +8,8 @@
 	import PlaylistTracks from './PlaylistTracks.svelte';
 	import { Icon, MagnifyingGlass, XMark } from 'svelte-hero-icons';
 	import ListTrack from './ListTrack.svelte';
+
+	export let controls;
 
 	const searchTab = writable('albums');
 	const artistName = writable('');
@@ -73,7 +73,7 @@
 			{#each $searchResults.artists as artist}
 				<ListItem>
 					<button
-						class="p-4 w-full text-left"
+						class="p-4 w-full text-xl text-left truncate"
 						on:click|stopPropagation={() => {
 							$artistAlbums.albums = [];
 							$artistAlbums.id = null;
@@ -82,7 +82,7 @@
 							showArtistAlbums.set(true);
 						}}
 					>
-						<span>{artist.name}</span>
+						{artist.name}
 					</button>
 				</ListItem>
 			{/each}

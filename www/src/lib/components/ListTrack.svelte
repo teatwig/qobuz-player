@@ -1,24 +1,18 @@
 <script>
-	import HiRes from '../icons/HiRes.svelte';
-	import Explicit from '../icons/Explicit.svelte';
+	import Info from './Info.svelte';
+
 	export let track;
 </script>
 
 <div>
-	<div class="flex justify-between">
-		<h3 class="truncate">
+	<div class="flex justify-between items-center">
+		<h3 class="text-xl truncate">
 			{track.title}
 		</h3>
-		<div class="text-gray-400 whitespace-nowrap">
-			{#if track.explicit}
-				<Explicit />
-			{/if}
-
-			{#if track.hiresAvailable}
-				<HiRes />
-			{/if}
-		</div>
+		<Info explicit={track.explicit} hiresAvailable={track.hiresAvailable} />
 	</div>
 
-	<h4 class="text-gray-400">{track.artist.name}</h4>
+	<h4 class="text-gray-400 truncate">
+		{track.title}
+	</h4>
 </div>
