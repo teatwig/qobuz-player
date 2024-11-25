@@ -29,7 +29,7 @@
 	};
 </script>
 
-<div class="flex flex-col gap-4 max-h-full">
+<div class="flex flex-col flex-grow gap-4 max-h-full">
 	<div class="flex flex-col gap-4 p-4">
 		<form on:submit={onSubmit} class="flex flex-row">
 			<input name="query" class="p-2 w-full text-black rounded" type="text" placeholder="Search" />
@@ -89,10 +89,7 @@
 		{:else if $searchTab === 'tracks'}
 			{#each $searchResults.tracks as track}
 				<ListItem>
-					<button
-						class="p-4 w-full text-base text-left"
-						on:click|stopPropagation={() => controls.playTrack(track.id)}
-					>
+					<button class="w-full" on:click|stopPropagation={() => controls.playTrack(track.id)}>
 						<PlaylistTrack {track} />
 					</button>
 				</ListItem>
@@ -130,7 +127,7 @@
 					{#each $artistAlbums.albums as album}
 						<ListItem>
 							<button
-								class="w-full !text-left p-4"
+								class="p-4 w-full text-left"
 								on:click|stopPropagation={() => controls.playAlbum(album.id)}
 							>
 								<ListAlbum {album} />

@@ -6,11 +6,11 @@
 	export let controls;
 </script>
 
-<div class="flex flex-col gap-4 max-h-full">
+<div class="flex flex-col flex-grow gap-4 max-h-full">
 	<div class="flex-grow-0 p-4 text-center">
-		<p class="text-xl xl:text-4xl">{$entityTitle}</p>
+		<p class="text-xl">{$entityTitle}</p>
 		{#if $listType === 'Album'}
-			<p class="text-xl xl:text-3xl">by {$currentTrack.artist.name}</p>
+			<p class="text-xl">by {$currentTrack.artist.name}</p>
 		{/if}
 	</div>
 

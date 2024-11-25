@@ -45,9 +45,7 @@
 </svelte:head>
 
 <div class="flex flex-col justify-between h-full">
-	<div
-		class="flex overflow-auto flex-col justify-between h-full sm:py-4 md:flex-row md:py-0 md:h-auto"
-	>
+	<div class="flex overflow-auto flex-col justify-between my-auto h-full">
 		{#if $activePage == 'playing' && $currentTrack}
 			<TrackMetadata {controls} />
 		{/if}

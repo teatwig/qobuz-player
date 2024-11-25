@@ -10,7 +10,7 @@
 	const showPlaylistTracks = writable(false);
 </script>
 
-<div class="flex relative flex-col p-4 h-full">
+<div class="flex relative flex-col flex-grow h-full">
 	<List>
 		{#each $userPlaylists as playlist}
 			<ListItem>
