@@ -2,7 +2,7 @@
 	import { playlistTracks, playlistTitle } from '$lib/websocket';
 	import List from './List.svelte';
 	import ListItem from './ListItem.svelte';
-	import PlaylistTrack from './PlaylistTrack.svelte';
+	import ListTrack from './ListTrack.svelte';
 	import { XMark, Icon, Play } from 'svelte-hero-icons';
 
 	export let controls, showPlaylistTracks;
@@ -35,7 +35,7 @@
 			{#each $playlistTracks.tracks as track}
 				<ListItem>
 					<button class="p-4 w-full text-left" on:click={() => controls.playTrack(track.id)}>
-						<PlaylistTrack {controls} {track} />
+						<ListTrack {controls} {track} />
 					</button>
 				</ListItem>
 			{/each}

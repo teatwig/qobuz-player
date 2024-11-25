@@ -9,7 +9,7 @@
 	import List from './List.svelte';
 	import PlaylistTracks from './PlaylistTracks.svelte';
 	import { Icon, MagnifyingGlass, XMark } from 'svelte-hero-icons';
-	import PlaylistTrack from './PlaylistTrack.svelte';
+	import ListTrack from './ListTrack.svelte';
 
 	const searchTab = writable('albums');
 	const artistName = writable('');
@@ -93,7 +93,7 @@
 						class="p-4 w-full text-left"
 						on:click|stopPropagation={() => controls.playTrack(track.id)}
 					>
-						<PlaylistTrack {track} />
+						<ListTrack {track} />
 					</button>
 				</ListItem>
 			{/each}

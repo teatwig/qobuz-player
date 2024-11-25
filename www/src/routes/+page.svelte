@@ -11,15 +11,15 @@
 	import { writable } from 'svelte/store';
 	import { dev } from '$app/environment';
 	import Navigation from '../lib/components/Navigation.svelte';
-	import TrackMetadata from '../lib/components/TrackMetadata.svelte';
+	import Queue from '../lib/components/Queue.svelte';
 	import { Icon, LinkSlash, ArrowPath } from 'svelte-hero-icons';
 	import NowPlaying from '../lib/components/NowPlaying.svelte';
 	import Search from '../lib/components/Search.svelte';
-	import MyPlaylists from '../lib/components/MyPlaylists.svelte';
+	import Favorites from '../lib/components/Favorites.svelte';
 
 	let controls;
 
-	const activePage = writable('playing');
+	const activePage = writable('nowPlaying');
 	const setPage = (newPage) => activePage.set(newPage);
 
 	onMount(() => {
@@ -46,8 +46,8 @@
 
 <div class="flex flex-col justify-between h-full">
 	<div class="flex overflow-auto flex-col justify-between my-auto h-full">
-		{#if $activePage == 'playing' && $currentTrack}
-			<TrackMetadata {controls} />
+		{#if $activePage == 'nowPlaying' && $currentTrack}
+			<NowPlaying {controls} />
 		{/if}
 
 		{#if $activePage == 'search'}
@@ -55,11 +55,11 @@
 		{/if}
 
 		{#if $activePage == 'favorites'}
-			<MyPlaylists {controls} />
+			<Favorites {controls} />
 		{/if}
 
 		{#if $activePage == 'queue'}
-			<NowPlaying {controls} />
+			<Queue {controls} />
 		{/if}
 	</div>
 	<Navigation {setPage} {activePage} />

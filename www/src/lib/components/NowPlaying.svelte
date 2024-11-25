@@ -1,38 +1,138 @@
 <script>
-	import { queue, entityTitle, listType, currentTrack } from '$lib/websocket';
-	import List from './List.svelte';
-	import ListItem from './ListItem.svelte';
+	import { afterUpdate } from 'svelte';
+	import {
+		currentTrack,
+		numOfTracks,
+		entityTitle,
+		positionString,
+		durationString,
+		position,
+		coverImage
+	} from '$lib/websocket';
+	import HiRes from '../icons/HiRes.svelte';
+	import Explicit from '../icons/Explicit.svelte';
+	import { writable } from 'svelte/store';
+	import { Backward, Forward, Icon, Pause, Play } from 'svelte-hero-icons';
+	import { currentStatus } from '$lib/websocket';
+
+	let titleWidth, titleWrapperWidth;
+
+	const enableMarquee = writable(false);
+
+	afterUpdate(() => {
+		if (titleWidth > titleWrapperWidth) {
+			enableMarquee.set(true);
+		} else {
+			enableMarquee.set(false);
+		}
+	});
+
+	$: progress = ($position / $currentTrack.durationSeconds) * 100;
 
 	export let controls;
 </script>
 
-<div class="flex flex-col flex-grow gap-4 max-h-full">
-	<div class="flex-grow-0 p-4 text-center">
-		<p class="text-xl">{$entityTitle}</p>
-		{#if $listType === 'Album'}
-			<p class="text-xl">by {$currentTrack.artist.name}</p>
-		{/if}
+<div class="flex flex-col gap-8 justify-between items-center p-8 h-full landscape:flex-row">
+	<div class="max-h-full rounded-lg shadow-lg overflow-clip aspect-square">
+		<img src={$coverImage} alt={$entityTitle} class="object-contain" />
 	</div>
 
-	<List>
-		{#each $queue as track}
-			<ListItem>
-				<button
-					class:text-gray-500={track.status === 'Played'}
-					class:bg-blue-800={track.status === 'Playing'}
-					on:click|stopPropagation={() => controls.skipTo(track.position)}
-					class="flex flex-row gap-x-4 p-4 w-full text-base text-left"
+	<div class="flex flex-col flex-grow justify-center w-full">
+		<div class="flex justify-between">
+			<div class="w-full text-xl truncate">
+				{$entityTitle || ''}
+			</div>
+			<div class="text-gray-500 whitespace-nowrap">
+				{$currentTrack.number} of {$numOfTracks}
+			</div>
+		</div>
+		<div class="text-gray-400">
+			{$currentTrack?.artist.name || ''}
+		</div>
+
+		<div class="flex flex-col gap-y-4 mx-auto w-full">
+			<div class="flex justify-between items-center">
+				<div
+					bind:offsetWidth={titleWrapperWidth}
+					class:justify-center={!$enableMarquee}
+					class="flex overflow-hidden flex-row text-2xl"
 				>
-					{#if $listType === 'Album' || $listType === 'Track'}
-						<span class="self-start">{track.number.toString().padStart(2, '0')}</span>
-					{:else if $listType === 'Playlist'}
-						<span>{track.position.toString().padStart(2, '0')}</span>
+					<div
+						class:marquee={$enableMarquee}
+						class:pl-[50%]={$enableMarquee}
+						class="flex flex-row font-semibold whitespace-nowrap"
+					>
+						<span bind:offsetWidth={titleWidth}>
+							{$currentTrack?.title || ''}
+						</span>
+					</div>
+
+					{#if $enableMarquee}
+						<div
+							class:marquee={$enableMarquee}
+							class:pl-[50%]={$enableMarquee}
+							class="flex flex-row font-semibold whitespace-nowrap"
+						>
+							{$currentTrack?.title || ''}
+						</div>
 					{/if}
-					<span>
-						{track.title}
-					</span>
-				</button>
-			</ListItem>
-		{/each}
-	</List>
+				</div>
+				<div class="text-gray-400 whitespace-nowrap">
+					{#if $currentTrack.explicit}
+						<Explicit />
+					{/if}
+
+					{#if $currentTrack.hiresAvailable}
+						<HiRes />
+					{/if}
+				</div>
+			</div>
+
+			<div>
+				<div class="grid h-2 rounded-full overflow-clip">
+					<div style="grid-column: 1; grid-row: 1;" class="w-full bg-gray-800"></div>
+					<div
+						style="grid-column: 1; grid-row: 1;"
+						style:width="{progress}%"
+						class="bg-gray-500 transition"
+					></div>
+				</div>
+				<div class="flex justify-between text-sm text-gray-500">
+					<span>{$positionString}</span>
+					<span>{$durationString}</span>
+				</div>
+			</div>
+		</div>
+
+		<div class="flex flex-row gap-2 justify-center h-10">
+			<button on:click={() => controls?.previous()}><Icon src={Backward} solid /></button>
+			<button on:click={() => controls?.playPause()}>
+				{#if $currentStatus === 'Playing'}
+					<Icon src={Pause} solid />
+				{:else}
+					<Icon src={Play} solid />
+				{/if}
+			</button>
+			<button on:click={() => controls?.next()}><Icon src={Forward} solid /></button>
+		</div>
+	</div>
 </div>
+
+<style lang="postcss">
+	.marquee {
+		animation-name: marquee;
+		animation-duration: 15s;
+		animation-iteration-count: infinite;
+		animation-timing-function: linear;
+	}
+
+	@keyframes marquee {
+		from {
+			transform: translateX(0);
+		}
+
+		to {
+			transform: translateX(-100%);
+		}
+	}
+</style>

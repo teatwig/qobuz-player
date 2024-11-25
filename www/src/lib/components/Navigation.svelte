@@ -6,8 +6,8 @@
 
 <nav class="w-full bg-black *:h-8 flex justify-between p-safe-or-4 *:transition-colors">
 	<button
-		class={$activePage === 'playing' ? 'text-blue-500' : 'text-gray-500'}
-		on:click={setPage('playing')}
+		class={$activePage === 'nowPlaying' ? 'text-blue-500' : 'text-gray-500'}
+		on:click={setPage('nowPlaying')}
 	>
 		<Icon src={PlayCircle} solid />
 	</button>
