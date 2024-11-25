@@ -4,6 +4,7 @@
 	import ListItem from './ListItem.svelte';
 	import PlaylistTrack from './PlaylistTrack.svelte';
 	import { writable } from 'svelte/store';
+	import { XMark, Icon, Play } from 'svelte-hero-icons';
 
 	export let controls, showPlaylistTracks;
 
@@ -18,29 +19,31 @@
 	};
 </script>
 
-<div class="absolute w-full h-full flex flex-col bg-blue-950 top-0 left-0">
-	<div class="flex flex-row justify-between items-center py-4 bg-blue-900 px-4">
-		<h2 class="text-2xl xl:text-4xl pr-4">
-			tracks in <span class="font-bold leading-none text-blue-500">{$playlistTitle}</span>
+<div class="flex absolute top-0 left-0 flex-col w-full h-full bg-black">
+	<div class="flex flex-row justify-between py-4 px-4 bg-black">
+		<h2>
+			Tracks in <span class="font-bold">{$playlistTitle}</span>
 		</h2>
-		<div class="text-lg xl:text-2xl flex flex-row flex-nowrap gap-x-2">
+		<div class="flex flex-row flex-nowrap gap-x-2">
 			<button
-				class="bg-blue-800 hover:bg-blue-800 p-2"
 				on:click={() => {
 					show.set(null);
 					controls.playPlaylist($playlistTracks.id);
-				}}>play</button
+				}}
 			>
+				<Icon src={Play} class="size-6" />
+			</button>
 			<button
-				class="bg-blue-800 hover:bg-blue-800 p-2"
 				on:click={() => {
 					showPlaylistTracks.set(false);
 					show.set(null);
-				}}>close</button
+				}}
 			>
+				<Icon src={XMark} class="size-6" />
+			</button>
 		</div>
 	</div>
-	<div class="overflow-y-scroll p-2 lg:p-4">
+	<div class="overflow-y-scroll">
 		<List>
 			{#each $playlistTracks.tracks as track}
 				<ListItem>

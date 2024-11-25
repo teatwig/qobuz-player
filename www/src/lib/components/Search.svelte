@@ -8,7 +8,8 @@
 	import Button from './Button.svelte';
 	import List from './List.svelte';
 	import PlaylistTracks from './PlaylistTracks.svelte';
-	import { Icon, MagnifyingGlass } from 'svelte-hero-icons';
+	import { Icon, MagnifyingGlass, XMark } from 'svelte-hero-icons';
+	import PlaylistTrack from './PlaylistTrack.svelte';
 
 	const searchTab = writable('albums');
 	const artistName = writable('');
@@ -29,9 +30,9 @@
 </script>
 
 <div class="flex flex-col gap-4 max-h-full">
-	<div class="flex flex-col p-4 gap-4">
+	<div class="flex flex-col gap-4 p-4">
 		<form on:submit={onSubmit} class="flex flex-row">
-			<input name="query" class="text-black p-2 rounded w-full" type="text" placeholder="Search" />
+			<input name="query" class="p-2 w-full text-black rounded" type="text" placeholder="Search" />
 			<Button type="submit"><Icon src={MagnifyingGlass} class="size-6" solid /></Button>
 		</form>
 
@@ -61,7 +62,7 @@
 			{#each $searchResults.albums as album}
 				<ListItem>
 					<button
-						class="w-full !text-left p-4"
+						class="p-4 w-full text-left"
 						on:click|stopPropagation={() => controls.playAlbum(album.id)}
 					>
 						<ListAlbum {album} />
@@ -72,7 +73,7 @@
 			{#each $searchResults.artists as artist}
 				<ListItem>
 					<button
-						class="w-full text-base text-left p-4"
+						class="p-4 w-full text-base text-left"
 						on:click|stopPropagation={() => {
 							$artistAlbums.albums = [];
 							$artistAlbums.id = null;
@@ -89,11 +90,10 @@
 			{#each $searchResults.tracks as track}
 				<ListItem>
 					<button
-						class="w-full text-base text-left p-4"
+						class="p-4 w-full text-base text-left"
 						on:click|stopPropagation={() => controls.playTrack(track.id)}
 					>
-						<h3>{track.title}</h3>
-						<h4 class="opacity-60">{track.artist.name}</h4>
+						<PlaylistTrack {track} />
 					</button>
 				</ListItem>
 			{/each}
@@ -101,7 +101,7 @@
 			{#each $searchResults.playlists as playlist}
 				<ListItem>
 					<button
-						class="w-full text-base text-left p-4"
+						class="p-4 w-full text-base text-left"
 						on:click|stopPropagation={() => {
 							$playlistTracks.tracks = [];
 							$playlistTracks.id = null;
@@ -118,12 +118,14 @@
 	</List>
 
 	{#if $showArtistAlbums}
-		<div class="absolute w-full h-full flex flex-col bg-blue-950 top-0 left-0">
-			<div class="flex flex-row justify-between py-4 bg-blue-900 px-4">
-				<h2>albums by <span class="font-bold">{$artistName}</span></h2>
-				<button on:click={() => showArtistAlbums.set(false)}>close</button>
+		<div class="flex absolute top-0 left-0 flex-col w-full h-full bg-black">
+			<div class="flex flex-row justify-between py-4 px-4 bg-black">
+				<h2>Albums by <span class="font-bold">{$artistName}</span></h2>
+				<button on:click={() => showArtistAlbums.set(false)}
+					><Icon src={XMark} class="size-6" /></button
+				>
 			</div>
-			<div class="overflow-y-scroll p-4">
+			<div class="overflow-y-scroll">
 				<List>
 					{#each $artistAlbums.albums as album}
 						<ListItem>

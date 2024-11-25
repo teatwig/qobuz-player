@@ -4,7 +4,7 @@
 	export let setPage, activePage;
 </script>
 
-<nav class="w-full bg-black *:h-8 flex justify-between py-4 px-8 *:transition-colors">
+<nav class="w-full bg-black *:h-8 flex justify-between p-safe-or-4 *:transition-colors">
 	<button
 		class={$activePage === 'playing' ? 'text-blue-500' : 'text-gray-500'}
 		on:click={setPage('playing')}

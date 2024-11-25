@@ -6,7 +6,8 @@
 		entityTitle,
 		positionString,
 		durationString,
-		position
+		position,
+		coverImage
 	} from '$lib/websocket';
 	import { writable } from 'svelte/store';
 	import { Backward, Forward, Icon, Pause, Play } from 'svelte-hero-icons';
@@ -29,67 +30,78 @@
 	export let controls;
 </script>
 
-<div class="flex flex-col gap-8 text-lg text-center">
-	<div class="flex flex-col items-center gap-2">
-		<div>{$entityTitle || ''}</div>
+<div class="flex flex-col justify-between items-center p-8 h-full">
+	<div class="max-w-sm">
+		<img src={$coverImage} alt={$entityTitle} class="object-contain rounded-lg shadow-lg" />
+	</div>
+
+	<div class="w-full text-center">
+		<div class="w-full text-xl truncate">
+			{$entityTitle || ''}
+		</div>
 		<div class="text-gray-400">
 			{$currentTrack?.artist.name || ''}
 		</div>
-		<div class="text-gray-500 text-base xl:text-4xl">{$currentTrack.number} of {$numOfTracks}</div>
+		<div class="text-base text-gray-500 xl:text-4xl">
+			{$currentTrack.number} of {$numOfTracks}
+		</div>
 	</div>
 
-	<div class="flex flex-col gap-y-4 mx-auto text-2xl w-full">
-		<div
-			bind:offsetWidth={titleWrapperWidth}
-			class:justify-center={!$enableMarquee}
-			class="flex flex-row overflow-hidden"
-		>
+	<div class="flex flex-col w-full text-lg text-center">
+		<div class="flex flex-col gap-y-4 mx-auto w-full text-2xl">
 			<div
-				class:marquee={$enableMarquee}
-				class:pl-[50%]={$enableMarquee}
-				class="md:py-4 flex flex-row leading-[1.15em] xl:py-8 font-semibold py-2 whitespace-nowrap"
+				bind:offsetWidth={titleWrapperWidth}
+				class:justify-center={!$enableMarquee}
+				class="flex overflow-hidden flex-row"
 			>
-				<span bind:offsetWidth={titleWidth}>
-					{$currentTrack?.title || ''}
-				</span>
-			</div>
-
-			{#if $enableMarquee}
 				<div
 					class:marquee={$enableMarquee}
 					class:pl-[50%]={$enableMarquee}
-					class="md:py-4 flex flex-row leading-[1.15em] xl:py-8 font-semibold py-2 whitespace-nowrap"
+					class="flex flex-row py-2 font-semibold whitespace-nowrap md:py-4 xl:py-8 leading-[1.15em]"
 				>
-					{$currentTrack?.title || ''}
+					<span bind:offsetWidth={titleWidth}>
+						{$currentTrack?.title || ''}
+					</span>
 				</div>
-			{/if}
+
+				{#if $enableMarquee}
+					<div
+						class:marquee={$enableMarquee}
+						class:pl-[50%]={$enableMarquee}
+						class="flex flex-row py-2 font-semibold whitespace-nowrap md:py-4 xl:py-8 leading-[1.15em]"
+					>
+						{$currentTrack?.title || ''}
+					</div>
+				{/if}
+			</div>
+
+			<div>
+				<div class="grid h-2 rounded-full overflow-clip">
+					<div style="grid-column: 1; grid-row: 1;" class="w-full bg-gray-800"></div>
+					<div
+						style="grid-column: 1; grid-row: 1;"
+						style:width="{progress}%"
+						class="bg-gray-500 transition"
+					></div>
+				</div>
+				<div class="flex justify-between text-sm text-gray-500">
+					<span>{$positionString}</span>
+					<span>{$durationString}</span>
+				</div>
+			</div>
 		</div>
 
-		<div>
-			<div class="grid h-2 rounded-full overflow-clip">
-				<div style="grid-column: 1; grid-row: 1;" class="w-full bg-gray-600"></div>
-				<div
-					style="grid-column: 1; grid-row: 1;"
-					style:width="{progress}%"
-					class=" bg-gray-500"
-				></div>
-			</div>
-			<div class="text-gray-500 flex justify-between text-sm">
-				<span>{$positionString}</span>
-				<span>{$durationString}</span>
-			</div>
+		<div class="flex flex-row flex-grow gap-2 justify-center h-10">
+			<button on:click={() => controls?.previous()}><Icon src={Backward} solid /></button>
+			<button on:click={() => controls?.playPause()}>
+				{#if $currentStatus === 'Playing'}
+					<Icon src={Pause} solid />
+				{:else}
+					<Icon src={Play} solid />
+				{/if}
+			</button>
+			<button on:click={() => controls?.next()}><Icon src={Forward} solid /></button>
 		</div>
-	</div>
-	<div class="flex flex-row justify-center gap-2 flex-grow h-10">
-		<button on:click={() => controls?.previous()}><Icon src={Backward} solid /></button>
-		<button on:click={() => controls?.playPause()}>
-			{#if $currentStatus === 'Playing'}
-				<Icon src={Pause} solid />
-			{:else}
-				<Icon src={Play} solid />
-			{/if}
-		</button>
-		<button on:click={() => controls?.next()}><Icon src={Forward} solid /></button>
 	</div>
 </div>
 

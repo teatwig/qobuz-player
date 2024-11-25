@@ -32,7 +32,7 @@
 		{/if}
 	</h3>
 
-	<h4 class="text-left text-gray-400 flex gap-2">
+	<h4 class="flex gap-2 text-left text-gray-400">
 		<span>{album.artist.name}</span>
 		<span>•︎</span>
 		<span>{album.releaseYear}</span>

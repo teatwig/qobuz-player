@@ -7,7 +7,7 @@
 </script>
 
 <div class="flex flex-col gap-4 max-h-full">
-	<div class="text-center flex-grow-0 p-4">
+	<div class="flex-grow-0 p-4 text-center">
 		<p class="text-xl xl:text-4xl">{$entityTitle}</p>
 		{#if $listType === 'Album'}
 			<p class="text-xl xl:text-3xl">by {$currentTrack.artist.name}</p>
@@ -18,10 +18,10 @@
 		{#each $queue as track}
 			<ListItem>
 				<button
-					class:opacity-60={track.status === 'Played'}
+					class:text-gray-500={track.status === 'Played'}
 					class:bg-blue-800={track.status === 'Playing'}
 					on:click|stopPropagation={() => controls.skipTo(track.position)}
-					class="text-base flex flex-row text-left gap-x-4 p-4 w-full"
+					class="flex flex-row gap-x-4 p-4 w-full text-base text-left"
 				>
 					{#if $listType === 'Album' || $listType === 'Track'}
 						<span class="self-start">{track.number.toString().padStart(2, '0')}</span>

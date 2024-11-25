@@ -6,9 +6,7 @@
 		isBuffering,
 		isLoading,
 		currentStatus,
-		connected,
-		coverImage,
-		entityTitle
+		connected
 	} from '$lib/websocket';
 	import { writable } from 'svelte/store';
 	import { dev } from '$app/environment';
@@ -48,17 +46,10 @@
 
 <div class="flex flex-col justify-between h-full">
 	<div
-		class="flex flex-col md:h-auto sm:py-4 md:py-0 justify-between md:flex-row overflow-auto h-full"
+		class="flex overflow-auto flex-col justify-between h-full sm:py-4 md:flex-row md:py-0 md:h-auto"
 	>
-		{#if $activePage == 'playing'}
-			<div class="flex flex-col justify-between p-8 h-full items-center">
-				<div class="max-w-sm">
-					<img src={$coverImage} alt={$entityTitle} class="object-contain rounded-lg shadow-lg" />
-				</div>
-				{#if $currentTrack}
-					<TrackMetadata {controls} />
-				{/if}
-			</div>
+		{#if $activePage == 'playing' && $currentTrack}
+			<TrackMetadata {controls} />
 		{/if}
 
 		{#if $activePage == 'search'}
@@ -77,7 +68,7 @@
 </div>
 
 {#if $isBuffering || !$connected || $isLoading}
-	<div class="fixed top-8 right-8 z-10 bg-blue-800 p-2 h-12">
+	<div class="fixed top-8 right-8 z-10 p-2 bg-black bg-opacity-20 rounded backdrop-blur size-12">
 		{#if !$connected}
 			<Icon src={LinkSlash} solid />
 		{:else if $isLoading || $isBuffering}
