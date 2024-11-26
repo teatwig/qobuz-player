@@ -23,7 +23,7 @@
 						controls.fetchPlaylistTracks(playlist.id);
 						showPlaylistTracks.set(true);
 					}}
-					class="w-full text-center truncate"
+					class="p-4 w-full text-center truncate"
 				>
 					{playlist.title}
 				</button>
