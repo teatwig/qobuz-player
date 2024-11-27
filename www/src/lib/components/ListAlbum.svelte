@@ -5,11 +5,16 @@
 </script>
 
 <div class="flex gap-4 items-center w-full">
-	<img loading="lazy" class="size-12 rounded-md" src={album.coverArt} alt={album.title} />
+	<img
+		class="text-sm text-gray-500 bg-gray-800 rounded-md size-12 aspect-square"
+		loading="lazy"
+		src={album.coverArt}
+		alt={album.title}
+	/>
 
 	<div class="overflow-hidden w-full">
 		<div class="flex justify-between">
-			<h3 class="text-xl truncate">
+			<h3 class="text-lg truncate">
 				{album.title}
 			</h3>
 			<Info explicit={album.explicit} hiresAvailable={album.hiresAvailable} />

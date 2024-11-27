@@ -44,8 +44,8 @@
 	<title>hifi.rs: {$currentStatus}</title>
 </svelte:head>
 
-<div class="flex flex-col justify-between h-full">
-	<div class="flex overflow-auto flex-col justify-between my-auto h-full">
+<div class="flex flex-col justify-between h-full pt-safe px-safe">
+	<div class="flex overflow-hidden flex-col justify-between h-full">
 		{#if $activePage == 'nowPlaying' && $currentTrack}
 			<NowPlaying {controls} />
 		{/if}

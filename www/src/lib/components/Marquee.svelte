@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { afterUpdate } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	export let input: string;
@@ -8,7 +8,7 @@
 
 	const enableMarquee = writable(false);
 
-	tick().then(() => {
+	afterUpdate(() => {
 		if (titleWidth > titleWrapperWidth) {
 			enableMarquee.set(true);
 		} else {

@@ -11,7 +11,7 @@
 </script>
 
 <div class="flex flex-col flex-grow gap-4 max-h-full">
-	<p class="p-4 text-xl text-center">Playlists</p>
+	<p class="p-4 text-lg text-center">Playlists</p>
 	<List>
 		{#each $userPlaylists as playlist}
 			<ListItem>

@@ -6,7 +6,7 @@
 
 <div>
 	<div class="flex justify-between items-center">
-		<h3 class="text-xl truncate">
+		<h3 class="text-lg truncate">
 			{track.title}
 		</h3>
 		<Info explicit={track.explicit} hiresAvailable={track.hiresAvailable} />

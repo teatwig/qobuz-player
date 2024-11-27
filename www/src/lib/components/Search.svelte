@@ -8,6 +8,7 @@
 	import PlaylistTracks from './PlaylistTracks.svelte';
 	import { Icon, MagnifyingGlass, XMark } from 'svelte-hero-icons';
 	import ListTrack from './ListTrack.svelte';
+	import { onMount } from 'svelte';
 
 	export let controls;
 
@@ -27,12 +28,26 @@
 			controls.search(query);
 		}
 	};
+
+	let searchInput;
+
+	onMount(() => searchInput.focus());
 </script>
 
 <div class="flex flex-col flex-grow gap-4 max-h-full">
 	<div class="flex flex-col gap-4 p-4">
 		<form on:submit={onSubmit} class="flex flex-row">
-			<input name="query" class="p-2 w-full text-black rounded" type="text" placeholder="Search" />
+			<input
+				bind:this={searchInput}
+				name="query"
+				class="p-2 w-full text-black rounded"
+				type="text"
+				placeholder="Search"
+				spellcheck="false"
+				autocomplete="off"
+				autocorrect="off"
+				autocapitalize="off"
+			/>
 			<Button type="submit"><Icon src={MagnifyingGlass} class="size-6" solid /></Button>
 		</form>
 
@@ -73,7 +88,7 @@
 			{#each $searchResults.artists as artist}
 				<ListItem>
 					<button
-						class="p-4 w-full text-xl text-left truncate"
+						class="p-4 w-full text-lg text-left truncate"
 						on:click|stopPropagation={() => {
 							$artistAlbums.albums = [];
 							$artistAlbums.id = null;
@@ -101,7 +116,7 @@
 			{#each $searchResults.playlists as playlist}
 				<ListItem>
 					<button
-						class="p-4 w-full text-base text-left"
+						class="p-4 w-full text-lg text-left truncate"
 						on:click|stopPropagation={() => {
 							$playlistTracks.tracks = [];
 							$playlistTracks.id = null;
@@ -110,7 +125,7 @@
 							showPlaylistTracks.set(true);
 						}}
 					>
-						<span>{playlist.title}</span>
+						{playlist.title}
 					</button>
 				</ListItem>
 			{/each}
