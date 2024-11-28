@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { searchResults, playlistTracks, artistAlbums, playlistTitle } from '$lib/websocket';
 	import { writable } from 'svelte/store';
 	import ListItem from './ListItem.svelte';
@@ -18,9 +18,8 @@
 
 	const showPlaylistTracks = writable(false);
 
-	const onSubmit = (e) => {
-		e.preventDefault();
-		const formData = new FormData(e.target);
+	const onSubmit = (e: { currentTarget: HTMLFormElement }) => {
+		const formData = new FormData(e.currentTarget);
 
 		if (formData.has('query')) {
 			const query = formData.get('query');
@@ -29,26 +28,26 @@
 		}
 	};
 
-	let searchInput;
+	let searchInput: HTMLInputElement;
 
 	onMount(() => searchInput.focus());
 </script>
 
 <div class="flex max-h-full flex-grow flex-col gap-4">
 	<div class="flex flex-col gap-4 p-4">
-		<form on:submit={onSubmit} class="flex flex-row">
+		<form class="flex flex-row" on:submit|preventDefault={onSubmit}>
 			<input
 				bind:this={searchInput}
 				name="query"
 				class="w-full rounded p-2 text-black"
-				type="text"
-				placeholder="Search"
-				spellcheck="false"
+				autocapitalize="off"
 				autocomplete="off"
 				autocorrect="off"
-				autocapitalize="off"
+				placeholder="Search"
+				spellcheck="false"
+				type="text"
 			/>
-			<Button type="submit"><Icon src={MagnifyingGlass} class="size-6" solid /></Button>
+			<Button type="submit"><Icon class="size-6" solid src={MagnifyingGlass} /></Button>
 		</form>
 
 		<div class="flex justify-between *:rounded-full *:px-2 *:py-1 *:transition-colors">
@@ -137,7 +136,7 @@
 			<div class="flex flex-row justify-between bg-black px-4 py-4">
 				<h2>Albums by <span class="font-bold">{$artistName}</span></h2>
 				<button on:click={() => showArtistAlbums.set(false)}
-					><Icon src={XMark} class="size-6" /></button
+					><Icon class="size-6" src={XMark} /></button
 				>
 			</div>
 			<div class="overflow-y-scroll">

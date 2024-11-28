@@ -1,10 +1,12 @@
 pub mod controls;
+use ts_rs::TS;
 
 use crate::service::{Album, Playlist, Track, TrackStatus};
 use serde::{Deserialize, Serialize, Serializer};
 use std::{collections::BTreeMap, fmt::Display};
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 pub enum TrackListType {
     Album,
     Playlist,
@@ -44,9 +46,11 @@ where
 }
 
 /// A tracklist is a list of tracks.
-#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export)]
 pub struct TrackListValue {
     #[serde(serialize_with = "serialize_btree")]
+    #[ts(as = "Vec<Track>")]
     pub queue: BTreeMap<u32, Track>,
     album: Option<Album>,
     playlist: Option<Playlist>,

@@ -7,6 +7,7 @@ use cursive::{
 use gstreamer::ClockTime;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
+use ts_rs::TS;
 
 #[async_trait]
 pub trait MusicService: Send + Sync + Debug {
@@ -20,7 +21,8 @@ pub trait MusicService: Send + Sync + Debug {
     async fn user_playlists(&self) -> Option<Vec<Playlist>>;
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export)]
 pub enum TrackStatus {
     Played,
     Playing,
@@ -29,7 +31,8 @@ pub enum TrackStatus {
     Unplayable,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct Track {
     pub id: u32,
@@ -116,7 +119,8 @@ impl CursiveFormat for Track {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct Album {
     pub id: String,
@@ -160,7 +164,8 @@ impl CursiveFormat for Album {
     }
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct SearchResults {
     pub query: String,
     pub albums: Vec<Album>,
@@ -169,14 +174,16 @@ pub struct SearchResults {
     pub playlists: Vec<Playlist>,
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export)]
 pub struct Artist {
     pub id: u32,
     pub name: String,
     pub albums: Option<Vec<Album>>,
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct Playlist {
     pub title: String,

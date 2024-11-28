@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import Info from './Info.svelte';
 
 	export let track;

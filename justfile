@@ -68,6 +68,9 @@ install-toolchain kind="stable" target=detected_target:
 install-sqlx:
   cargo install sqlx-cli
 
+build-typescript-bindings:
+  TS_RS_EXPORT_DIR=../www/src/lib/bindings cargo test export_bindings
+
 reset-database:
   touch $(echo $DATABASE_URL | sed -e "s/sqlite:\/\///g") && cargo sqlx database reset --source {{invocation_directory()}}/hifirs/migrations -y
 

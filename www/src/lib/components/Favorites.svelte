@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { userPlaylists, playlistTracks, playlistTitle } from '$lib/websocket';
 	import { writable } from 'svelte/store';
 	import List from './List.svelte';
@@ -16,6 +16,7 @@
 		{#each $userPlaylists as playlist}
 			<ListItem>
 				<button
+					class="w-full truncate p-4 text-center"
 					on:click|stopPropagation={() => {
 						$playlistTracks.tracks = [];
 						$playlistTracks.id = null;
@@ -23,7 +24,6 @@
 						controls.fetchPlaylistTracks(playlist.id);
 						showPlaylistTracks.set(true);
 					}}
-					class="w-full truncate p-4 text-center"
 				>
 					{playlist.title}
 				</button>

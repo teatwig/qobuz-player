@@ -39,6 +39,7 @@ include_dir = "0.7"
 mime_guess = "2.0"
 cached = { version = "0.50", features = ["async", "serde", "serde_json"]} 
 async-trait = "0.1.73"
+ts-rs = "10.0"
 
 # [dependencies.rusqlite]
 # version = "0.31"

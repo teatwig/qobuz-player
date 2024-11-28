@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
 	import {
 		WS,
@@ -17,10 +17,10 @@
 	import Search from '../lib/components/Search.svelte';
 	import Favorites from '../lib/components/Favorites.svelte';
 
-	let controls;
+	let controls: WS;
 
 	const activePage = writable('nowPlaying');
-	const setPage = (newPage) => activePage.set(newPage);
+	const setPage = (newPage: string) => activePage.set(newPage);
 
 	onMount(() => {
 		controls = new WS(dev);
@@ -62,15 +62,15 @@
 			<Queue {controls} />
 		{/if}
 	</div>
-	<Navigation {setPage} {activePage} />
+	<Navigation {activePage} {setPage} />
 </div>
 
 {#if $isBuffering || !$connected || $isLoading}
 	<div class="fixed right-8 top-8 z-10 size-12 rounded bg-black bg-opacity-20 p-2 backdrop-blur">
 		{#if !$connected}
-			<Icon src={LinkSlash} solid />
+			<Icon solid src={LinkSlash} />
 		{:else if $isLoading || $isBuffering}
-			<Icon src={ArrowPath} solid class="animate-spin" />
+			<Icon class="animate-spin" solid src={ArrowPath} />
 		{/if}
 	</div>
 {/if}

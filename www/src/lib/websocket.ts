@@ -1,19 +1,27 @@
 import { derived, writable } from 'svelte/store';
+import type { Writable } from 'svelte/store';
+import type { SearchResults } from './bindings/SearchResults';
+import type { Playlist } from './bindings/Playlist';
+import type { TrackListValue } from './bindings/TrackListValue';
+import type { Action } from './bindings/Action';
+import type { Track } from './bindings/Track';
 
-export const currentStatus = writable('Stopped');
+export const currentStatus: Writable<'Stopped' | 'Playing' | 'Paused'> = writable('Stopped');
 export const connected = writable(false);
 export const isBuffering = writable(false);
 export const isLoading = writable(false);
-export const searchResults = writable({
+export const searchResults: Writable<SearchResults> = writable({
+	query: '',
 	albums: [],
+	tracks: [],
 	artists: [],
-	playlists: [],
-	tracks: []
+	playlists: []
 });
-export const userPlaylists = writable([]);
+export const userPlaylists: Writable<Playlist[]> = writable();
 
 export const position = writable(0);
-const currentTrackList = writable(null);
+const currentTrackList: Writable<TrackListValue | null> = writable(null);
+
 export const currentTrack = derived(currentTrackList, (list) => {
 	return list?.queue.find((l) => l.status === 'Playing');
 });
@@ -34,57 +42,76 @@ export const coverImage = derived([currentTrackList, currentTrack], ([tl, c]) =>
 	if (tl) {
 		switch (tl.list_type) {
 			case 'Album':
-				return tl?.album?.coverArt;
+				return tl?.album?.coverArt ?? null;
 			case 'Playlist':
-				return tl?.playlist?.coverArt;
+				return tl?.playlist?.coverArt ?? null;
 			case 'Track':
-				return c?.album?.coverArt;
+				return c?.album?.coverArt ?? null;
+			case 'Unknown':
+				return null;
 		}
 	}
 
-	return [];
+	return null;
 });
 
 export const entityTitle = derived([currentTrackList, currentTrack], ([tl, c]) => {
 	if (tl) {
 		switch (tl.list_type) {
 			case 'Album':
-				return tl?.album?.title;
+				return tl?.album?.title ?? null;
 			case 'Playlist':
-				return tl?.playlist?.title;
+				return tl?.playlist?.title ?? null;
 			case 'Track':
-				return c?.album?.title;
+				return c?.album?.title ?? null;
+			case 'Unknown':
+				return null;
 		}
 	}
+
+	return null;
 });
 
-export const secsToTimecode = (secs) => {
+export const secsToTimecode = (secs: number) => {
 	const minutes = Math.floor(secs / 60);
 	const seconds = secs - minutes * 60;
 
-	return `${minutes.toString(10).padStart(2, 0)}:${seconds.toString(10).padStart(2, 0)}`;
+	return `${minutes.toString(10).padStart(2, '0')}:${seconds.toString(10).padStart(2, '0')}`;
 };
 
 export const positionString = derived(position, (p) => {
 	const positionMinutes = Math.floor(p / 60);
 	const positionSeconds = p - positionMinutes * 60;
 
-	return `${positionMinutes.toString(10).padStart(2, 0)}:${positionSeconds.toString(10).padStart(2, 0)}`;
+	return `${positionMinutes.toString(10).padStart(2, '0')}:${positionSeconds.toString(10).padStart(2, '0')}`;
 });
 
 export const durationString = derived(currentTrack, (d) => {
+	if (d === undefined) {
+		return '0';
+	}
+
 	const durationMinutes = Math.floor(d.durationSeconds / 60);
 	const durationSeconds = d.durationSeconds - durationMinutes * 60;
 
-	return `${durationMinutes.toString(10).padStart(2, 0)}:${durationSeconds.toString(10).padStart(2, 0)}`;
+	return `${durationMinutes.toString(10).padStart(2, '0')}:${durationSeconds.toString(10).padStart(2, '0')}`;
 });
 
 export const artistAlbums = writable({ id: null, albums: [] });
-export const playlistTracks = writable({ id: null, tracks: [] });
+export const playlistTracks = writable<{ id: number | null; tracks: Array<Track> }>({
+	id: null,
+	tracks: []
+});
 export const playlistTitle = writable('');
 
 export class WS {
-	constructor(dev) {
+	dev: boolean;
+	secure: boolean;
+	protocol: string;
+	host: string;
+	ws: WebSocket | undefined;
+
+	constructor(dev: boolean) {
 		this.dev = dev;
 		this.secure = location.protocol === 'https:';
 		this.protocol = this.secure ? 'wss:' : 'ws:';
@@ -109,7 +136,7 @@ export class WS {
 			connected.set(false);
 
 			setTimeout(() => {
-				this.connect(this.dev);
+				this.connect();
 			}, 1000);
 		};
 
@@ -134,67 +161,62 @@ export class WS {
 				playlistTracks.set(json.playlistTracks);
 			} else if (Object.hasOwn(json, 'userPlaylists')) {
 				userPlaylists.set(json.userPlaylists);
-			} else if (Object.hasOwn(json, 'audioQuality')) {
-				currentTrack.update((track) => {
-					if (track) {
-						track.bitDepth = json.audioQuality.bitdepth;
-						track.samplingRate = json.audioQuality.sampling_rate / 1000;
-					}
-					return track;
-				});
 			}
 		};
 
 		this.ws.onerror = () => {
-			this.ws.close();
+			this.ws?.close();
 		};
+	}
+	close() {
+		this.ws?.close();
+	}
+
+	send(action: Action) {
+		this.ws?.send(JSON.stringify(action));
 	}
 
 	playPause() {
-		this.ws.send(JSON.stringify({ playPause: null }));
+		this.send('playPause');
 	}
 
 	next() {
-		this.ws.send(JSON.stringify({ next: null }));
+		this.send('next');
 	}
 
 	previous() {
-		this.ws.send(JSON.stringify({ previous: null }));
+		this.send('previous');
 	}
 
-	close() {
-		this.ws.close();
+	skipTo(num: number) {
+		this.send({ skipTo: { num } });
 	}
 
-	skipTo(num) {
-		this.ws.send(JSON.stringify({ skipTo: { num } }));
+	playAlbum(album_id: string) {
+		this.send({ playAlbum: { album_id } });
 	}
 
-	playAlbum(album_id) {
-		this.ws.send(JSON.stringify({ playAlbum: { album_id } }));
+	playTrack(track_id: number) {
+		this.send({ playTrack: { track_id } });
 	}
 
-	playTrack(track_id) {
-		this.ws.send(JSON.stringify({ playTrack: { track_id } }));
+	playPlaylist(playlist_id: bigint) {
+		this.send({ playPlaylist: { playlist_id } });
 	}
 
-	playPlaylist(playlist_id) {
-		this.ws.send(JSON.stringify({ playPlaylist: { playlist_id } }));
+	search(query: string) {
+		this.send({ search: { query } });
 	}
 
-	search(query) {
-		this.ws.send(JSON.stringify({ search: { query } }));
+	fetchArtistAlbums(artist_id: number) {
+		this.send({ fetchArtistAlbums: { artist_id } });
 	}
 
-	fetchArtistAlbums(artist_id) {
-		this.ws.send(JSON.stringify({ fetchArtistAlbums: { artist_id } }));
-	}
-
-	fetchPlaylistTracks(playlist_id) {
-		this.ws.send(JSON.stringify({ fetchPlaylistTracks: { playlist_id } }));
+	fetchPlaylistTracks(playlist_id: bigint) {
+		this.send({ fetchPlaylistTracks: { playlist_id } });
 	}
 
 	fetchUserPlaylists() {
-		this.ws.send(JSON.stringify({ fetchUserPlaylists: null }));
+		this.send('fetchUserPlaylists');
 	}
 }

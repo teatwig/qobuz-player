@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { playlistTracks, playlistTitle } from '$lib/websocket';
 	import List from './List.svelte';
 	import ListItem from './ListItem.svelte';
@@ -19,14 +19,14 @@
 					controls.playPlaylist($playlistTracks.id);
 				}}
 			>
-				<Icon src={Play} class="size-6" />
+				<Icon class="size-6" src={Play} />
 			</button>
 			<button
 				on:click={() => {
 					showPlaylistTracks.set(false);
 				}}
 			>
-				<Icon src={XMark} class="size-6" />
+				<Icon class="size-6" src={XMark} />
 			</button>
 		</div>
 	</div>
@@ -35,7 +35,7 @@
 			{#each $playlistTracks.tracks as track}
 				<ListItem>
 					<button class="w-full p-4 text-left" on:click={() => controls.playTrack(track.id)}>
-						<ListTrack {controls} {track} />
+						<ListTrack {track} />
 					</button>
 				</ListItem>
 			{/each}

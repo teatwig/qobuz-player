@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { queue, entityTitle, listType, currentTrack } from '$lib/websocket';
 	import Info from './Info.svelte';
 	import List from './List.svelte';
@@ -10,7 +10,7 @@
 <div class="flex max-h-full flex-grow flex-col gap-4">
 	<div class="p-4 text-center">
 		<p class="text-lg">{$entityTitle}</p>
-		{#if $listType === 'Album'}
+		{#if $listType === 'Album' && $currentTrack?.artist?.name}
 			<p class="text-lg">by {$currentTrack.artist.name}</p>
 		{/if}
 	</div>
@@ -19,10 +19,10 @@
 		{#each $queue as track}
 			<ListItem>
 				<button
-					class:text-gray-500={track.status === 'Played'}
-					class:bg-blue-800={track.status === 'Playing'}
-					on:click|stopPropagation={() => controls.skipTo(track.position)}
 					class="flex w-full flex-row gap-x-4 p-4 text-left text-base"
+					class:bg-blue-800={track.status === 'Playing'}
+					class:text-gray-500={track.status === 'Played'}
+					on:click|stopPropagation={() => controls.skipTo(track.position)}
 				>
 					{#if $listType === 'Album' || $listType === 'Track'}
 						<span class="self-start">{track.number.toString().padStart(2, '0')}</span>

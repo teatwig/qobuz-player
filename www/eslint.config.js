@@ -21,6 +21,18 @@ export default ts.config(
 	{
 		files: ['**/*.svelte'],
 
+		rules: {
+			'svelte/block-lang': [
+				'error',
+				{
+					enforceScriptPresent: false,
+					enforceStylePresent: false,
+					script: ['ts'],
+					style: ['postcss']
+				}
+			]
+		},
+
 		languageOptions: {
 			parserOptions: {
 				parser: ts.parser

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import Info from './Info.svelte';
 
 	export let album;
@@ -7,9 +7,9 @@
 <div class="flex w-full items-center gap-4">
 	<img
 		class="aspect-square size-12 rounded-md bg-gray-800 text-sm text-gray-500"
+		alt={album.title}
 		loading="lazy"
 		src={album.coverArt}
-		alt={album.title}
 	/>
 
 	<div class="w-full overflow-hidden">

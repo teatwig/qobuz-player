@@ -17,8 +17,8 @@
 	});
 </script>
 
-<div bind:offsetWidth={titleWrapperWidth} class="flex overflow-hidden">
-	<span class:marquee={$enableMarquee} bind:offsetWidth={titleWidth} class="whitespace-nowrap">
+<div class="flex overflow-hidden" bind:offsetWidth={titleWrapperWidth}>
+	<span class="whitespace-nowrap" class:marquee={$enableMarquee} bind:offsetWidth={titleWidth}>
 		{input}
 	</span>
 
