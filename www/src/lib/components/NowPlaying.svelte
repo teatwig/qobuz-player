@@ -24,7 +24,7 @@
 	</div>
 
 	<div class="flex w-full max-w-md flex-grow flex-col justify-center md:max-w-[600px]">
-		<div class="flex items-center gap-2 justify-between">
+		<div class="flex items-center justify-between gap-2">
 			<span class="truncate text-xl">
 				<Marquee input={$entityTitle} />
 			</span>

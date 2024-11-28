@@ -7,7 +7,7 @@
 	export let controls;
 </script>
 
-<div class="flex flex-col flex-grow gap-4 max-h-full">
+<div class="flex max-h-full flex-grow flex-col gap-4">
 	<div class="p-4 text-center">
 		<p class="text-lg">{$entityTitle}</p>
 		{#if $listType === 'Album'}
@@ -22,14 +22,14 @@
 					class:text-gray-500={track.status === 'Played'}
 					class:bg-blue-800={track.status === 'Playing'}
 					on:click|stopPropagation={() => controls.skipTo(track.position)}
-					class="flex flex-row gap-x-4 p-4 w-full text-base text-left"
+					class="flex w-full flex-row gap-x-4 p-4 text-left text-base"
 				>
 					{#if $listType === 'Album' || $listType === 'Track'}
 						<span class="self-start">{track.number.toString().padStart(2, '0')}</span>
 					{:else if $listType === 'Playlist'}
 						<span>{track.position.toString().padStart(2, '0')}</span>
 					{/if}
-					<div class="flex overflow-hidden flex-grow justify-between items-center">
+					<div class="flex flex-grow items-center justify-between overflow-hidden">
 						<span class="truncate">
 							{track.title}
 						</span>

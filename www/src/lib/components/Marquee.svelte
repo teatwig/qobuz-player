@@ -23,7 +23,7 @@
 	</span>
 
 	{#if $enableMarquee}
-		<span class="whitespace-nowrap marquee extra-element">
+		<span class="marquee extra-element whitespace-nowrap">
 			{input}
 		</span>
 	{/if}

@@ -44,8 +44,8 @@
 	<title>hifi.rs: {$currentStatus}</title>
 </svelte:head>
 
-<div class="flex flex-col justify-between h-full pt-safe px-safe">
-	<div class="flex overflow-hidden flex-col justify-between h-full">
+<div class="flex h-full flex-col justify-between px-safe pt-safe">
+	<div class="flex h-full flex-col justify-between overflow-hidden">
 		{#if $activePage == 'nowPlaying' && $currentTrack}
 			<NowPlaying {controls} />
 		{/if}
@@ -66,7 +66,7 @@
 </div>
 
 {#if $isBuffering || !$connected || $isLoading}
-	<div class="fixed top-8 right-8 z-10 p-2 bg-black bg-opacity-20 rounded backdrop-blur size-12">
+	<div class="fixed right-8 top-8 z-10 size-12 rounded bg-black bg-opacity-20 p-2 backdrop-blur">
 		{#if !$connected}
 			<Icon src={LinkSlash} solid />
 		{:else if $isLoading || $isBuffering}

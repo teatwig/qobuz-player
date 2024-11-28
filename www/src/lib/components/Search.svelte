@@ -34,13 +34,13 @@
 	onMount(() => searchInput.focus());
 </script>
 
-<div class="flex flex-col flex-grow gap-4 max-h-full">
+<div class="flex max-h-full flex-grow flex-col gap-4">
 	<div class="flex flex-col gap-4 p-4">
 		<form on:submit={onSubmit} class="flex flex-row">
 			<input
 				bind:this={searchInput}
 				name="query"
-				class="p-2 w-full text-black rounded"
+				class="w-full rounded p-2 text-black"
 				type="text"
 				placeholder="Search"
 				spellcheck="false"
@@ -51,7 +51,7 @@
 			<Button type="submit"><Icon src={MagnifyingGlass} class="size-6" solid /></Button>
 		</form>
 
-		<div class="flex justify-between *:transition-colors *:px-2 *:py-1 *:rounded-full">
+		<div class="flex justify-between *:rounded-full *:px-2 *:py-1 *:transition-colors">
 			<button class:bg-blue-800={$searchTab === 'albums'} on:click={() => searchTab.set('albums')}>
 				Albums
 			</button>
@@ -77,7 +77,7 @@
 			{#each $searchResults.albums as album}
 				<ListItem>
 					<button
-						class="p-4 w-full text-left"
+						class="w-full p-4 text-left"
 						on:click|stopPropagation={() => controls.playAlbum(album.id)}
 					>
 						<ListAlbum {album} />
@@ -88,7 +88,7 @@
 			{#each $searchResults.artists as artist}
 				<ListItem>
 					<button
-						class="p-4 w-full text-lg text-left truncate"
+						class="w-full truncate p-4 text-left text-lg"
 						on:click|stopPropagation={() => {
 							$artistAlbums.albums = [];
 							$artistAlbums.id = null;
@@ -105,7 +105,7 @@
 			{#each $searchResults.tracks as track}
 				<ListItem>
 					<button
-						class="p-4 w-full text-left"
+						class="w-full p-4 text-left"
 						on:click|stopPropagation={() => controls.playTrack(track.id)}
 					>
 						<ListTrack {track} />
@@ -116,7 +116,7 @@
 			{#each $searchResults.playlists as playlist}
 				<ListItem>
 					<button
-						class="p-4 w-full text-lg text-left truncate"
+						class="w-full truncate p-4 text-left text-lg"
 						on:click|stopPropagation={() => {
 							$playlistTracks.tracks = [];
 							$playlistTracks.id = null;
@@ -133,8 +133,8 @@
 	</List>
 
 	{#if $showArtistAlbums}
-		<div class="flex absolute top-0 left-0 flex-col w-full h-full bg-black">
-			<div class="flex flex-row justify-between py-4 px-4 bg-black">
+		<div class="absolute left-0 top-0 flex h-full w-full flex-col bg-black">
+			<div class="flex flex-row justify-between bg-black px-4 py-4">
 				<h2>Albums by <span class="font-bold">{$artistName}</span></h2>
 				<button on:click={() => showArtistAlbums.set(false)}
 					><Icon src={XMark} class="size-6" /></button
@@ -145,7 +145,7 @@
 					{#each $artistAlbums.albums as album}
 						<ListItem>
 							<button
-								class="p-4 w-full text-left"
+								class="w-full p-4 text-left"
 								on:click|stopPropagation={() => controls.playAlbum(album.id)}
 							>
 								<ListAlbum {album} />

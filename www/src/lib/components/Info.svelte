@@ -1,8 +1,8 @@
 <script lang="ts">
-	export let explicit: Boolean, hiresAvailable: Boolean;
+	export let explicit: boolean, hiresAvailable: boolean;
 </script>
 
-<div class="text-gray-400 whitespace-nowrap">
+<div class="whitespace-nowrap text-gray-400">
 	{#if explicit}
 		<svg
 			class="inline-block"

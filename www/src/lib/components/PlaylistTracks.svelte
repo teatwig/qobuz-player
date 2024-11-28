@@ -8,8 +8,8 @@
 	export let controls, showPlaylistTracks;
 </script>
 
-<div class="flex absolute top-0 left-0 flex-col w-full h-full bg-black">
-	<div class="flex flex-row justify-between py-4 px-4 bg-black">
+<div class="absolute left-0 top-0 flex h-full w-full flex-col bg-black">
+	<div class="flex flex-row justify-between bg-black px-4 py-4">
 		<h2>
 			Tracks in <span class="font-bold">{$playlistTitle}</span>
 		</h2>
@@ -34,7 +34,7 @@
 		<List>
 			{#each $playlistTracks.tracks as track}
 				<ListItem>
-					<button class="p-4 w-full text-left" on:click={() => controls.playTrack(track.id)}>
+					<button class="w-full p-4 text-left" on:click={() => controls.playTrack(track.id)}>
 						<ListTrack {controls} {track} />
 					</button>
 				</ListItem>

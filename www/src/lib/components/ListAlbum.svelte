@@ -4,17 +4,17 @@
 	export let album;
 </script>
 
-<div class="flex gap-4 items-center w-full">
+<div class="flex w-full items-center gap-4">
 	<img
-		class="text-sm text-gray-500 bg-gray-800 rounded-md size-12 aspect-square"
+		class="aspect-square size-12 rounded-md bg-gray-800 text-sm text-gray-500"
 		loading="lazy"
 		src={album.coverArt}
 		alt={album.title}
 	/>
 
-	<div class="overflow-hidden w-full">
+	<div class="w-full overflow-hidden">
 		<div class="flex justify-between">
-			<h3 class="text-lg truncate">
+			<h3 class="truncate text-lg">
 				{album.title}
 			</h3>
 			<Info explicit={album.explicit} hiresAvailable={album.hiresAvailable} />

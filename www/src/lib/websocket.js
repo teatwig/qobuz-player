@@ -122,8 +122,6 @@ export class WS {
 				isLoading.set(json.loading.is_loading);
 			} else if (Object.hasOwn(json, 'position')) {
 				position.set(json.position.clock);
-			} else if (Object.hasOwn(json, 'duration')) {
-				duration.set(json.duration.clock);
 			} else if (Object.hasOwn(json, 'status')) {
 				currentStatus.set(json.status.status);
 			} else if (Object.hasOwn(json, 'currentTrackList')) {
