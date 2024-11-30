@@ -1,27 +1,41 @@
 use axum::{
     body::Body,
-    extract::ws::{Message, WebSocket, WebSocketUpgrade},
-    http::{header, Request, Response},
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        Query,
+    },
+    http::{header, Method, Request, Response},
     response::IntoResponse,
     routing::get,
-    Router,
+    Json, Router,
 };
 use futures::{SinkExt, StreamExt};
 use include_dir::{include_dir, Dir};
 use mime_guess::{mime::HTML, MimeGuess};
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{net::SocketAddr, path::PathBuf, str::FromStr};
 use tokio::select;
+use tower_http::cors::{Any, CorsLayer};
 
-use crate::player::{self, actions::Action, notification::Notification};
+use crate::{
+    player::{self, actions::Action, notification::Notification},
+    service::SearchResults,
+};
 
 static SITE: Dir = include_dir!("$CARGO_MANIFEST_DIR/../www/build");
 
 pub async fn init(binding_interface: SocketAddr) {
+    let cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_origin(Any);
+
     let app = Router::new()
         .route("/ws", get(ws_handler))
         .route("/*key", get(static_handler))
-        .route("/", get(static_handler));
+        .route("/api/search", get(search))
+        .route("/", get(static_handler))
+        .layer(cors);
 
     debug!("listening on {}", binding_interface);
 
@@ -43,6 +57,16 @@ pub async fn init(binding_interface: SocketAddr) {
         })
         .await
         .unwrap();
+}
+
+#[derive(Deserialize)]
+struct SearchQuery {
+    query: String,
+}
+
+async fn search(query: Query<SearchQuery>) -> Json<SearchResults> {
+    let results = player::search(&query.query).await;
+    Json(results)
 }
 
 async fn static_handler(req: Request<Body>) -> impl IntoResponse {
@@ -69,7 +93,7 @@ async fn static_handler(req: Request<Body>) -> impl IntoResponse {
         "text/plain".to_string()
     };
 
-    // Attempt to retreive the necessary file from the embedded path.
+    // Attempt to retrieve the necessary file from the embedded path.
     let (body, mime_type, status) = if let Some(file) = SITE.get_file(&path) {
         (Body::from(file.contents().to_vec()), mime_type, 200)
     } else {

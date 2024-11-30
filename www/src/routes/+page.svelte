@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import {
-		WS,
+		Controls,
 		currentTrack,
 		isBuffering,
 		isLoading,
@@ -12,18 +12,19 @@
 	import { dev } from '$app/environment';
 	import Navigation from '../lib/components/Navigation.svelte';
 	import Queue from '../lib/components/Queue.svelte';
-	import { Icon, LinkSlash, ArrowPath } from 'svelte-hero-icons';
+	import { Icon, LinkSlash } from 'svelte-hero-icons';
 	import NowPlaying from '../lib/components/NowPlaying.svelte';
 	import Search from '../lib/components/Search.svelte';
 	import Favorites from '../lib/components/Favorites.svelte';
+	import Spinner from '../lib/components/Spinner.svelte';
 
-	let controls: WS;
+	let controls: Controls;
 
 	const activePage = writable('nowPlaying');
 	const setPage = (newPage: string) => activePage.set(newPage);
 
 	onMount(() => {
-		controls = new WS(dev);
+		controls = new Controls(dev);
 
 		const onFocus = () => {
 			if (!$connected) {
@@ -70,7 +71,7 @@
 		{#if !$connected}
 			<Icon solid src={LinkSlash} />
 		{:else if $isLoading || $isBuffering}
-			<Icon class="animate-spin" solid src={ArrowPath} />
+			<Spinner />
 		{/if}
 	</div>
 {/if}

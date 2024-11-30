@@ -1,22 +1,17 @@
 import { derived, writable } from 'svelte/store';
 import type { Writable } from 'svelte/store';
-import type { SearchResults } from './bindings/SearchResults';
 import type { Playlist } from './bindings/Playlist';
 import type { TrackListValue } from './bindings/TrackListValue';
 import type { Action } from './bindings/Action';
 import type { Track } from './bindings/Track';
+import type { Album } from './bindings/Album';
+import type { SearchResults } from './bindings/SearchResults';
 
 export const currentStatus: Writable<'Stopped' | 'Playing' | 'Paused'> = writable('Stopped');
 export const connected = writable(false);
 export const isBuffering = writable(false);
 export const isLoading = writable(false);
-export const searchResults: Writable<SearchResults> = writable({
-	query: '',
-	albums: [],
-	tracks: [],
-	artists: [],
-	playlists: []
-});
+
 export const userPlaylists: Writable<Playlist[]> = writable();
 
 export const position = writable(0);
@@ -97,24 +92,28 @@ export const durationString = derived(currentTrack, (d) => {
 	return `${durationMinutes.toString(10).padStart(2, '0')}:${durationSeconds.toString(10).padStart(2, '0')}`;
 });
 
-export const artistAlbums = writable({ id: null, albums: [] });
+export const artistAlbums = writable<{ id: number | null; albums: Array<Album> }>({
+	id: null,
+	albums: []
+});
+
 export const playlistTracks = writable<{ id: number | null; tracks: Array<Track> }>({
 	id: null,
 	tracks: []
 });
 export const playlistTitle = writable('');
 
-export class WS {
+export class Controls {
 	dev: boolean;
 	secure: boolean;
-	protocol: string;
+	webSocketProtocol: string;
 	host: string;
 	ws: WebSocket | undefined;
 
 	constructor(dev: boolean) {
 		this.dev = dev;
 		this.secure = location.protocol === 'https:';
-		this.protocol = this.secure ? 'wss:' : 'ws:';
+		this.webSocketProtocol = this.secure ? 'wss:' : 'ws:';
 		this.host = dev ? 'localhost:9888' : window.location.host;
 
 		this.playPause.bind(this);
@@ -126,7 +125,7 @@ export class WS {
 	}
 
 	connect() {
-		this.ws = new WebSocket(`${this.protocol}//${this.host}/ws`);
+		this.ws = new WebSocket(`${this.webSocketProtocol}//${this.host}/ws`);
 		this.ws.onopen = () => {
 			connected.set(true);
 			this.fetchUserPlaylists();
@@ -153,8 +152,6 @@ export class WS {
 				currentStatus.set(json.status.status);
 			} else if (Object.hasOwn(json, 'currentTrackList')) {
 				currentTrackList.set(json.currentTrackList?.list);
-			} else if (Object.hasOwn(json, 'searchResults')) {
-				searchResults.set(json.searchResults.results);
 			} else if (Object.hasOwn(json, 'artistAlbums')) {
 				artistAlbums.set(json.artistAlbums);
 			} else if (Object.hasOwn(json, 'playlistTracks')) {
@@ -168,6 +165,7 @@ export class WS {
 			this.ws?.close();
 		};
 	}
+
 	close() {
 		this.ws?.close();
 	}
@@ -204,10 +202,6 @@ export class WS {
 		this.send({ playPlaylist: { playlist_id } });
 	}
 
-	search(query: string) {
-		this.send({ search: { query } });
-	}
-
 	fetchArtistAlbums(artist_id: number) {
 		this.send({ fetchArtistAlbums: { artist_id } });
 	}
@@ -218,5 +212,25 @@ export class WS {
 
 	fetchUserPlaylists() {
 		this.send('fetchUserPlaylists');
+	}
+
+	async search(query: string, abortController: AbortController) {
+		const url = `${location.protocol}//${this.host}/api/search?query=${query}`;
+		const result = await fetch(url, abortController).then((res) => {
+			if (!res.ok) {
+				return;
+			}
+			return res.json() as unknown as SearchResults;
+		});
+
+		return (
+			result ?? {
+				query: '',
+				albums: [],
+				tracks: [],
+				artists: [],
+				playlists: []
+			}
+		);
 	}
 }
