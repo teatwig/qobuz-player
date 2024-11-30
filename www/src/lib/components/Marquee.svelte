@@ -1,28 +1,18 @@
 <script lang="ts">
-	import { afterUpdate } from 'svelte';
-	import { writable } from 'svelte/store';
+	let { input } = $props<{ input: string }>();
 
-	export let input: string;
+	let titleWidth = $state(0);
+	let titleWrapperWidth = $state(0);
 
-	let titleWidth: number, titleWrapperWidth: number;
-
-	const enableMarquee = writable(false);
-
-	afterUpdate(() => {
-		if (titleWidth > titleWrapperWidth) {
-			enableMarquee.set(true);
-		} else {
-			enableMarquee.set(false);
-		}
-	});
+	const enableMarquee = $derived(titleWidth > titleWrapperWidth);
 </script>
 
 <div class="flex overflow-hidden" bind:offsetWidth={titleWrapperWidth}>
-	<span class="whitespace-nowrap" class:marquee={$enableMarquee} bind:offsetWidth={titleWidth}>
+	<span class="whitespace-nowrap" class:marquee={enableMarquee} bind:offsetWidth={titleWidth}>
 		{input}
 	</span>
 
-	{#if $enableMarquee}
+	{#if enableMarquee}
 		<span class="marquee extra-element whitespace-nowrap">
 			{input}
 		</span>
