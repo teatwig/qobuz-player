@@ -1,12 +1,16 @@
+use crate::{
+    player::{self, actions::Action, notification::Notification},
+    service::{Album, Artist, Favorites, Playlist, SearchResults},
+};
 use axum::{
     body::Body,
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Query,
+        Path, Query,
     },
     http::{header, Method, Request, Response},
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 use futures::{SinkExt, StreamExt};
@@ -18,22 +22,35 @@ use std::{net::SocketAddr, path::PathBuf, str::FromStr};
 use tokio::select;
 use tower_http::cors::{Any, CorsLayer};
 
-use crate::{
-    player::{self, actions::Action, notification::Notification},
-    service::SearchResults,
-};
-
 static SITE: Dir = include_dir!("$CARGO_MANIFEST_DIR/../www/build");
 
 pub async fn init(binding_interface: SocketAddr) {
     let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST])
+        .allow_methods([Method::GET, Method::POST, Method::DELETE])
         .allow_origin(Any);
 
     let app = Router::new()
         .route("/ws", get(ws_handler))
         .route("/*key", get(static_handler))
+        .route("/api/artists/:id", get(artist))
+        .route("/api/albums/:id", get(album))
+        .route("/api/artists/:id/releases", get(artist_releases))
+        .route("/api/playlist/:id", get(playlist))
         .route("/api/search", get(search))
+        .route("/api/favorites", get(favorites))
+        .route("/api/favorite-playlists", get(favorite_playlists))
+        .route(
+            "/api/favorite/album/:id",
+            post(add_favorite_album).delete(remove_favorite_album),
+        )
+        .route(
+            "/api/favorite/artist/:id",
+            post(add_favorite_artist).delete(remove_favorite_artist),
+        )
+        .route(
+            "/api/favorite/playlist/:id",
+            post(add_favorite_playlist).delete(remove_favorite_playlist),
+        )
         .route("/", get(static_handler))
         .layer(cors);
 
@@ -64,8 +81,63 @@ struct SearchQuery {
     query: String,
 }
 
+async fn add_favorite_album(Path(id): Path<String>) {
+    player::add_favorite_album(id).await;
+}
+
+async fn remove_favorite_album(Path(id): Path<String>) {
+    player::remove_favorite_album(id).await;
+}
+
+async fn add_favorite_artist(Path(id): Path<String>) {
+    player::add_favorite_artist(id).await;
+}
+
+async fn remove_favorite_artist(Path(id): Path<String>) {
+    player::remove_favorite_artist(id).await;
+}
+
+async fn add_favorite_playlist(Path(id): Path<String>) {
+    player::add_favorite_playlist(id).await;
+}
+
+async fn remove_favorite_playlist(Path(id): Path<String>) {
+    println!("remove playlist {id}");
+    player::remove_favorite_playlist(id).await;
+}
+
+async fn favorites() -> Json<Favorites> {
+    let results = player::favorites().await;
+    Json(results)
+}
+
+async fn favorite_playlists() -> Json<Vec<Playlist>> {
+    let results = player::user_playlists().await;
+    Json(results)
+}
+
 async fn search(query: Query<SearchQuery>) -> Json<SearchResults> {
     let results = player::search(&query.query).await;
+    Json(results)
+}
+
+async fn artist(Path(id): Path<i32>) -> Json<Artist> {
+    let results = player::artist(id).await;
+    Json(results)
+}
+
+async fn album(Path(id): Path<String>) -> Json<Album> {
+    let results = player::album(id).await;
+    Json(results)
+}
+
+async fn artist_releases(Path(id): Path<i32>) -> Json<Vec<Album>> {
+    let results = player::artist_albums(id).await;
+    Json(results)
+}
+
+async fn playlist(Path(id): Path<i64>) -> Json<Playlist> {
+    let results = player::playlist(id).await;
     Json(results)
 }
 

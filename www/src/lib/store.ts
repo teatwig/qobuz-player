@@ -1,9 +1,7 @@
 import { Controls } from './controls';
 import { derived, writable, type Writable } from 'svelte/store';
-import type { Playlist } from './bindings/Playlist';
 import type { TrackListValue } from './bindings/TrackListValue';
 import type { Album } from './bindings/Album';
-import type { Track } from './bindings/Track';
 
 export const controls = writable<Controls>();
 
@@ -11,8 +9,6 @@ export const currentStatus: Writable<'Stopped' | 'Playing' | 'Paused'> = writabl
 export const connected = writable(false);
 export const isBuffering = writable(false);
 export const isLoading = writable(false);
-
-export const userPlaylists: Writable<Playlist[]> = writable();
 
 export const position = writable(0);
 export const currentTrackList: Writable<TrackListValue | null> = writable(null);
@@ -83,7 +79,7 @@ export const positionString = derived(position, (p) => {
 
 export const durationString = derived(currentTrack, (d) => {
 	if (d === undefined) {
-		return '0';
+		return '00:00';
 	}
 
 	const durationMinutes = Math.floor(d.durationSeconds / 60);
@@ -96,9 +92,3 @@ export const artistAlbums = writable<{ id: number | null; albums: Album[] }>({
 	id: null,
 	albums: []
 });
-
-export const playlistTracks = writable<{ id: number | null; tracks: Track[] }>({
-	id: null,
-	tracks: []
-});
-export const playlistTitle = writable('');

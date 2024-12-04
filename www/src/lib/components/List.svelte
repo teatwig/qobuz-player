@@ -1,3 +1,3 @@
-<ul class="align-start flex w-full flex-col overflow-y-scroll leading-tight">
+<ul class="align-start h-full w-full overflow-y-auto leading-tight">
 	<slot />
 </ul>

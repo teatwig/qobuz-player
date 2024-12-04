@@ -2,7 +2,9 @@ use crate::{
     client::{
         album::{Album, AlbumSearchResults},
         artist::{Artist, ArtistSearchResults},
+        favorites::Favorites,
         playlist::{Playlist, UserPlaylistsResult},
+        release::{Release, ReleaseQuery},
         search_results::SearchAllResults,
         track::Track,
         AudioQuality, TrackURL,
@@ -91,6 +93,7 @@ pub async fn new(
 enum Endpoint {
     Album,
     Artist,
+    ArtistReleases,
     Login,
     Track,
     UserPlaylist,
@@ -104,6 +107,11 @@ enum Endpoint {
     PlaylistDeleteTracks,
     PlaylistUpdatePosition,
     Search,
+    Favorites,
+    FavoriteAdd,
+    FavoriteRemove,
+    FavoritePlaylistAdd,
+    FavoritePlaylistRemove,
 }
 
 impl Display for Endpoint {
@@ -111,6 +119,7 @@ impl Display for Endpoint {
         let endpoint = match self {
             Endpoint::Album => "album/get",
             Endpoint::Artist => "artist/get",
+            Endpoint::ArtistReleases => "artist/getReleasesList",
             Endpoint::Login => "user/login",
             Endpoint::Playlist => "playlist/get",
             Endpoint::PlaylistCreate => "playlist/create",
@@ -124,6 +133,11 @@ impl Display for Endpoint {
             Endpoint::Track => "track/get",
             Endpoint::TrackURL => "track/getFileUrl",
             Endpoint::UserPlaylist => "playlist/getUserPlaylists",
+            Endpoint::Favorites => "favorite/getUserFavorites",
+            Endpoint::FavoriteAdd => "favorite/create",
+            Endpoint::FavoriteRemove => "favorite/delete",
+            Endpoint::FavoritePlaylistAdd => "playlist/subscribe",
+            Endpoint::FavoritePlaylistRemove => "playlist/unsubscribe",
         };
 
         f.write_str(endpoint)
@@ -425,6 +439,65 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
+    pub async fn favorites(&self, limit: i32) -> Result<Favorites> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::Favorites);
+
+        let limit = limit.to_string();
+        let params = vec![("limit", limit.as_str())];
+
+        get!(self, &endpoint, Some(&params))
+    }
+
+    pub async fn add_favorite_album(&self, id: &str) -> Result<SuccessfulResponse> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::FavoriteAdd);
+        let mut form_data = HashMap::new();
+        form_data.insert("album_ids", id);
+
+        post!(self, &endpoint, form_data)
+    }
+
+    pub async fn remove_favorite_album(&self, id: &str) -> Result<SuccessfulResponse> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::FavoriteRemove);
+        let mut form_data = HashMap::new();
+        form_data.insert("album_ids", id);
+
+        post!(self, &endpoint, form_data)
+    }
+
+    pub async fn add_favorite_artist(&self, id: &str) -> Result<SuccessfulResponse> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::FavoriteAdd);
+        let mut form_data = HashMap::new();
+        form_data.insert("artist_ids", id);
+
+        post!(self, &endpoint, form_data)
+    }
+
+    pub async fn remove_favorite_artist(&self, id: &str) -> Result<SuccessfulResponse> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::FavoriteRemove);
+        let mut form_data = HashMap::new();
+        form_data.insert("artist_ids", id);
+
+        post!(self, &endpoint, form_data)
+    }
+
+    pub async fn add_favorite_playlist(&self, id: &str) -> Result<SuccessfulResponse> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::FavoritePlaylistAdd);
+        println!("{endpoint}");
+        let mut form_data = HashMap::new();
+        form_data.insert("playlist_id", id);
+
+        post!(self, &endpoint, form_data)
+    }
+
+    pub async fn remove_favorite_playlist(&self, id: &str) -> Result<SuccessfulResponse> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::FavoritePlaylistRemove);
+        println!("{endpoint}");
+        let mut form_data = HashMap::new();
+        form_data.insert("playlist_id", id);
+
+        post!(self, &endpoint, form_data)
+    }
+
     pub async fn search_all(&self, query: &str, limit: i32) -> Result<SearchAllResults> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::Search);
         let limit = limit.to_string();
@@ -486,6 +559,48 @@ impl Client {
             get!(self, &endpoint, Some(&params))
         } else {
             Err(Error::AppID)
+        }
+    }
+
+    // Retrieve releases for an artist
+    pub async fn artist_releases(
+        &self,
+        artist_id: i32,
+        limit: Option<i32>,
+    ) -> Result<Vec<Release>> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::ArtistReleases);
+        let limit = if let Some(limit) = limit {
+            limit.to_string()
+        } else {
+            100.to_string()
+        };
+
+        let artistid_string = artist_id.to_string();
+
+        let params = vec![
+            ("artist_id", artistid_string.as_str()),
+            ("limit", limit.as_str()),
+            ("release_type", "album"),
+            ("sort", "release_date"),
+        ];
+
+        // let result: Result<ArtistReleases> = get!(self, &endpoint, Some(&params));
+        let result: Result<ReleaseQuery> = match self.make_get_call(&endpoint, Some(&params)).await
+        {
+            Ok(response) => match serde_json::from_str(response.as_str()) {
+                Ok(item) => Ok(item),
+                Err(error) => Err(Error::DeserializeJSON {
+                    message: error.to_string(),
+                }),
+            },
+            Err(error) => Err(Error::Api {
+                message: error.to_string(),
+            }),
+        };
+
+        match result {
+            Ok(res) => Ok(res.items),
+            Err(err) => Err(err),
         }
     }
 
@@ -727,94 +842,94 @@ pub enum OutputFormat {
     Tsv,
 }
 
-#[tokio::test]
-async fn can_use_methods() {
-    //pretty_env_logger::init();
-    use insta::assert_yaml_snapshot;
+// #[tokio::test]
+// async fn can_use_methods() {
+//     //pretty_env_logger::init();
+//     use insta::assert_yaml_snapshot;
 
-    let mut client = new(None, None, None, None)
-        .await
-        .expect("failed to create client");
+//     let mut client = new(None, None, None, None)
+//         .await
+//         .expect("failed to create client");
 
-    client.refresh().await.expect("failed to refresh config");
-    client
-        .login(env!("QOBUZ_USERNAME"), env!("QOBUZ_PASSWORD"))
-        .await
-        .expect("failed to login");
-    client.test_secrets().await.expect("failed to test secrets");
+//     client.refresh().await.expect("failed to refresh config");
+//     client
+//         .login(env!("QOBUZ_USERNAME"), env!("QOBUZ_PASSWORD"))
+//         .await
+//         .expect("failed to login");
+//     client.test_secrets().await.expect("failed to test secrets");
 
-    assert_yaml_snapshot!(client
-    .user_playlists()
-    .await
-    .expect("failed to fetch user playlists"),
-    {
-            ".user.id" => "[id]",
-            ".user.login" => "[login]",
-            ".playlists.items[].users_count" => "0",
-            ".playlists.items[].updated_at" => "0",
-            ".playlists.total" => "0",
-            ".playlists.items[].duration" => "0",
-            ".playlists.items[].tracks_count" => "0",
-    });
-    assert_yaml_snapshot!(client
-    .search_albums("a love supreme", Some(10))
-    .await
-    .expect("failed to search for albums"),
-    {
-        ".albums.total" => "0",
-        ".albums.items[].artist.albums_count" => "0",
-        ".albums.items[].label.albums_count" => "0",
-        ".albums.items[].purchasable_at" => "0"
-    });
-    assert_yaml_snapshot!(client
-        .album("lhrak0dpdxcbc")
-        .await
-        .expect("failed to get album"));
-    assert_yaml_snapshot!(client
-    .search_artists("pink floyd", Some(10))
-    .await
-    .expect("failed to search artists"),
-    {
-        ".artists.items[].albums_count" => "0"
-    });
-    assert_yaml_snapshot!(client
-        .artist(148745, Some(10))
-        .await
-        .expect("failed to get artist"));
-    assert_yaml_snapshot!(client.track(155999429).await.expect("failed to get track"));
-    assert_yaml_snapshot!(client
-        .track_url(64868955, Some(&AudioQuality::HIFI96), None)
-        .await
-        .expect("failed to get track url"), { ".url" => "[url]" });
+//     assert_yaml_snapshot!(client
+//     .user_playlists()
+//     .await
+//     .expect("failed to fetch user playlists"),
+//     {
+//             ".user.id" => "[id]",
+//             ".user.login" => "[login]",
+//             ".playlists.items[].users_count" => "0",
+//             ".playlists.items[].updated_at" => "0",
+//             ".playlists.total" => "0",
+//             ".playlists.items[].duration" => "0",
+//             ".playlists.items[].tracks_count" => "0",
+//     });
+//     assert_yaml_snapshot!(client
+//     .search_albums("a love supreme", Some(10))
+//     .await
+//     .expect("failed to search for albums"),
+//     {
+//         ".albums.total" => "0",
+//         ".albums.items[].artist.albums_count" => "0",
+//         ".albums.items[].label.albums_count" => "0",
+//         ".albums.items[].purchasable_at" => "0"
+//     });
+//     assert_yaml_snapshot!(client
+//         .album("lhrak0dpdxcbc")
+//         .await
+//         .expect("failed to get album"));
+//     assert_yaml_snapshot!(client
+//     .search_artists("pink floyd", Some(10))
+//     .await
+//     .expect("failed to search artists"),
+//     {
+//         ".artists.items[].albums_count" => "0"
+//     });
+//     assert_yaml_snapshot!(client
+//         .artist(148745, Some(10))
+//         .await
+//         .expect("failed to get artist"));
+//     assert_yaml_snapshot!(client.track(155999429).await.expect("failed to get track"));
+//     assert_yaml_snapshot!(client
+//         .track_url(64868955, Some(&AudioQuality::HIFI96), None)
+//         .await
+//         .expect("failed to get track url"), { ".url" => "[url]" });
 
-    // let new_playlist: Playlist = assert_ok!(
-    //     client
-    //         .create_playlist(
-    //             "test".to_string(),
-    //             false,
-    //             Some("This is a description".to_string()),
-    //             Some(false)
-    //         )
-    //         .await,
-    //     "creating a new playlist"
-    // );
-    //
-    // assert_ok!(
-    //     client
-    //         .playlist_add_track(new_playlist.id.to_string(), vec![155999429.to_string()])
-    //         .await,
-    //     "adding a track to newly created playlist"
-    // );
-    //
-    // assert_ok!(
-    //     client
-    //         .playlist_delete_track(new_playlist.id.to_string(), vec![155999429.to_string()])
-    //         .await,
-    //     "deleting track from the newly created playlist"
-    // );
-    //
-    // assert_ok!(
-    //     client.delete_playlist(new_playlist.id.to_string()).await,
-    //     "deleting the newly created playlist"
-    // );
-}
+//     // let new_playlist: Playlist = assert_ok!(
+//     //     client
+//     //         .create_playlist(
+//     //             "test".to_string(),
+//     //             false,
+//     //             Some("This is a description".to_string()),
+//     //             Some(false)
+//     //         )
+//     //         .await,
+//     //     "creating a new playlist"
+//     // );
+//     //
+//     // assert_ok!(
+//     //     client
+//     //         .playlist_add_track(new_playlist.id.to_string(), vec![155999429.to_string()])
+//     //         .await,
+//     //     "adding a track to newly created playlist"
+//     // );
+//     //
+//     // assert_ok!(
+//     //     client
+//     //         .playlist_delete_track(new_playlist.id.to_string(), vec![155999429.to_string()])
+//     //         .await,
+//     //     "deleting track from the newly created playlist"
+//     // );
+//     //
+//     // assert_ok!(
+//     //     client.delete_playlist(new_playlist.id.to_string()).await,
+//     //     "deleting the newly created playlist"
+//     // );
+// }

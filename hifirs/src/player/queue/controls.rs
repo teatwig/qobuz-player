@@ -1,8 +1,12 @@
 use crate::{
-    player,
-    player::queue::{TrackListType, TrackListValue},
+    player::{
+        self,
+        queue::{TrackListType, TrackListValue},
+    },
     qobuz,
-    service::{Album, MusicService, Playlist, SearchResults, Track, TrackStatus},
+    service::{
+        Album, Artist, Favorites, MusicService, Playlist, SearchResults, Track, TrackStatus,
+    },
     sql::db,
 };
 use futures::executor;
@@ -260,11 +264,43 @@ impl PlayerState {
         self.service.search(query).await
     }
 
+    pub async fn favorites(&self) -> Option<Favorites> {
+        self.service.favorites().await
+    }
+
+    pub async fn add_favorite_album(&self, id: &str) {
+        self.service.add_favorite_album(id).await;
+    }
+    pub async fn remove_favorite_album(&self, id: &str) {
+        self.service.remove_favorite_album(id).await;
+    }
+    pub async fn add_favorite_artist(&self, id: &str) {
+        self.service.add_favorite_artist(id).await;
+    }
+    pub async fn remove_favorite_artist(&self, id: &str) {
+        self.service.remove_favorite_artist(id).await;
+    }
+    pub async fn add_favorite_playlist(&self, id: &str) {
+        self.service.add_favorite_playlist(id).await;
+    }
+    pub async fn remove_favorite_playlist(&self, id: &str) {
+        self.service.remove_favorite_playlist(id).await;
+    }
+
+    pub async fn artist(&self, artist_id: i32) -> Option<Artist> {
+        self.service.artist(artist_id).await
+    }
+
+    pub async fn get_album(&self, id: String) -> Option<Album> {
+        self.service.album(&id).await
+    }
+
+    pub async fn get_playlist(&self, playlist_id: i64) -> Option<Playlist> {
+        self.service.playlist(playlist_id).await
+    }
+
     pub async fn fetch_artist_albums(&self, artist_id: i32) -> Option<Vec<Album>> {
-        match self.service.artist(artist_id).await {
-            Some(results) => results.albums,
-            None => None,
-        }
+        self.service.artist_releases(artist_id).await
     }
 
     pub async fn fetch_playlist_tracks(&self, playlist_id: i64) -> Option<Vec<Track>> {

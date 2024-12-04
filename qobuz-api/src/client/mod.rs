@@ -6,7 +6,9 @@ use std::fmt::Display;
 pub mod album;
 pub mod api;
 pub mod artist;
+pub mod favorites;
 pub mod playlist;
+pub mod release;
 pub mod search_results;
 pub mod track;
 

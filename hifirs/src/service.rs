@@ -15,10 +15,18 @@ pub trait MusicService: Send + Sync + Debug {
     async fn album(&self, album_id: &str) -> Option<Album>;
     async fn track(&self, track_id: i32) -> Option<Track>;
     async fn artist(&self, artist_id: i32) -> Option<Artist>;
+    async fn artist_releases(&self, artist_id: i32) -> Option<Vec<Album>>;
     async fn playlist(&self, playlist_id: i64) -> Option<Playlist>;
     async fn search(&self, query: &str) -> Option<SearchResults>;
     async fn track_url(&self, track_id: i32) -> Option<String>;
     async fn user_playlists(&self) -> Option<Vec<Playlist>>;
+    async fn favorites(&self) -> Option<Favorites>;
+    async fn add_favorite_album(&self, id: &str);
+    async fn remove_favorite_album(&self, id: &str);
+    async fn add_favorite_artist(&self, id: &str);
+    async fn remove_favorite_artist(&self, id: &str);
+    async fn add_favorite_playlist(&self, id: &str);
+    async fn remove_favorite_playlist(&self, id: &str);
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, TS)]
@@ -133,6 +141,7 @@ pub struct Album {
     pub tracks: BTreeMap<u32, Track>,
     pub available: bool,
     pub cover_art: String,
+    pub cover_art_small: String,
 }
 
 impl CursiveFormat for Album {
@@ -172,6 +181,14 @@ pub struct SearchResults {
     pub tracks: Vec<Track>,
     pub artists: Vec<Artist>,
     pub playlists: Vec<Playlist>,
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Favorites {
+    pub albums: Vec<Album>,
+    pub tracks: Vec<Track>,
+    pub artists: Vec<Artist>,
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, TS)]

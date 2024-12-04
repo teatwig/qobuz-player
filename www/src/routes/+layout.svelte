@@ -10,8 +10,11 @@
 	import Spinner from '../lib/components/Spinner.svelte';
 	import { controls } from '$lib/store';
 
+	let isInitialized = true;
+
 	onMount(() => {
 		$controls = new Controls(dev);
+		isInitialized = false;
 
 		const onFocus = () => {
 			if (!$connected) {
@@ -20,11 +23,6 @@
 		};
 
 		window.addEventListener('focus', onFocus);
-
-		return () => {
-			$controls?.close();
-			window.removeEventListener('focus', onFocus);
-		};
 	});
 </script>
 
@@ -34,7 +32,13 @@
 
 <div class="flex h-full flex-col justify-between px-safe pt-safe">
 	<div class="flex h-full flex-col justify-between overflow-hidden">
-		<slot />
+		{#if isInitialized}
+			<div class="flex w-full justify-center p-4">
+				<Spinner />
+			</div>
+		{:else}
+			<slot />
+		{/if}
 	</div>
 
 	<Navigation />

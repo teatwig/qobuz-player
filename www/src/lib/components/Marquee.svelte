@@ -1,5 +1,5 @@
 <script lang="ts">
-	let { input } = $props<{ input: string }>();
+	let { input }: { input: string } = $props();
 
 	let titleWidth = $state(0);
 	let titleWrapperWidth = $state(0);

@@ -7,7 +7,7 @@ use crate::{
             TrackListValue,
         },
     },
-    service::{Album, Playlist, SearchResults, Track},
+    service::{Album, Artist, Favorites, Playlist, SearchResults, Track},
     REFRESH_RESOLUTION,
 };
 use cached::proc_macro::cached;
@@ -556,6 +556,58 @@ pub async fn search(query: &str) -> SearchResults {
 }
 
 #[instrument]
+/// Get favorites
+pub async fn favorites() -> Favorites {
+    QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .favorites()
+        .await
+        .unwrap_or_default()
+}
+
+#[instrument]
+/// Get artist
+pub async fn artist(artist_id: i32) -> Artist {
+    QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .artist(artist_id)
+        .await
+        .unwrap_or_default()
+}
+
+#[instrument]
+/// Get artist
+pub async fn album(id: String) -> Album {
+    QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .get_album(id)
+        .await
+        .unwrap()
+}
+
+#[instrument]
+/// Get playlist
+pub async fn playlist(id: i64) -> Playlist {
+    QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .get_playlist(id)
+        .await
+        .unwrap_or_default()
+}
+
+#[instrument]
 #[cached(size = 10, time = 600)]
 /// Fetch the albums for a specific artist.
 pub async fn artist_albums(artist_id: i32) -> Vec<Album> {
@@ -573,6 +625,84 @@ pub async fn artist_albums(artist_id: i32) -> Vec<Album> {
     } else {
         Vec::new()
     }
+}
+
+#[instrument]
+#[cached(size = 10, time = 600)]
+/// Add album to favorites
+pub async fn add_favorite_album(id: String) {
+    _ = QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .add_favorite_album(&id)
+        .await;
+}
+
+#[instrument]
+#[cached(size = 10, time = 600)]
+/// Remove album from favorites
+pub async fn remove_favorite_album(id: String) {
+    _ = QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .remove_favorite_album(&id)
+        .await;
+}
+
+#[instrument]
+#[cached(size = 10, time = 600)]
+/// Add artist to favorites
+pub async fn add_favorite_artist(id: String) {
+    _ = QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .add_favorite_artist(&id)
+        .await;
+}
+
+#[instrument]
+#[cached(size = 10, time = 600)]
+/// Remove artist from favorites
+pub async fn remove_favorite_artist(id: String) {
+    _ = QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .remove_favorite_artist(&id)
+        .await;
+}
+
+#[instrument]
+#[cached(size = 10, time = 600)]
+/// Add playlist to favorites
+pub async fn add_favorite_playlist(id: String) {
+    _ = QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .add_favorite_playlist(&id)
+        .await;
+}
+
+#[instrument]
+#[cached(size = 10, time = 600)]
+/// Remove playlist from favorites
+pub async fn remove_favorite_playlist(id: String) {
+    _ = QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .remove_favorite_playlist(&id)
+        .await;
 }
 
 #[instrument]

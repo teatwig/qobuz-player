@@ -1,22 +1,15 @@
 <script lang="ts">
-	import { playlistTracks, artistAlbums, playlistTitle } from '$lib/store';
 	import { writable } from 'svelte/store';
-	import ListItem from '$lib/components/ListItem.svelte';
-	import ListAlbum from '$lib/components/ListAlbum.svelte';
-	import List from '$lib/components/List.svelte';
-	import PlaylistTracks from '$lib/components/PlaylistTracks.svelte';
-	import { Icon, MagnifyingGlass, XMark } from 'svelte-hero-icons';
-	import ListTrack from '$lib/components/ListTrack.svelte';
+	import ListAlbums from '$lib/components/ListAlbums.svelte';
+	import { Icon, MagnifyingGlass } from 'svelte-hero-icons';
+	import ListTracks from '$lib/components/ListTracks.svelte';
 	import { onMount } from 'svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
-
 	import { controls } from '$lib/store';
+	import ListArtists from '$lib/components/ListArtists.svelte';
+	import ListPlaylists from '$lib/components/ListPlaylists.svelte';
 
 	const searchTab = writable('albums');
-	const artistName = writable('');
-	const showArtistAlbums = writable(false);
-
-	const showPlaylistTracks = writable(false);
 
 	let query = $state('');
 
@@ -74,7 +67,7 @@
 				class:bg-blue-800={$searchTab === 'playlists'}
 				onclick={() => searchTab.set('playlists')}
 			>
-				Playlist
+				Playlists
 			</button>
 		</div>
 	</div>
@@ -83,84 +76,14 @@
 			<Spinner />
 		</div>
 	{:then data}
-		<List>
-			{#if $searchTab === 'albums'}
-				{#each data.albums as album}
-					<ListItem>
-						<button class="w-full p-4 text-left" onclick={() => $controls.playAlbum(album.id)}>
-							<ListAlbum {album} />
-						</button>
-					</ListItem>
-				{/each}
-			{:else if $searchTab === 'artists'}
-				{#each data.artists as artist}
-					<ListItem>
-						<button
-							class="w-full truncate p-4 text-left text-lg"
-							onclick={() => {
-								$artistAlbums.albums = [];
-								$artistAlbums.id = null;
-								artistName.set(artist.name);
-								$controls.fetchArtistAlbums(artist.id);
-								showArtistAlbums.set(true);
-							}}
-						>
-							{artist.name}
-						</button>
-					</ListItem>
-				{/each}
-			{:else if $searchTab === 'tracks'}
-				{#each data.tracks as track}
-					<ListItem>
-						<button class="w-full p-4 text-left" onclick={() => $controls.playTrack(track.id)}>
-							<ListTrack {track} />
-						</button>
-					</ListItem>
-				{/each}
-			{:else if $searchTab === 'playlists'}
-				{#each data.playlists as playlist}
-					<ListItem>
-						<button
-							class="w-full truncate p-4 text-left text-lg"
-							onclick={() => {
-								$playlistTracks.tracks = [];
-								$playlistTracks.id = null;
-								playlistTitle.set(playlist.title);
-								$controls.fetchPlaylistTracks(playlist.id);
-								showPlaylistTracks.set(true);
-							}}
-						>
-							{playlist.title}
-						</button>
-					</ListItem>
-				{/each}
-			{/if}
-		</List>
+		{#if $searchTab === 'albums'}
+			<ListAlbums sortBy="default" albums={data.albums} />
+		{:else if $searchTab === 'artists'}
+			<ListArtists sortBy="default" artists={data.artists} />
+		{:else if $searchTab === 'tracks'}
+			<ListTracks showTrackNumber={false} tracks={data.tracks} />
+		{:else if $searchTab === 'playlists'}
+			<ListPlaylists sortBy="default" playlists={data.playlists} />
+		{/if}
 	{/await}
-
-	{#if $showArtistAlbums}
-		<div class="absolute left-0 top-0 flex h-full w-full flex-col bg-black">
-			<div class="flex flex-row justify-between bg-black px-4 py-4">
-				<h2>Albums by <span class="font-bold">{$artistName}</span></h2>
-				<button onclick={() => showArtistAlbums.set(false)}
-					><Icon class="size-6" src={XMark} /></button
-				>
-			</div>
-			<div class="overflow-y-scroll">
-				<List>
-					{#each $artistAlbums.albums as album}
-						<ListItem>
-							<button class="w-full p-4 text-left" onclick={() => $controls.playAlbum(album.id)}>
-								<ListAlbum {album} />
-							</button>
-						</ListItem>
-					{/each}
-				</List>
-			</div>
-		</div>
-	{/if}
-
-	{#if $showPlaylistTracks}
-		<PlaylistTracks {controls} {showPlaylistTracks} />
-	{/if}
 </div>

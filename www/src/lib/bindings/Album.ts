@@ -2,4 +2,4 @@
 import type { Artist } from "./Artist";
 import type { Track } from "./Track";
 
-export type Album = { id: string, title: string, artist: Artist, releaseYear: number, hiresAvailable: boolean, explicit: boolean, totalTracks: number, tracks: { [key in number]?: Track }, available: boolean, coverArt: string, };
+export type Album = { id: string, title: string, artist: Artist, releaseYear: number, hiresAvailable: boolean, explicit: boolean, totalTracks: number, tracks: { [key in number]?: Track }, available: boolean, coverArt: string, coverArtSmall: string, };

@@ -1,13 +1,16 @@
 use crate::{
-    service::{Album, Artist, MusicService, Playlist, SearchResults, Track},
-    sql::db::{self},
+    service::{Album, Artist, Favorites, MusicService, Playlist, SearchResults, Track},
+    sql::db,
 };
 use async_trait::async_trait;
 use hifirs_qobuz_api::client::{
     api::{self, Client as QobuzClient},
+    favorites::Favorites as QobuzFavorites,
+    release::{Release, Track as QobuzTrack},
     search_results::SearchAllResults,
     AudioQuality,
 };
+use std::{collections::BTreeMap, str::FromStr};
 
 pub type Result<T, E = hifirs_qobuz_api::Error> = std::result::Result<T, E>;
 
@@ -41,7 +44,14 @@ impl MusicService for QobuzClient {
 
     async fn artist(&self, artist_id: i32) -> Option<Artist> {
         match self.artist(artist_id, None).await {
-            Ok(track) => Some(track.into()),
+            Ok(artist) => Some(artist.into()),
+            Err(_) => None,
+        }
+    }
+
+    async fn artist_releases(&self, artist_id: i32) -> Option<Vec<Album>> {
+        match self.artist_releases(artist_id, None).await {
+            Ok(artist_releases) => Some(artist_releases.into_iter().map(|x| x.into()).collect()),
             Err(_) => None,
         }
     }
@@ -58,6 +68,32 @@ impl MusicService for QobuzClient {
             Ok(results) => Some(results.into()),
             Err(_) => None,
         }
+    }
+
+    async fn favorites(&self) -> Option<Favorites> {
+        match self.favorites(1000).await {
+            Ok(results) => Some(results.into()),
+            Err(_) => None,
+        }
+    }
+
+    async fn add_favorite_album(&self, id: &str) {
+        _ = self.add_favorite_album(id).await;
+    }
+    async fn remove_favorite_album(&self, id: &str) {
+        _ = self.remove_favorite_album(id).await;
+    }
+    async fn add_favorite_artist(&self, id: &str) {
+        _ = self.add_favorite_artist(id).await;
+    }
+    async fn remove_favorite_artist(&self, id: &str) {
+        _ = self.remove_favorite_artist(id).await;
+    }
+    async fn add_favorite_playlist(&self, id: &str) {
+        _ = self.add_favorite_playlist(id).await;
+    }
+    async fn remove_favorite_playlist(&self, id: &str) {
+        _ = self.remove_favorite_playlist(id).await;
     }
 
     async fn track_url(&self, track_id: i32) -> Option<String> {
@@ -196,6 +232,116 @@ impl From<SearchAllResults> for SearchResults {
                 .into_iter()
                 .map(|p| p.into())
                 .collect::<Vec<Playlist>>(),
+        }
+    }
+}
+
+impl From<QobuzFavorites> for Favorites {
+    fn from(s: QobuzFavorites) -> Self {
+        Self {
+            albums: s
+                .albums
+                .items
+                .into_iter()
+                .map(|a| a.into())
+                .collect::<Vec<Album>>(),
+            tracks: s
+                .tracks
+                .items
+                .into_iter()
+                .map(|t| t.into())
+                .collect::<Vec<Track>>(),
+            artists: s
+                .artists
+                .items
+                .into_iter()
+                .map(|a| Artist {
+                    name: a.name,
+                    id: a.id as u32,
+                    albums: None,
+                })
+                .collect::<Vec<Artist>>(),
+        }
+    }
+}
+
+impl From<QobuzTrack> for Track {
+    fn from(s: QobuzTrack) -> Self {
+        Self {
+            id: s.id,
+            number: s.physical_support.track_number as u32,
+            title: s.title,
+            album: None,
+            artist: Some(Artist {
+                id: s.artist.id as u32,
+                name: s.artist.name.display,
+                albums: None,
+            }),
+            duration_seconds: s.duration as u32,
+            explicit: s.parental_warning,
+            hires_available: s.rights.streamable,
+            sampling_rate: s.audio_info.maximum_sampling_rate,
+            bit_depth: s.audio_info.maximum_bit_depth,
+            status: crate::service::TrackStatus::Unplayed,
+            track_url: None,
+            available: s.rights.streamable,
+            cover_art: None,
+            position: s.physical_support.track_number as u32,
+            media_number: s.physical_support.media_number as u32,
+        }
+    }
+}
+
+impl From<Release> for Album {
+    fn from(s: Release) -> Self {
+        let year = chrono::NaiveDate::from_str(&s.dates.original)
+            .expect("failed to parse date")
+            .format("%Y");
+
+        let tracks = if let Some(tracks) = s.tracks {
+            let mut position = 1_u32;
+
+            tracks
+                .items
+                .into_iter()
+                .filter_map(|t| {
+                    if t.rights.streamable {
+                        let mut track: Track = t.into();
+
+                        let next_position = position;
+                        track.position = next_position;
+
+                        position += 1;
+
+                        Some((next_position, track))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<BTreeMap<u32, Track>>()
+        } else {
+            BTreeMap::new()
+        };
+
+        Self {
+            id: s.id,
+            title: s.title,
+            artist: Artist {
+                id: s.artist.id as u32,
+                name: s.artist.name.display,
+                albums: None,
+            },
+            release_year: year
+                .to_string()
+                .parse::<u32>()
+                .expect("error converting year"),
+            hires_available: s.rights.hires_streamable,
+            explicit: s.parental_warning,
+            total_tracks: s.tracks_count as u32,
+            tracks,
+            available: s.rights.streamable,
+            cover_art: s.image.large,
+            cover_art_small: s.image.small,
         }
     }
 }

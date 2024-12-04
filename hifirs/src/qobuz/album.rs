@@ -48,6 +48,7 @@ impl From<QobuzAlbum> for Album {
             available: value.streamable,
             tracks,
             cover_art: value.image.large,
+            cover_art_small: value.image.small,
         }
     }
 }

@@ -19,16 +19,19 @@
 		{#each $queue as track}
 			<ListItem>
 				<button
-					class="flex w-full flex-row gap-x-4 p-4 text-left text-base"
+					class="flex w-full flex-row gap-4 text-left"
 					class:bg-blue-800={track.status === 'Playing'}
 					class:text-gray-500={track.status === 'Played'}
 					on:click|stopPropagation={() => $controls.skipTo(track.position)}
 				>
-					{#if $listType === 'Album' || $listType === 'Track'}
-						<span class="self-start">{track.number.toString().padStart(2, '0')}</span>
-					{:else if $listType === 'Playlist'}
-						<span>{track.position.toString().padStart(2, '0')}</span>
-					{/if}
+					<span class="w-5 text-center">
+						{#if $listType === 'Album' || $listType === 'Track'}
+							<span class="text-gray-400">{track.number}</span>
+						{:else if $listType === 'Playlist'}
+							<span class="text-gray-400">{track.position}</span>
+						{/if}
+					</span>
+
 					<div class="flex flex-grow items-center justify-between overflow-hidden">
 						<span class="truncate">
 							{track.title}

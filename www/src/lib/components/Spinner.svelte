@@ -1,4 +1,4 @@
-<span class="size-6">
+<span class="animate-delay size-6">
 	<svg
 		class="animate-spin text-white"
 		xmlns="http://www.w3.org/2000/svg"
