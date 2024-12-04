@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { playlistTracks, artistAlbums, playlistTitle, Controls } from '$lib/websocket';
+	import { playlistTracks, artistAlbums, playlistTitle } from '$lib/websocket';
 	import { writable } from 'svelte/store';
-	import ListItem from './ListItem.svelte';
-	import ListAlbum from './ListAlbum.svelte';
-	import List from './List.svelte';
-	import PlaylistTracks from './PlaylistTracks.svelte';
+	import ListItem from '$lib/components/ListItem.svelte';
+	import ListAlbum from '$lib/components/ListAlbum.svelte';
+	import List from '$lib/components/List.svelte';
+	import PlaylistTracks from '$lib/components/PlaylistTracks.svelte';
 	import { Icon, MagnifyingGlass, XMark } from 'svelte-hero-icons';
-	import ListTrack from './ListTrack.svelte';
+	import ListTrack from '$lib/components/ListTrack.svelte';
 	import { onMount } from 'svelte';
-	import Spinner from './Spinner.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 
-	let { controls } = $props<{ controls: Controls }>();
+	import { controls } from '$lib/store';
 
 	const searchTab = writable('albums');
 	const artistName = writable('');
@@ -35,7 +35,7 @@
 
 		abortController?.abort();
 		abortController = new AbortController();
-		return controls.search(query, abortController);
+		return $controls.search(query, abortController);
 	});
 
 	let searchInput: HTMLInputElement;
@@ -87,7 +87,7 @@
 			{#if $searchTab === 'albums'}
 				{#each data.albums as album}
 					<ListItem>
-						<button class="w-full p-4 text-left" onclick={() => controls.playAlbum(album.id)}>
+						<button class="w-full p-4 text-left" onclick={() => $controls.playAlbum(album.id)}>
 							<ListAlbum {album} />
 						</button>
 					</ListItem>
@@ -101,7 +101,7 @@
 								$artistAlbums.albums = [];
 								$artistAlbums.id = null;
 								artistName.set(artist.name);
-								controls.fetchArtistAlbums(artist.id);
+								$controls.fetchArtistAlbums(artist.id);
 								showArtistAlbums.set(true);
 							}}
 						>
@@ -112,7 +112,7 @@
 			{:else if $searchTab === 'tracks'}
 				{#each data.tracks as track}
 					<ListItem>
-						<button class="w-full p-4 text-left" onclick={() => controls.playTrack(track.id)}>
+						<button class="w-full p-4 text-left" onclick={() => $controls.playTrack(track.id)}>
 							<ListTrack {track} />
 						</button>
 					</ListItem>
@@ -126,7 +126,7 @@
 								$playlistTracks.tracks = [];
 								$playlistTracks.id = null;
 								playlistTitle.set(playlist.title);
-								controls.fetchPlaylistTracks(playlist.id);
+								$controls.fetchPlaylistTracks(playlist.id);
 								showPlaylistTracks.set(true);
 							}}
 						>
@@ -150,7 +150,7 @@
 				<List>
 					{#each $artistAlbums.albums as album}
 						<ListItem>
-							<button class="w-full p-4 text-left" onclick={() => controls.playAlbum(album.id)}>
+							<button class="w-full p-4 text-left" onclick={() => $controls.playAlbum(album.id)}>
 								<ListAlbum {album} />
 							</button>
 						</ListItem>

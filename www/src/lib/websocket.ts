@@ -206,8 +206,8 @@ export class Controls {
 		this.send({ fetchArtistAlbums: { artist_id } });
 	}
 
-	fetchPlaylistTracks(playlist_id: bigint) {
-		this.send({ fetchPlaylistTracks: { playlist_id } });
+	fetchPlaylistTracks(playlist_id: number) {
+		this.send({ fetchPlaylistTracks: { playlist_id: BigInt(playlist_id) } });
 	}
 
 	fetchUserPlaylists() {

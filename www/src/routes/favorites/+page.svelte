@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { userPlaylists, playlistTracks, playlistTitle } from '$lib/websocket';
 	import { writable } from 'svelte/store';
-	import List from './List.svelte';
-	import ListItem from './ListItem.svelte';
-	import PlaylistTracks from './PlaylistTracks.svelte';
+	import List from '$lib/components/List.svelte';
+	import ListItem from '$lib/components//ListItem.svelte';
+	import PlaylistTracks from '$lib/components//PlaylistTracks.svelte';
 
-	export let controls;
+	import { controls } from '$lib/store';
 
 	const showPlaylistTracks = writable(false);
 </script>
@@ -21,7 +21,7 @@
 						$playlistTracks.tracks = [];
 						$playlistTracks.id = null;
 						playlistTitle.set(playlist.title);
-						controls.fetchPlaylistTracks(playlist.id);
+						$controls.fetchPlaylistTracks(playlist.id);
 						showPlaylistTracks.set(true);
 					}}
 				>

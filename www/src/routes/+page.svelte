@@ -1,77 +1,77 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import {
-		Controls,
 		currentTrack,
-		isBuffering,
-		isLoading,
-		currentStatus,
-		connected
+		numOfTracks,
+		entityTitle,
+		positionString,
+		durationString,
+		position,
+		coverImage
 	} from '$lib/websocket';
-	import { writable } from 'svelte/store';
-	import { dev } from '$app/environment';
-	import Navigation from '../lib/components/Navigation.svelte';
-	import Queue from '../lib/components/Queue.svelte';
-	import { Icon, LinkSlash } from 'svelte-hero-icons';
-	import NowPlaying from '../lib/components/NowPlaying.svelte';
-	import Search from '../lib/components/Search.svelte';
-	import Favorites from '../lib/components/Favorites.svelte';
-	import Spinner from '../lib/components/Spinner.svelte';
+	import Info from '$lib/components/Info.svelte';
+	import { Backward, Forward, Icon, Pause, Play } from 'svelte-hero-icons';
+	import { currentStatus } from '$lib/websocket';
+	import Marquee from '$lib/components/Marquee.svelte';
 
-	let controls: Controls;
+	import { controls } from '$lib/store';
 
-	const activePage = writable('nowPlaying');
-	const setPage = (newPage: string) => activePage.set(newPage);
-
-	onMount(() => {
-		controls = new Controls(dev);
-
-		const onFocus = () => {
-			if (!$connected) {
-				controls.connect();
-			}
-		};
-
-		window.addEventListener('focus', onFocus);
-
-		return () => {
-			controls.close();
-			window.removeEventListener('focus', onFocus);
-		};
-	});
+	let progress = $derived(($position / ($currentTrack?.durationSeconds ?? 1)) * 100);
 </script>
 
-<svelte:head>
-	<title>hifi.rs: {$currentStatus}</title>
-</svelte:head>
+{#if $currentTrack}
+	<div class="flex h-full flex-col items-center justify-center gap-8 p-8 landscape:flex-row">
+		<div class="aspect-square max-h-full max-w-[600px] overflow-clip rounded-lg shadow-lg">
+			<img src={$coverImage} alt={$entityTitle} class="object-contain" />
+		</div>
 
-<div class="flex h-full flex-col justify-between px-safe pt-safe">
-	<div class="flex h-full flex-col justify-between overflow-hidden">
-		{#if $activePage == 'nowPlaying' && $currentTrack}
-			<NowPlaying {controls} />
-		{/if}
+		<div class="flex w-full max-w-md flex-grow flex-col justify-center md:max-w-[600px]">
+			<div class="flex items-center justify-between gap-2">
+				<span class="truncate text-xl">
+					<Marquee input={$entityTitle ?? ''} />
+				</span>
+				<div class="whitespace-nowrap text-gray-500">
+					{$currentTrack.number} of {$numOfTracks}
+				</div>
+			</div>
+			<div class="text-gray-400">
+				<Marquee input={$currentTrack.artist?.name ?? ''} />
+			</div>
 
-		{#if $activePage == 'search'}
-			<Search {controls} />
-		{/if}
+			<div class="flex w-full flex-col gap-y-4">
+				<div class="flex items-center justify-between gap-2">
+					<span class="truncate text-2xl">
+						<Marquee input={$currentTrack?.title} />
+					</span>
+					<Info explicit={$currentTrack.explicit} hiresAvailable={$currentTrack.hiresAvailable} />
+				</div>
 
-		{#if $activePage == 'favorites'}
-			<Favorites {controls} />
-		{/if}
+				<div>
+					<div class="grid h-2 overflow-clip rounded-full">
+						<div style="grid-column: 1; grid-row: 1;" class="w-full bg-gray-800"></div>
+						<div
+							style="grid-column: 1; grid-row: 1;"
+							style:width="{progress}%"
+							class="bg-gray-500 transition"
+						></div>
+					</div>
+					<div class="flex justify-between text-sm text-gray-500">
+						<span>{$positionString}</span>
+						<span>{$durationString}</span>
+					</div>
+				</div>
+			</div>
 
-		{#if $activePage == 'queue'}
-			<Queue {controls} />
-		{/if}
-	</div>
-	<Navigation {activePage} {setPage} />
-</div>
-
-{#if $isBuffering || !$connected || $isLoading}
-	<div class="fixed right-8 top-8 z-10 size-12 rounded bg-black bg-opacity-20 p-2 backdrop-blur">
-		{#if !$connected}
-			<Icon solid src={LinkSlash} />
-		{:else if $isLoading || $isBuffering}
-			<Spinner />
-		{/if}
+			<div class="flex h-10 flex-row justify-center gap-2">
+				<button onclick={() => $controls?.previous()}><Icon src={Backward} solid /></button>
+				<button onclick={() => $controls?.playPause()}>
+					{#if $currentStatus === 'Playing'}
+						<Icon src={Pause} solid />
+					{:else}
+						<Icon src={Play} solid />
+					{/if}
+				</button>
+				<button onclick={() => $controls?.next()}><Icon src={Forward} solid /></button>
+			</div>
+		</div>
 	</div>
 {/if}
