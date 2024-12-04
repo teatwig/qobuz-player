@@ -2,7 +2,8 @@
 	import '../app.postcss';
 
 	import { onMount } from 'svelte';
-	import { Controls, isBuffering, isLoading, currentStatus, connected } from '$lib/websocket';
+	import { Controls } from '$lib/controls';
+	import { isBuffering, isLoading, currentStatus, connected } from '$lib/store';
 	import { dev } from '$app/environment';
 	import Navigation from '../lib/components/Navigation.svelte';
 	import { Icon, LinkSlash } from 'svelte-hero-icons';

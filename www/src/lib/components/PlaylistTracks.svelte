@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { playlistTracks, playlistTitle } from '$lib/websocket';
+	import { playlistTracks, playlistTitle } from '$lib/store';
 	import List from './List.svelte';
 	import ListItem from './ListItem.svelte';
 	import ListTrack from './ListTrack.svelte';

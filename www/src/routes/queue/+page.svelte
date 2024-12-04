@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { queue, entityTitle, listType, currentTrack } from '$lib/websocket';
+	import { queue, entityTitle, listType, currentTrack } from '$lib/store';
 	import Info from '$lib/components/Info.svelte';
 	import List from '$lib/components/List.svelte';
 	import ListItem from '$lib/components/ListItem.svelte';

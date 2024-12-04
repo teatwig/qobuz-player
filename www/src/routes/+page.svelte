@@ -6,11 +6,11 @@
 		positionString,
 		durationString,
 		position,
-		coverImage
-	} from '$lib/websocket';
+		coverImage,
+		currentStatus
+	} from '$lib/store';
 	import Info from '$lib/components/Info.svelte';
 	import { Backward, Forward, Icon, Pause, Play } from 'svelte-hero-icons';
-	import { currentStatus } from '$lib/websocket';
 	import Marquee from '$lib/components/Marquee.svelte';
 
 	import { controls } from '$lib/store';
