@@ -1,47 +1,23 @@
 [package]
-edition = "2021"
 name = "hifi-rs"
-version = "0.3.8"
 license-file = "../LICENSE"
 repository = "https://github.com/iamdb/hifi.rs"
 
-[dependencies]
-async-broadcast = "0.7"
-chrono = "0.4"
-clap = { version = "4", features = ["derive", "env"] }
-comfy-table = "7.0"
-ctrlc = "3.0"
-cursive = { version = "0.20", default-features = false, features = ["crossterm-backend"] } 
-dialoguer = { version = "0.11", features = ["fuzzy-select"] }
-dirs = "5"
-enum-as-inner = "0.6"
-flume = "0.11"
-futures = "0.3"
-gstreamer = { version = "0.22", features = ["serde", "v1_16"] }
-md5 = "0.7.0"
-hifirs-qobuz-api = { version = "*", path = "../qobuz-api" }
-rand = "0.8"
-regex = "1.5"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-snafu = "0.8"
-sqlx = { version = "0.7", default-features = false, features = [ "runtime-tokio-rustls", "sqlite", "migrate", "macros" ] }
-tokio = { version = "1.0", features = ["full"] }
-tokio-stream = "0.1"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-tracy = { version = "0.11", default-features = false, features = ["broadcast", "only-localhost"] } 
-url = "2.2"
-zbus = { version = "4", default-features = false, features = ["tokio"] }
-once_cell = "1.18"
-axum = { version = "0.7", features = ["ws", "tokio"] } 
-include_dir = "0.7"
-mime_guess = "2.0"
-cached = { version = "0.50", features = ["async", "serde", "serde_json"]} 
-async-trait = "0.1.73"
-ts-rs = "10.0"
-tower-http = { version = "0.6.2", features = ["cors"] }
+edition.workspace = true
+version.workspace = true
 
-# [dependencies.rusqlite]
-# version = "0.31"
-# features = ["bundled"]
+[dependencies]
+clap = { workspace = true, features = ["derive", "env"] }
+comfy-table = { workspace = true }
+dialoguer = { workspace = true, features = ["fuzzy-select"] }
+hifirs-player = { version = "*", path = "../hifirs-player" }
+hifirs-qobuz-api = { version = "*", path = "../qobuz-api" }
+hifirs-tui = { version = "*", path = "../hifirs-tui" }
+hifirs-web = { version = "*", path = "../hifirs-web" }
+md5 = { workspace = true }
+serde_json = { workspace = true }
+snafu = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+

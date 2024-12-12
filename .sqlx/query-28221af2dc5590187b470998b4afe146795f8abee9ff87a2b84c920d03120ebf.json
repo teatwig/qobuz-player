@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            UPDATE config\n            SET default_quality=?1\n            WHERE ROWID = 1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "28221af2dc5590187b470998b4afe146795f8abee9ff87a2b84c920d03120ebf"
+}

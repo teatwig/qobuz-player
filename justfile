@@ -25,25 +25,22 @@ docker-build-linux arch=arch():
   docker build -f Dockerfile.{{arch}} -t hifirs .
   docker cp $(docker create hifirs:latest):hifi-rs .
 
+podman-build-linux arch=arch():
+  podman build -f Dockerfile.{{arch}} -t hifirs .
+  podman cp $(docker create hifirs:latest):hifi-rs .
+
 build-player target=detected_target $DATABASE_URL="sqlite:///tmp/data.db":
   just install-deps {{target}}
-  just build-www
   just add-target {{target}}
   just install-toolchain "stable" {{target}}
   just install-sqlx
   just reset-database
-  just build-bin hifi-rs {{target}}
+  just build-tailwind
+  just build-bin {{target}}
 
-build-all-bins target=detected_target:
-  just build --bins --release {{target}}
-
-build-bin bin target=detected_target:
+build-bin target=detected_target:
   @echo Building for target {{target}}
-  cargo build --bin={{bin}} --release --target={{target}}
-
-build-www:
-  @echo Building web ui...
-  cd www && npm install && npm run build
+  cargo build --release --target={{target}}
 
 install-deps target=detected_target:
   #!/usr/bin/env sh
@@ -68,11 +65,11 @@ install-toolchain kind="stable" target=detected_target:
 install-sqlx:
   cargo install sqlx-cli
 
-build-typescript-bindings:
-  TS_RS_EXPORT_DIR=../www/src/lib/bindings cargo test export_bindings
-
 reset-database:
-  touch $(echo $DATABASE_URL | sed -e "s/sqlite:\/\///g") && cargo sqlx database reset --source {{invocation_directory()}}/hifirs/migrations -y
+  touch $(echo $DATABASE_URL | sed -e "s/sqlite:\/\///g") && cargo sqlx database reset --source {{invocation_directory()}}/hifirs-player/migrations -y
+
+build-tailwind:
+  cd hifirs-web && npm install && npm run build
 
 check-deps:
   #!/usr/bin/env sh

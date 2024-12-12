@@ -12,10 +12,12 @@
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.rust-analyzer-src.follows = "";
+      # inputs.rust-analyzer-src.follows = "";
     };
 
     flake-utils.url = "github:numtide/flake-utils";
+
+    helix.url = "github:helix-editor/helix/master";
 
     advisory-db = {
       url = "github:rustsec/advisory-db";
@@ -23,25 +25,20 @@
     };
   };
 
-  outputs = { self, nixpkgs, crane, fenix, flake-utils, advisory-db, ... }:
+  outputs = { self, nixpkgs, crane, fenix, flake-utils, helix, advisory-db, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
         inherit (pkgs) lib;
 
-        craneLib = crane.lib.${system};
+        craneLib = crane.mkLib pkgs;
         src = craneLib.cleanCargoSource (craneLib.path ./.);
 
         # Common arguments can be set here to avoid repeating them later
         commonArgs = {
           inherit src;
           strictDeps = true;
-
-          pname = "hifirs";
-          version = "0.1.0";
-
-          DATABASE_URL = "sqlite://$TMPDIR/data.db";
 
           buildInputs = with pkgs; [
             gst_all_1.gstreamer
@@ -57,18 +54,16 @@
             pcre2
             libunwind
             elfutils
+            binaryen
           ];
 
-          # Additional environment variables can be set directly
-          # MY_CUSTOM_VAR = "some value";
         };
 
-        craneLibLLvmTools = craneLib.overrideToolchain
-          (fenix.packages.${system}.complete.withComponents [
-            "cargo"
-            "llvm-tools"
-            "rustc"
-          ]);
+        # craneLibLLvmTools = craneLib.overrideToolchain
+        #   (fenix.packages.${system}.complete.withComponents [
+        #     "cargo"
+        #     "rustup"
+        #   ]);
 
         # Build *just* the cargo dependencies, so we can reuse
         # all of that work (e.g. via cachix) when running in CI
@@ -108,30 +103,28 @@
 
         packages = {
           default = hifirs;
-        } // lib.optionalAttrs (!pkgs.stdenv.isDarwin) {
-          hifirs-coverage = craneLibLLvmTools.cargoLlvmCov (commonArgs // {
-            inherit cargoArtifacts;
-          });
-        };
-
+        }; 
+        
         apps.default = flake-utils.lib.mkApp {
           drv = hifirs;
         };
 
         devShells.default = craneLib.devShell {
-          # Inherit inputs from checks.
           checks = self.checks.${system};
 
-          # Additional dev-shell environment variables can be set directly
-          # MY_CUSTOM_DEVELOPMENT_VAR = "something else";
-
-          # Extra inputs can be added here; cargo and rustc are provided by default.
           packages = with pkgs; [
+            rustup
+            llvmPackages.lld
             gst_all_1.gstreamer.dev
             gst_all_1.gst-plugins-base.dev
             glib.dev
-            # pkgs.ripgrep
+            helix.packages.${system}.helix
+            tailwindcss
           ];
+
+          RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+          DATABASE_URL = "sqlite:///tmp/data.db";
+          
         };
       });
 }

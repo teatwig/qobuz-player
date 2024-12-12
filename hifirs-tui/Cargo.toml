@@ -1,0 +1,16 @@
+[package]
+name = "hifirs-tui"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[dependencies]
+cursive = { workspace = true, features = ["crossterm-backend"] } 
+futures = { workspace = true }
+once_cell = { workspace = true }
+tokio-stream = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+hifirs-player = { version = "*", path = "../hifirs-player" }
+tracing = { workspace = true }
+gstreamer = { workspace = true, features = ["serde", "v1_16"] }

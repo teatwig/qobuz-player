@@ -1,17 +1,10 @@
-use std::net::SocketAddr;
-
 #[cfg(target_os = "linux")]
-use crate::mpris;
-use crate::{
-    cursive::{self, CursiveUI},
-    player::{self},
-    qobuz::{self},
-    sql::db::{self},
-    wait, websocket,
-};
+use crate::wait;
 use clap::{Parser, Subcommand};
 use comfy_table::{presets::UTF8_FULL, Table};
 use dialoguer::{Confirm, Input, Password};
+use hifirs_player::sql::db;
+use hifirs_player::{mpris, qobuz};
 use hifirs_qobuz_api::client::{api::OutputFormat, AudioQuality};
 use snafu::prelude::*;
 use tokio::task::JoinHandle;
@@ -43,7 +36,7 @@ struct Cli {
 
     #[clap(long, default_value = "0.0.0.0:9888")]
     /// Specify a different interface and port for the web server to listen on.
-    pub interface: SocketAddr,
+    pub interface: String,
 
     #[clap(subcommand)]
     pub command: Commands,
@@ -68,7 +61,7 @@ enum Commands {
         #[clap(value_parser)]
         album_id: String,
     },
-    /// Retreive data from the Qobuz API
+    /// Retrieve data from the Qobuz API
     Api {
         #[clap(subcommand)]
         command: ApiCommands,
@@ -129,7 +122,7 @@ pub enum ApiCommands {
         #[clap(short, long = "output", value_enum)]
         output_format: Option<OutputFormat>,
     },
-    /// Retreive information about a specific playlist.
+    /// Retrieve information about a specific playlist.
     Playlist {
         #[clap(value_parser)]
         id: i64,
@@ -173,8 +166,8 @@ impl From<hifirs_qobuz_api::Error> for Error {
     }
 }
 
-impl From<player::error::Error> for Error {
-    fn from(error: player::error::Error) -> Self {
+impl From<hifirs_player::error::Error> for Error {
+    fn from(error: hifirs_player::error::Error) -> Self {
         Error::PlayerError {
             error: error.to_string(),
         }
@@ -185,17 +178,17 @@ async fn setup_player(
     quit_when_done: bool,
     resume: bool,
     web: bool,
-    interface: SocketAddr,
+    interface: String,
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<Vec<JoinHandle<()>>, Error> {
-    player::init(username, password, quit_when_done).await?;
+    hifirs_player::init(username, password, quit_when_done).await?;
 
     let mut handles: Vec<JoinHandle<()>> = Vec::new();
 
     if resume {
         handles.push(tokio::spawn(async move {
-            match player::resume(false).await {
+            match hifirs_player::resume(false).await {
                 Ok(_) => debug!("resume success"),
                 Err(error) => debug!("resume error {error}"),
             }
@@ -213,12 +206,12 @@ async fn setup_player(
 
     if web {
         handles.push(tokio::spawn(
-            async move { websocket::init(interface).await },
+            async move { hifirs_web::init(interface).await },
         ));
     }
 
     handles.push(tokio::spawn(async {
-        match player::player_loop().await {
+        match hifirs_player::player_loop().await {
             Ok(_) => debug!("player loop exited successfully"),
             Err(error) => debug!("player loop error {error}"),
         }
@@ -272,7 +265,7 @@ pub async fn run() -> Result<(), Error> {
             )
             .await?;
 
-            player::play_uri(&url).await?;
+            hifirs_player::play_uri(&url).await?;
 
             wait!(mut handles, cli.disable_tui);
 
@@ -289,7 +282,7 @@ pub async fn run() -> Result<(), Error> {
             )
             .await?;
 
-            player::play_track(track_id).await?;
+            hifirs_player::play_track(track_id).await?;
 
             wait!(mut handles, cli.disable_tui);
 
@@ -306,7 +299,7 @@ pub async fn run() -> Result<(), Error> {
             )
             .await?;
 
-            player::play_album(&album_id).await?;
+            hifirs_player::play_album(&album_id).await?;
 
             wait!(mut handles, cli.disable_tui);
 
@@ -443,16 +436,16 @@ pub async fn run() -> Result<(), Error> {
 macro_rules! wait {
     (mut $handles: expr, $disable_tui: expr) => {
         if !$disable_tui {
-            let mut tui = CursiveUI::new();
+            let mut tui = hifirs_tui::CursiveUI::new();
 
             $handles.push(tokio::spawn(async {
-                cursive::receive_notifications().await
+                hifirs_tui::receive_notifications().await
             }));
 
             tui.run().await;
 
             debug!("tui exited, quitting");
-            player::quit().await?;
+            hifirs_player::quit().await?;
 
             for h in $handles {
                 match h.await {
@@ -467,7 +460,7 @@ macro_rules! wait {
                 .expect("error waiting for ctrlc");
 
             debug!("ctrlc received, quitting");
-            player::quit().await?;
+            hifirs_player::quit().await?;
 
             for h in $handles {
                 match h.await {

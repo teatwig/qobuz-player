@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT * FROM config\n            WHERE ROWID = 1;\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "username",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "password",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "default_quality",
+        "ordinal": 2,
+        "type_info": "Int64"
+      },
+      {
+        "name": "user_token",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "active_secret",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "app_id",
+        "ordinal": 5,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "bd8ed8ff55110bba821f0efd32c6b8040931be5172ab7db7e2b9abc7bcb1fd3a"
+}
