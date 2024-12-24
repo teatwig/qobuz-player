@@ -21,14 +21,6 @@ detected_target := if os() == "linux" {
 default:
   @just --list
 
-docker-build-linux arch=arch():
-  docker build -f Dockerfile.{{arch}} -t hifirs .
-  docker cp $(docker create hifirs:latest):hifi-rs .
-
-podman-build-linux arch=arch():
-  podman build -f Dockerfile.{{arch}} -t hifirs .
-  podman cp $(docker create hifirs:latest):hifi-rs .
-
 build-player target=detected_target $DATABASE_URL="sqlite:///tmp/data.db":
   just install-deps {{target}}
   just add-target {{target}}
