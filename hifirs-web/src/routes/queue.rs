@@ -87,7 +87,7 @@ pub fn queue(current_tracklist: TrackListValue) -> impl IntoView {
                                         if track.status == TrackStatus::Playing {
                                             "bg-blue-800"
                                         } else if track.status == TrackStatus::Played {
-                                            "bg-gray-800"
+                                            "text-gray-800"
                                         } else {
                                             ""
                                         },

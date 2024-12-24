@@ -74,16 +74,11 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 <link rel="stylesheet" href=style_url />
                 <script src="https://unpkg.com/htmx.org@2.0.0"></script>
                 <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
-                <script src="https://unpkg.com/alpinejs" defer></script>
             </head>
 
-            <body
-                class="text-gray-50 bg-black h-dvh touch-none overflow-clip"
-                hx-history="false"
-                hx-boost="true"
-            >
-
+            <body class="text-gray-50 bg-black h-dvh touch-none overflow-clip" hx-boost="true">
                 <div
+                    id="main"
                     class="flex flex-col justify-between h-full px-safe pt-safe"
                     hx-ext="sse"
                     sse-connect="/sse"
@@ -98,10 +93,3 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
         </html>
     }
 }
-// {move || {
-//     if cfg!(debug_assertions) {
-//         Some(html! { <script src="/assets/scripts/develop.js"></script> })
-//     } else {
-//         None
-//     }
-// }}

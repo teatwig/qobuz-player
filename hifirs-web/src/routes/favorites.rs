@@ -30,41 +30,59 @@ async fn index() -> impl IntoResponse {
 #[component]
 fn favorites(favorites: Favorites, playlists: Vec<Playlist>) -> impl IntoView {
     html! {
-        <div class="flex flex-col flex-grow max-h-full" x-data="{ tab: 'albums' }">
-            <div class="flex flex-col gap-4 p-4">
-                <h1 class="text-2xl">Favorites</h1>
+        <div class="flex flex-col flex-grow gap-4 p-4 max-h-full peer">
+            <input
+                type="radio"
+                id="albums"
+                value="albums"
+                class="sr-only peer/albums"
+                name="tab"
+                checked
+            />
+            <input
+                type="radio"
+                id="artists"
+                value="artists"
+                class="sr-only peer/artists"
+                name="tab"
+            />
+            <input
+                type="radio"
+                id="playlists"
+                value="playlists"
+                class="sr-only peer/playlists"
+                name="tab"
+            />
 
-                <div class="flex justify-between *:rounded-full *:px-2 *:py-1 *:transition-colors">
-                    <button
-                        x-bind:class="{'bg-blue-800' : tab === 'albums'}"
-                        x-on:click.prevent="tab = 'albums'"
-                    >
-                        Albums
-                    </button>
-                    <button
-                        x-bind:class="{'bg-blue-800' : tab === 'artists'}"
-                        x-on:click.prevent="tab = 'artists'"
-                    >
-                        Artists
-                    </button>
-                    <button
-                        x-bind:class="{'bg-blue-800' : tab === 'playlists'}"
-                        x-on:click.prevent="tab = 'playlists'"
-                    >
-                        Playlists
-                    </button>
-                </div>
-            </div>
+            <h1 class="text-2xl">Favorites</h1>
 
-            <div class="contents" x-show="tab === 'albums'">
-                <ListAlbums albums=favorites.albums />
+            <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors">
+                <label for="albums" class="hover:bg-blue-600 group-[#albums:checked~&]:bg-blue-800">
+                    Albums
+                </label>
+                <label
+                    for="artists"
+                    class="hover:bg-blue-600 group-[#artists:checked~&]:bg-blue-800"
+                >
+                    Artists
+                </label>
+                <label
+                    for="playlists"
+                    class="hover:bg-blue-600 group-[#playlists:checked~&]:bg-blue-800"
+                >
+                    Playlists
+                </label>
             </div>
-            <div class="contents" x-show="tab === 'artists'">
-                <ListArtists artists=favorites.artists />
-            </div>
-            <div class="contents" x-show="tab === 'playlists'">
-                <ListPlaylists playlists=playlists />
-            </div>
+        </div>
+
+        <div class="hidden h-full peer-[:has(#albums:checked)]:block">
+            <ListAlbums albums=favorites.albums />
+        </div>
+        <div class="hidden h-full peer-[:has(#artists:checked)]:block">
+            <ListArtists artists=favorites.artists />
+        </div>
+        <div class="hidden h-full peer-[:has(#playlists:checked)]:block">
+            <ListPlaylists playlists=playlists />
         </div>
     }
 }

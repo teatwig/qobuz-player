@@ -33,7 +33,6 @@ pub fn list_albums(albums: Vec<Album>) -> impl IntoView {
                                 <img
                                     class="text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
                                     alt=album.title.clone()
-                                    loading="lazy"
                                     src=album.cover_art_small
                                 />
 
@@ -152,7 +151,6 @@ pub fn list_playlists(playlists: Vec<Playlist>) -> impl IntoView {
                                 <img
                                     class="text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
                                     alt=playlist.title.clone()
-                                    loading="lazy"
                                     src=playlist.cover_art
                                 />
                                 <span class="overflow-hidden w-full truncate">

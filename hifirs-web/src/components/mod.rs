@@ -1,7 +1,16 @@
 use leptos::{component, prelude::*, IntoView};
+use serde::Deserialize;
 
 use crate::{html, icons::Star};
 pub mod list;
+
+#[derive(Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Tab {
+    Albums,
+    Artists,
+    Playlists,
+}
 
 #[component]
 pub fn toggle_favorite(id: String, is_favorite: bool) -> impl IntoView {
