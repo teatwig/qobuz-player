@@ -16,9 +16,7 @@ Qobuz only supports Linux through the browser and has no officially supported AP
 - MPRIS support (control via [playerctl](https://github.com/altdesktop/playerctl) or other D-Bus client)
 - Gapless playback
 - Resume last session
-- Optional Web UI with WebSocket API
-
-In addition to the player, there is a Spotify to Qobuz playlist sync tool and an incomplete Rust library for the Qobuz API.
+- Web UI 
 
 ## Requirements
 
@@ -33,10 +31,6 @@ Download the tar.gz file for your supported OS from the [releases page](https://
 
 ### Build from source
 
-To make building Linux versions from source simpler, there is a `Dockerfile.x86_64` and `Dockerfile.aarch64` to compile the project for Linux x86 and arm64 into a container. After building the image, the file can be extracted to the local disk.
-
-Run `just docker-build-linux <x86_64 or aarch64>` to automate this.
-
 On MacOS, Debian, Arch and Fedora, `just build-player` should make a reasonable effort to install the necessary dependencies needed to build the app and then build it.
 
 ## Get started
@@ -48,10 +42,6 @@ To get started:
 ```shell
 hifi-rs config username # enter username at prompt
 hifi-rs config password # enter password at prompt
-hifi-rs config default-quality <quality> # mp3, cd, hifi96 or hifi192
-
-# play from the command line
-hifi-rs play --url <Qobuz Album, Playlist or Track URL>
 
 # open player
 hifi-rs open
@@ -84,38 +74,11 @@ The TUI has full mouse support.
 | Select item in list | <kbd>enter</kbd>                       |
 | Dismiss popup       | <kbd>esc</kbd>                         |
 
-## Web UI and WebSocket API
+## Web UI
 
-!["WebUI Desktop Screenshot"](/hifi-rs-webui-desktop.png?raw=true)
+<img src="/hifi-rs-webui-desktop.png?raw=true" width="240">
 
-The player can start an embedded web interface along with a websocket API. As this is a potential attack vector, the
-server is disabled by default and must be started with the `--web` argument. It also listens on `0.0.0.0:9888` by default,
+The player can start an embedded web interface. This is disabled by default and must be started with the `--web` argument. It also listens on `0.0.0.0:9888` by default,
 but an inteface can be specified with the `--interface` argument.
 
-Go to `http://<ip>:9888` to view the UI. The WebSocket API can be found at `ws://<ip>:9888/ws`.
-
-There is no security on the WebSocket API, however it will reject any messages that cannot be parsed into a player
-action and it only interacts with the player. There is no reading or writing to the file system by the serve. All files are served from
-within the binary.
-
-For any new clients, the server will send a stream of messages that bootstrap the active state of the player.
-
-### API Controls
-
-To control the player through the WebSocket API, send it a message with the required action.
-
-Example payloads:
-
-Play:
-```json
-{ "play": null }
-```
-Pause:
-```json
-{ "pause": null }
-```
-Skip To Track:
-```json
-{ "skipTo": { "num": "<track index>"} }
-```
-For more options, see the [`Action`](hifirs/src/player/controls.rs#L7) enum.
+Go to `http://<ip>:9888` to view the UI.
