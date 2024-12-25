@@ -22,10 +22,21 @@ pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(index))
         .route("/progress", get(progress_partial))
+        .route("/status", get(status_partial))
         .route("/api/play", put(play))
         .route("/api/pause", put(pause))
         .route("/api/previous", put(previous))
         .route("/api/next", put(next))
+}
+
+async fn status_partial() -> impl IntoResponse {
+    let status = hifirs_player::current_state();
+
+    if status == gstreamer::State::Playing {
+        render(html! { <PlayPause play=true /> })
+    } else {
+        render(html! { <PlayPause play=false /> })
+    }
 }
 
 #[component]
@@ -35,6 +46,7 @@ fn play_pause(play: bool) -> impl IntoView {
             id="play-pause"
             hx-swap="outerHTML"
             hx-target="this"
+            hx-trigger="sse:status"
             hx-put=format!("api/{}", if play { "pause" } else { "play" })
         >
             {match play {

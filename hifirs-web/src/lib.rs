@@ -70,6 +70,18 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
 
     loop {
         if let Ok(notification) = receiver.recv().await {
+            if let Notification::Status { status } = &notification {
+                let event = ServerSentEvent {
+                    event_name: "status".into(),
+                    event_data: if status == &gstreamer::State::Playing {
+                        "playing".into()
+                    } else {
+                        "paused".into()
+                    },
+                };
+                _ = tx.send(event);
+            }
+
             if let Notification::Position { clock } = &notification {
                 let event = ServerSentEvent {
                     event_name: "position".into(),

@@ -33,7 +33,11 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn index(Path(id): Path<i32>) -> impl IntoResponse {
-    let (artist, favorites) = join!(hifirs_player::artist(id), hifirs_player::favorites());
+    let (artist, albums, favorites) = join!(
+        hifirs_player::artist(id),
+        hifirs_player::artist_albums(id),
+        hifirs_player::favorites()
+    );
 
     let is_favorite = favorites
         .artists
@@ -42,15 +46,13 @@ async fn index(Path(id): Path<i32>) -> impl IntoResponse {
 
     render(html! {
         <Page active_page=Page::Search>
-            <Artist artist=artist is_favorite=is_favorite />
+            <Artist artist=artist albums=albums is_favorite=is_favorite />
         </Page>
     })
 }
 
 #[component]
-fn artist(artist: Artist, is_favorite: bool) -> impl IntoView {
-    let albums: Vec<Album> = artist.albums.unwrap_or_default();
-
+fn artist(artist: Artist, albums: Vec<Album>, is_favorite: bool) -> impl IntoView {
     html! {
         <div class="flex flex-col flex-grow max-h-full">
             <div class="flex gap-4 justify-between items-center p-4">
