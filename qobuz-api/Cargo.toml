@@ -23,6 +23,3 @@ snafu = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 
-[dev-dependencies]
-tokio-test = { workspace = true }
-insta = { workspace = true, features = ["yaml", "redactions"] }

@@ -120,6 +120,7 @@
             glib.dev
             helix.packages.${system}.helix
             tailwindcss
+            cargo-machete
           ];
 
           RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";

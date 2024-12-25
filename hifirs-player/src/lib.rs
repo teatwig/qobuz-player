@@ -440,6 +440,7 @@ pub async fn play_track(track_id: i32) -> Result<()> {
 
     Ok(())
 }
+
 #[instrument]
 /// Plays a full album.
 pub async fn play_album(album_id: &str) -> Result<()> {

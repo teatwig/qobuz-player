@@ -1,10 +1,7 @@
-#[cfg(target_os = "linux")]
-use crate::wait;
 use clap::{Parser, Subcommand};
-use comfy_table::{presets::UTF8_FULL, Table};
 use dialoguer::{Confirm, Input, Password};
+use hifirs_player::mpris;
 use hifirs_player::sql::db;
-use hifirs_player::{mpris, qobuz};
 use hifirs_qobuz_api::client::{api::OutputFormat, AudioQuality};
 use snafu::prelude::*;
 use tokio::task::JoinHandle;
@@ -46,26 +43,6 @@ struct Cli {
 enum Commands {
     /// Open the player
     Open {},
-    /// Play an Qobuz entity using the url.
-    Play {
-        #[clap(long, short)]
-        url: String,
-    },
-    /// Stream an individual track by its ID.
-    StreamTrack {
-        #[clap(value_parser)]
-        track_id: i32,
-    },
-    /// Stream a full album by its ID.
-    StreamAlbum {
-        #[clap(value_parser)]
-        album_id: String,
-    },
-    /// Retrieve data from the Qobuz API
-    Api {
-        #[clap(subcommand)]
-        command: ApiCommands,
-    },
     /// Reset the player state
     Reset,
     /// Set configuration options
@@ -250,134 +227,39 @@ pub async fn run() -> Result<(), Error> {
             )
             .await?;
 
-            wait!(mut handles, cli.disable_tui);
+            _ = hifirs_player::ready().await;
+
+            if !(cli.disable_tui) {
+                let mut tui = hifirs_tui::CursiveUI::new();
+                handles.push(tokio::spawn(async {
+                    hifirs_tui::receive_notifications().await
+                }));
+                tui.run().await;
+                debug!("tui exited, quitting");
+                hifirs_player::quit().await?;
+                for h in handles {
+                    match h.await {
+                        Ok(_) => debug!("task exited"),
+                        Err(error) => debug!("task error {error}"),
+                    };
+                }
+            } else {
+                debug!("waiting for ctrlc");
+                tokio::signal::ctrl_c()
+                    .await
+                    .expect("error waiting for ctrlc");
+                debug!("ctrlc received, quitting");
+                hifirs_player::quit().await?;
+                for h in handles {
+                    match h.await {
+                        Ok(_) => debug!("task exited"),
+                        Err(error) => debug!("task error {error}"),
+                    };
+                }
+            };
 
             Ok(())
         }
-        Commands::Play { url } => {
-            let mut handles = setup_player(
-                cli.quit_when_done,
-                false,
-                cli.web,
-                cli.interface,
-                cli.username.as_deref(),
-                cli.password.as_deref(),
-            )
-            .await?;
-
-            hifirs_player::play_uri(&url).await?;
-
-            wait!(mut handles, cli.disable_tui);
-
-            Ok(())
-        }
-        Commands::StreamTrack { track_id } => {
-            let mut handles = setup_player(
-                cli.quit_when_done,
-                false,
-                cli.web,
-                cli.interface,
-                cli.username.as_deref(),
-                cli.password.as_deref(),
-            )
-            .await?;
-
-            hifirs_player::play_track(track_id).await?;
-
-            wait!(mut handles, cli.disable_tui);
-
-            Ok(())
-        }
-        Commands::StreamAlbum { album_id } => {
-            let mut handles = setup_player(
-                cli.quit_when_done,
-                false,
-                cli.web,
-                cli.interface,
-                cli.username.as_deref(),
-                cli.password.as_deref(),
-            )
-            .await?;
-
-            hifirs_player::play_album(&album_id).await?;
-
-            wait!(mut handles, cli.disable_tui);
-
-            Ok(())
-        }
-        Commands::Api { command } => match command {
-            ApiCommands::Search {
-                query,
-                limit,
-                output_format,
-            } => {
-                let client =
-                    qobuz::make_client(cli.username.as_deref(), cli.password.as_deref()).await?;
-                let results = client.search_all(&query, limit.unwrap_or_default()).await?;
-
-                output!(results, output_format);
-
-                Ok(())
-            }
-            ApiCommands::SearchAlbums {
-                query,
-                limit,
-                output_format,
-            } => {
-                let client =
-                    qobuz::make_client(cli.username.as_deref(), cli.password.as_deref()).await?;
-                let results = client.search_albums(&query, limit).await?;
-
-                output!(results, output_format);
-
-                Ok(())
-            }
-            ApiCommands::SearchArtists {
-                query,
-                limit,
-                output_format,
-            } => {
-                let client =
-                    qobuz::make_client(cli.username.as_deref(), cli.password.as_deref()).await?;
-                let results = client.search_artists(&query, limit).await?;
-
-                output!(results, output_format);
-
-                Ok(())
-            }
-            ApiCommands::Playlist { id, output_format } => {
-                let client =
-                    qobuz::make_client(cli.username.as_deref(), cli.password.as_deref()).await?;
-
-                let results = client.playlist(id).await?;
-                output!(results, output_format);
-                Ok(())
-            }
-            ApiCommands::Album { id, output_format } => {
-                let client =
-                    qobuz::make_client(cli.username.as_deref(), cli.password.as_deref()).await?;
-
-                let results = client.album(&id).await?;
-                output!(results, output_format);
-                Ok(())
-            }
-            ApiCommands::Artist { id, output_format } => {
-                let client =
-                    qobuz::make_client(cli.username.as_deref(), cli.password.as_deref()).await?;
-
-                let results = client.artist(id, Some(500)).await?;
-                output!(results, output_format);
-                Ok(())
-            }
-            ApiCommands::Track { id, output_format } => {
-                let client =
-                    qobuz::make_client(cli.username.as_deref(), cli.password.as_deref()).await?;
-
-                let results = client.track(id).await?;
-                output!(results, output_format);
-                Ok(())
-            }
-        },
         Commands::Reset => {
             db::clear_state().await;
             Ok(())
@@ -431,86 +313,3 @@ pub async fn run() -> Result<(), Error> {
         },
     }
 }
-
-#[macro_export]
-macro_rules! wait {
-    (mut $handles: expr, $disable_tui: expr) => {
-        if !$disable_tui {
-            let mut tui = hifirs_tui::CursiveUI::new();
-
-            $handles.push(tokio::spawn(async {
-                hifirs_tui::receive_notifications().await
-            }));
-
-            tui.run().await;
-
-            debug!("tui exited, quitting");
-            hifirs_player::quit().await?;
-
-            for h in $handles {
-                match h.await {
-                    Ok(_) => debug!("task exited"),
-                    Err(error) => debug!("task error {error}"),
-                };
-            }
-        } else {
-            debug!("waiting for ctrlc");
-            tokio::signal::ctrl_c()
-                .await
-                .expect("error waiting for ctrlc");
-
-            debug!("ctrlc received, quitting");
-            hifirs_player::quit().await?;
-
-            for h in $handles {
-                match h.await {
-                    Ok(_) => debug!("task exited"),
-                    Err(error) => debug!("task error {error}"),
-                };
-            }
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! output {
-    ($results:ident, $output_format:expr) => {
-        match $output_format {
-            Some(OutputFormat::Json) => {
-                let json =
-                    serde_json::to_string(&$results).expect("failed to convert results to string");
-
-                print!("{}", json);
-            }
-            Some(OutputFormat::Tsv) => {
-                // let formatted_results: Vec<Vec<String>> = $results.into();
-
-                // let rows = formatted_results
-                //     .iter()
-                //     .map(|row| {
-                //         let tabbed = row.join("\t");
-
-                //         tabbed
-                //     })
-                //     .collect::<Vec<String>>();
-
-                print!("");
-            }
-            None => {
-                let mut table = Table::new();
-                table.load_preset(UTF8_FULL);
-                table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
-
-                //let table_rows: Vec<Vec<String>> = $results.into();
-
-                // for row in table_rows {
-                //     table.add_row(row);
-                // }
-
-                print!("{}", table);
-            }
-        }
-    };
-}
-
-pub(crate) use output;
