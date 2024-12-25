@@ -77,7 +77,7 @@ fn album(album: Album, is_favorite: bool, now_playing_id: Option<u32>) -> impl I
     html! {
         <div
             hx-get=""
-            hx-trigger="sse:position"
+            hx-trigger="sse:tracklist"
             hx-swap="outerHTML"
             class="flex flex-col justify-center items-center h-full landscape:flex-row"
         >

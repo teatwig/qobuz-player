@@ -46,7 +46,7 @@ fn play_pause(play: bool) -> impl IntoView {
             id="play-pause"
             hx-swap="outerHTML"
             hx-target="this"
-            hx-trigger="sse:status"
+            hx-trigger="click, sse:status"
             hx-put=format!("api/{}", if play { "pause" } else { "play" })
         >
             {match play {

@@ -75,13 +75,13 @@ fn favorites(favorites: Favorites, playlists: Vec<Playlist>) -> impl IntoView {
             </div>
         </div>
 
-        <div class="hidden h-full peer-[:has(#albums:checked)]:block">
+        <div class="hidden overflow-auto h-full peer-[:has(#albums:checked)]:block">
             <ListAlbums albums=favorites.albums />
         </div>
-        <div class="hidden h-full peer-[:has(#artists:checked)]:block">
+        <div class="hidden overflow-auto h-full peer-[:has(#artists:checked)]:block">
             <ListArtists artists=favorites.artists />
         </div>
-        <div class="hidden h-full peer-[:has(#playlists:checked)]:block">
+        <div class="hidden overflow-auto h-full peer-[:has(#playlists:checked)]:block">
             <ListPlaylists playlists=playlists />
         </div>
     }

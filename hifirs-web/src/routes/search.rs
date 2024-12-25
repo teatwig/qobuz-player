@@ -116,13 +116,13 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
             </div>
         </form>
 
-        <div class="hidden h-full peer-[:has(#albums:checked)]:block">
+        <div class="hidden overflow-auto h-full peer-[:has(#albums:checked)]:block">
             <ListAlbums albums=search_results.albums />
         </div>
-        <div class="hidden h-full peer-[:has(#artists:checked)]:block">
+        <div class="hidden overflow-auto h-full peer-[:has(#artists:checked)]:block">
             <ListArtists artists=search_results.artists />
         </div>
-        <div class="hidden h-full peer-[:has(#playlists:checked)]:block">
+        <div class="hidden overflow-auto h-full peer-[:has(#playlists:checked)]:block">
             <ListPlaylists playlists=search_results.playlists />
         </div>
     }
