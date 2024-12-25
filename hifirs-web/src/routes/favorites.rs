@@ -76,13 +76,13 @@ fn favorites(favorites: Favorites, playlists: Vec<Playlist>) -> impl IntoView {
         </div>
 
         <div class="hidden overflow-auto h-full peer-[:has(#albums:checked)]:block">
-            <ListAlbums albums=favorites.albums />
+            <ListAlbums albums=favorites.albums sort=crate::components::list::AlbumSort::Artist />
         </div>
         <div class="hidden overflow-auto h-full peer-[:has(#artists:checked)]:block">
-            <ListArtists artists=favorites.artists />
+            <ListArtists artists=favorites.artists sort=crate::components::list::ArtistSort::Name />
         </div>
         <div class="hidden overflow-auto h-full peer-[:has(#playlists:checked)]:block">
-            <ListPlaylists playlists=playlists />
+            <ListPlaylists playlists=playlists sort=crate::components::list::PlaylistSort::Title />
         </div>
     }
 }

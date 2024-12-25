@@ -17,8 +17,28 @@ pub fn list_item(children: Children) -> impl IntoView {
     }
 }
 
+pub enum AlbumSort {
+    Default,
+    Artist,
+    ReleaseYear,
+}
+
 #[component]
-pub fn list_albums(albums: Vec<Album>) -> impl IntoView {
+pub fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
+    match sort {
+        AlbumSort::Default => (),
+        AlbumSort::Artist => albums.sort_by(|a, b| {
+            a.artist
+                .name
+                .cmp(&b.artist.name)
+                .then_with(|| b.release_year.cmp(&a.release_year))
+        }),
+        AlbumSort::ReleaseYear => {
+            albums.sort_by_key(|album| album.release_year);
+            albums.reverse();
+        }
+    };
+
     html! {
         <List>
             {albums
@@ -60,8 +80,18 @@ pub fn list_albums(albums: Vec<Album>) -> impl IntoView {
     }
 }
 
+pub enum ArtistSort {
+    Default,
+    Name,
+}
+
 #[component]
-pub fn list_artists(artists: Vec<Artist>) -> impl IntoView {
+pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView {
+    match sort {
+        ArtistSort::Default => (),
+        ArtistSort::Name => artists.sort_by_key(|artist| artist.name.clone()),
+    };
+
     html! {
         <List>
             {artists
@@ -135,8 +165,18 @@ pub fn list_tracks(
     }
 }
 
+pub enum PlaylistSort {
+    Default,
+    Title,
+}
+
 #[component]
-pub fn list_playlists(playlists: Vec<Playlist>) -> impl IntoView {
+pub fn list_playlists(mut playlists: Vec<Playlist>, sort: PlaylistSort) -> impl IntoView {
+    match sort {
+        PlaylistSort::Default => (),
+        PlaylistSort::Title => playlists.sort_by_key(|playlist| playlist.title.clone()),
+    };
+
     html! {
         <List>
             {playlists

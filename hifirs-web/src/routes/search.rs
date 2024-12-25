@@ -117,13 +117,22 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
         </form>
 
         <div class="hidden overflow-auto h-full peer-[:has(#albums:checked)]:block">
-            <ListAlbums albums=search_results.albums />
+            <ListAlbums
+                albums=search_results.albums
+                sort=crate::components::list::AlbumSort::Default
+            />
         </div>
         <div class="hidden overflow-auto h-full peer-[:has(#artists:checked)]:block">
-            <ListArtists artists=search_results.artists />
+            <ListArtists
+                artists=search_results.artists
+                sort=crate::components::list::ArtistSort::Default
+            />
         </div>
         <div class="hidden overflow-auto h-full peer-[:has(#playlists:checked)]:block">
-            <ListPlaylists playlists=search_results.playlists />
+            <ListPlaylists
+                playlists=search_results.playlists
+                sort=crate::components::list::PlaylistSort::Default
+            />
         </div>
     }
 }

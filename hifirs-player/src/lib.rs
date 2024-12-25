@@ -556,6 +556,7 @@ pub async fn search(query: &str) -> SearchResults {
 }
 
 #[instrument]
+#[cached(size = 1, time = 600)]
 /// Get favorites
 pub async fn favorites() -> Favorites {
     QUEUE

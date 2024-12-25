@@ -60,7 +60,7 @@ fn artist(artist: Artist, albums: Vec<Album>, is_favorite: bool) -> impl IntoVie
 
                 <ToggleFavorite id=artist.id.to_string() is_favorite=is_favorite />
             </div>
-            <ListAlbums albums=albums />
+            <ListAlbums albums=albums sort=crate::components::list::AlbumSort::ReleaseYear />
         </div>
     }
 }
