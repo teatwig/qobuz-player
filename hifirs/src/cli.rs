@@ -20,10 +20,6 @@ struct Cli {
     pub password: Option<String>,
 
     #[clap(short, long, default_value_t = false)]
-    /// Quit after done playing
-    pub quit_when_done: bool,
-
-    #[clap(short, long, default_value_t = false)]
     /// Disable the TUI interface.
     pub disable_tui: bool,
 
@@ -152,14 +148,13 @@ impl From<hifirs_player::error::Error> for Error {
 }
 
 async fn setup_player(
-    quit_when_done: bool,
     resume: bool,
     web: bool,
     interface: String,
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<Vec<JoinHandle<()>>, Error> {
-    hifirs_player::init(username, password, quit_when_done).await?;
+    hifirs_player::init(username, password).await?;
 
     let mut handles: Vec<JoinHandle<()>> = Vec::new();
 
@@ -218,7 +213,6 @@ pub async fn run() -> Result<(), Error> {
     match cli.command {
         Commands::Open {} => {
             let mut handles = setup_player(
-                cli.quit_when_done,
                 true,
                 cli.web,
                 cli.interface,
