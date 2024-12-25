@@ -227,8 +227,6 @@ pub async fn run() -> Result<(), Error> {
             )
             .await?;
 
-            _ = hifirs_player::ready().await;
-
             if !(cli.disable_tui) {
                 let mut tui = hifirs_tui::CursiveUI::new();
                 handles.push(tokio::spawn(async {

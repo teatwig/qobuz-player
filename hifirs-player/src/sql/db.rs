@@ -50,7 +50,7 @@ pub async fn init() {
 
 pub async fn clear_state() {
     if let Ok(mut conn) = acquire!() {
-        sqlx::query("DELETE FROM state WHERE state.key != 'active_screen'")
+        sqlx::query("DELETE FROM player_state")
             .execute(&mut *conn)
             .await
             .expect("failed to clear state");

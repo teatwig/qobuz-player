@@ -106,9 +106,12 @@ async fn progress_partial() -> impl IntoResponse {
     let current_track = hifirs_player::current_track().await;
     let duration_seconds = current_track.map(|track| track.duration_seconds);
 
-    render(
-        html! { <Progress position_seconds=position_mseconds duration_seconds=duration_seconds /> },
-    )
+    render(html! {
+        <Progress position_seconds=position_mseconds duration_seconds=duration_seconds />
+        <div hx-swap-oob="innerHTML:#play-pause">
+            <Pause />
+        </div>
+    })
 }
 
 #[component]
