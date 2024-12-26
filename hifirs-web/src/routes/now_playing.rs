@@ -46,7 +46,7 @@ async fn set_volume(axum::Form(query): axum::Form<VolumeQuery>) -> impl IntoResp
         volume = 100;
     };
 
-    let formatted_volume = f64::powf(volume as f64 / 100.0, 1.0 / 3.0);
+    let formatted_volume = volume as f64 / 100.0;
 
     hifirs_player::set_volume(formatted_volume);
 }
@@ -105,7 +105,7 @@ async fn index(headers: HeaderMap) -> impl IntoResponse {
     let current_tracklist = hifirs_player::current_tracklist().await;
     let position_mseconds = hifirs_player::position().map(|position| position.mseconds());
     let current_status = hifirs_player::current_state();
-    let current_volume = (f64::powf(hifirs_player::volume(), 3.0) * 100.0) as u32;
+    let current_volume = (hifirs_player::volume() * 100.0) as u32;
 
     let inner = html! {
         <NowPlaying
@@ -262,7 +262,7 @@ pub fn now_playing(
                     <input
                         class="w-full"
                         hx-post="api/volume"
-                        hx-trigger="input delay:500ms"
+                        hx-trigger="input delay:100ms"
                         hx-swap="none"
                         value=current_volume
                         type="range"
