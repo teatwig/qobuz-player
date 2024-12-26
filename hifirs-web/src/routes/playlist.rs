@@ -82,7 +82,7 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
                 .cover_art
                 .map(|cover_art| {
                     html! {
-                        <div class="flex justify-center p-8 landscape::max-w-[50%] portrait:max-h-[50%]">
+                        <div class="flex justify-center p-4 landscape::max-w-[50%] portrait:max-h-[50%]">
                             <div class="max-h-full rounded-lg shadow-lg aspect-square overflow-clip">
                                 <img
                                     src=cover_art

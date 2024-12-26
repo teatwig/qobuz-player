@@ -1,7 +1,7 @@
 use axum::{
     http::HeaderMap,
     response::IntoResponse,
-    routing::{get, put},
+    routing::{get, post, put},
     Router,
 };
 use hifirs_player::queue::{TrackListType, TrackListValue};
@@ -27,6 +27,28 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/api/pause", put(pause))
         .route("/api/previous", put(previous))
         .route("/api/next", put(next))
+        .route("/api/volume", post(set_volume))
+}
+
+#[derive(serde::Deserialize, Clone, Copy)]
+struct VolumeQuery {
+    volume: i32,
+}
+
+async fn set_volume(axum::Form(query): axum::Form<VolumeQuery>) -> impl IntoResponse {
+    let mut volume = query.volume;
+
+    if volume < 0 {
+        volume = 0;
+    };
+
+    if volume > 100 {
+        volume = 100;
+    };
+
+    let formatted_volume = f64::powf(volume as f64 / 100.0, 1.0 / 3.0);
+
+    hifirs_player::set_volume(formatted_volume);
 }
 
 async fn status_partial() -> impl IntoResponse {
@@ -83,12 +105,14 @@ async fn index(headers: HeaderMap) -> impl IntoResponse {
     let current_tracklist = hifirs_player::current_tracklist().await;
     let position_mseconds = hifirs_player::position().map(|position| position.mseconds());
     let current_status = hifirs_player::current_state();
+    let current_volume = (f64::powf(hifirs_player::volume(), 3.0) * 100.0) as u32;
 
     let inner = html! {
         <NowPlaying
             current_tracklist=current_tracklist
             position_mseconds=position_mseconds
             current_status=current_status
+            current_volume=current_volume
         />
     };
 
@@ -146,6 +170,7 @@ pub fn now_playing(
     current_tracklist: TrackListValue,
     position_mseconds: Option<u64>,
     current_status: gstreamer::State,
+    current_volume: u32,
 ) -> impl IntoView {
     let current_track = current_tracklist
         .queue
@@ -181,7 +206,7 @@ pub fn now_playing(
             hx-get=""
             hx-trigger="sse:tracklist"
             hx-swap="outerHTML"
-            class="flex flex-col gap-8 justify-center items-center p-8 h-full landscape:flex-row"
+            class="flex flex-col gap-4 justify-center items-center p-4 h-full landscape:flex-row"
         >
             <div class="max-h-full rounded-lg shadow-lg aspect-square max-w-[600px] overflow-clip">
                 {if let Some(cover_image_url) = cover_image {
@@ -194,7 +219,7 @@ pub fn now_playing(
 
             <div class="flex flex-col flex-grow justify-center w-full max-w-md md:max-w-[600px]">
                 <div class="flex gap-2 justify-between items-center">
-                    <span class="text-xl truncate">{entity_title}</span>
+                    <span class="text truncate">{entity_title}</span>
                     <div class="text-gray-500 whitespace-nowrap">
                         {if current_track.is_some() {
                             format!("{} of {}", current_track_number, number_of_tracks)
@@ -208,7 +233,7 @@ pub fn now_playing(
 
                 <div class="flex flex-col gap-y-4 w-full">
                     <div class="flex gap-2 justify-between items-center">
-                        <span class="text-2xl truncate">{title}</span>
+                        <span class="text-lg truncate">{title}</span>
                         <Info explicit=explicit hires_available=hires_available />
                     </div>
 
@@ -218,19 +243,33 @@ pub fn now_playing(
                     />
                 </div>
 
-                <div class="flex flex-row gap-2 justify-center h-10">
-                    <button hx-swap="none" hx-put="api/previous">
-                        <Backward />
-                    </button>
+                <div class="flex flex-col gap-4">
+                    <div class="flex flex-row gap-2 justify-center h-10">
+                        <button hx-swap="none" hx-put="api/previous">
+                            <Backward />
+                        </button>
 
-                    {if current_status != gstreamer::State::Playing {
-                        html! { <PlayPause play=false /> }.into_any()
-                    } else {
-                        html! { <PlayPause play=true /> }.into_any()
-                    }}
-                    <button hx-put="api/next" hx-swap="none">
-                        <Forward />
-                    </button>
+                        {if current_status != gstreamer::State::Playing {
+                            html! { <PlayPause play=false /> }.into_any()
+                        } else {
+                            html! { <PlayPause play=true /> }.into_any()
+                        }}
+                        <button hx-put="api/next" hx-swap="none">
+                            <Forward />
+                        </button>
+                    </div>
+
+                    <input
+                        class="w-full"
+                        hx-post="api/volume"
+                        hx-trigger="input delay:500ms"
+                        hx-swap="none"
+                        value=current_volume
+                        type="range"
+                        name="volume"
+                        min="0"
+                        max="100"
+                    />
                 </div>
             </div>
         </div>

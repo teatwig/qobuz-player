@@ -81,7 +81,7 @@ fn album(album: Album, is_favorite: bool, now_playing_id: Option<u32>) -> impl I
             hx-swap="outerHTML"
             class="flex flex-col justify-center items-center h-full landscape:flex-row"
         >
-            <div class="flex justify-center p-8 landscape::max-w-[50%] portrait:max-h-[50%]">
+            <div class="flex justify-center p-4 landscape::max-w-[50%] portrait:max-h-[50%]">
                 <div class="max-h-full rounded-lg shadow-lg aspect-square overflow-clip">
                     <img src=album.cover_art alt=album.title.clone() class="object-contain" />
                 </div>

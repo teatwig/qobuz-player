@@ -26,14 +26,11 @@ use std::{
 use tokio::{select, sync::RwLock};
 use tracing::{debug, instrument};
 
-#[macro_use]
-pub mod actions;
 pub mod error;
-pub mod notification;
-#[macro_use]
-pub mod queue;
 pub mod mpris;
+pub mod notification;
 pub mod qobuz;
+pub mod queue;
 pub mod service;
 pub mod sql;
 
@@ -125,7 +122,6 @@ static ABOUT_TO_FINISH: Lazy<AboutToFinish> = Lazy::new(|| {
 
     AboutToFinish { tx, rx }
 });
-static QUIT_WHEN_DONE: AtomicBool = AtomicBool::new(false);
 static IS_BUFFERING: AtomicBool = AtomicBool::new(false);
 static IS_LIVE: AtomicBool = AtomicBool::new(false);
 static SAMPLING_RATE: AtomicU32 = AtomicU32::new(44100);
@@ -137,17 +133,13 @@ static USER_AGENTS: &[&str] = &[
 ];
 
 #[instrument]
-pub async fn init(
-    username: Option<&str>,
-    password: Option<&str>,
-    quit_when_done: bool,
-) -> Result<()> {
+pub async fn init(username: Option<&str>, password: Option<&str>) -> Result<()> {
     let state = Arc::new(RwLock::new(PlayerState::new(username, password).await));
     let version = gstreamer::version();
     debug!(?version);
 
     QUEUE.set(state).expect("error setting player state");
-    QUIT_WHEN_DONE.store(quit_when_done, Ordering::Relaxed);
+    set_volume(1.0);
 
     Ok(())
 }
@@ -254,6 +246,16 @@ pub fn position() -> Option<ClockTime> {
 /// Current track duraiton.
 pub fn duration() -> Option<ClockTime> {
     PLAYBIN.query_duration::<ClockTime>()
+}
+#[instrument]
+/// Current volume
+pub fn volume() -> f64 {
+    PLAYBIN.property::<f64>("volume")
+}
+#[instrument]
+/// Set volume
+pub fn set_volume(value: f64) {
+    PLAYBIN.set_property("volume", value)
 }
 #[instrument]
 /// Seek to a specified time in the current track.
@@ -833,15 +835,11 @@ async fn handle_message(msg: &Message) -> Result<()> {
     match msg.view() {
         MessageView::Eos(_) => {
             debug!("END OF STREAM");
-            if QUIT_WHEN_DONE.load(Ordering::Relaxed) {
-                QUEUE.get().unwrap().read().await.quit();
-            } else {
-                let mut q = QUEUE.get().unwrap().write().await;
-                q.set_target_status(GstState::Paused);
-                drop(q);
+            let mut q = QUEUE.get().unwrap().write().await;
+            q.set_target_status(GstState::Paused);
+            drop(q);
 
-                skip(1, true).await?;
-            }
+            skip(1, true).await?;
         }
         MessageView::StreamStart(_) => {
             if is_playing() {
@@ -991,22 +989,4 @@ async fn handle_message(msg: &Message) -> Result<()> {
     }
 
     Ok(())
-}
-
-#[macro_export]
-macro_rules! action {
-    ($self:ident, $action:expr) => {
-        if let Err(_) = $self.action_tx.send_async($action).await {
-            error!("error sending action");
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! action_blocking {
-    ($self:ident, $action:expr) => {
-        if let Err(_) = $self.action_tx.send($action) {
-            error!("error sending action");
-        }
-    };
 }
