@@ -59,11 +59,14 @@ async fn create_router() -> Router {
         .nest("/playlist", playlist::routes())
         .nest("/favorites", favorites::routes())
         .nest("/queue", queue::routes())
+        .route("/dummy", get(dummy))
         .route("/sse", get(sse_handler))
         .route("/assets/*file", get(static_handler));
 
     router.with_state(shared_state)
 }
+
+async fn dummy() -> impl axum::response::IntoResponse {}
 
 async fn background_task(tx: Sender<ServerSentEvent>) {
     let mut receiver = hifirs_player::notify_receiver();
@@ -82,23 +85,47 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
                 _ = tx.send(event);
             }
 
-            if let Notification::Position { clock } = &notification {
-                let event = ServerSentEvent {
-                    event_name: "position".into(),
-                    event_data: clock.seconds().to_string(),
-                };
-                _ = tx.send(event);
-            }
+            match notification {
+                Notification::Buffering {
+                    is_buffering: _,
+                    percent: _,
+                    target_state: _,
+                } => {}
+                Notification::Status { status: _ } => (),
+                Notification::Position { clock } => {
+                    let event = ServerSentEvent {
+                        event_name: "position".into(),
+                        event_data: clock.seconds().to_string(),
+                    };
+                    _ = tx.send(event);
+                }
+                Notification::CurrentTrackList { list } => {
+                    let serialized = serde_json::to_string(&list).unwrap_or("".into());
 
-            if let Notification::CurrentTrackList { list } = &notification {
-                let serialized = serde_json::to_string(list).unwrap_or("".into());
-
-                let event = ServerSentEvent {
-                    event_name: "tracklist".into(),
-                    event_data: serialized,
-                };
-                _ = tx.send(event);
-            }
+                    let event = ServerSentEvent {
+                        event_name: "tracklist".into(),
+                        event_data: serialized,
+                    };
+                    _ = tx.send(event);
+                }
+                Notification::AudioQuality {
+                    bitdepth: _,
+                    sampling_rate: _,
+                } => {}
+                Notification::Quit => (),
+                Notification::Loading {
+                    is_loading: _,
+                    target_state: _,
+                } => {}
+                Notification::Error { error: _ } => (),
+                Notification::Volume { volume } => {
+                    let event = ServerSentEvent {
+                        event_name: "volume".into(),
+                        event_data: volume.to_string(),
+                    };
+                    _ = tx.send(event);
+                }
+            };
         }
     }
 }

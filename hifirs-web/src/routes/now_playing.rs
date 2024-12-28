@@ -23,6 +23,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/", get(index))
         .route("/progress", get(progress_partial))
         .route("/status", get(status_partial))
+        .route("/volume-slider", get(volume_slider_partial))
         .route("/api/play", put(play))
         .route("/api/pause", put(pause))
         .route("/api/previous", put(previous))
@@ -33,6 +34,35 @@ pub fn routes() -> Router<Arc<AppState>> {
 #[derive(serde::Deserialize, Clone, Copy)]
 struct VolumeQuery {
     volume: i32,
+}
+
+async fn volume_slider_partial() -> impl IntoResponse {
+    let current_volume = (hifirs_player::volume() * 100.0) as u32;
+    render(html! { <VolumeSlider current_volume=current_volume /> })
+}
+
+#[component]
+fn volume_slider(current_volume: u32) -> impl IntoView {
+    html! {
+        <div
+            id="volume-slider"
+            hx-target="this"
+            hx-trigger="sse:volume delay:5000"
+            hx-get="/volume-slider"
+        >
+            <input
+                class="w-full"
+                hx-post="api/volume"
+                hx-trigger="input delay:100ms"
+                hx-swap="none"
+                value=current_volume
+                type="range"
+                name="volume"
+                min="0"
+                max="100"
+            />
+        </div>
+    }
 }
 
 async fn set_volume(axum::Form(query): axum::Form<VolumeQuery>) -> impl IntoResponse {
@@ -180,24 +210,51 @@ pub fn now_playing(
     let album = current_tracklist.get_album();
     let cover_image = album.map(|album| album.cover_art.clone());
 
-    let entity_title = match current_tracklist.list_type() {
-        TrackListType::Album => album.map(|album| album.title.clone()),
-        TrackListType::Playlist => current_tracklist.playlist.map(|playlist| playlist.title),
-        TrackListType::Track => album.map(|album| album.title.clone()),
-        TrackListType::Unknown => None,
+    let (entity_title, entity_link) = match current_tracklist.list_type() {
+        TrackListType::Album => (
+            album.map(|album| album.title.clone()),
+            album.map(|album| format!("/album/{}", album.id.clone())),
+        ),
+        TrackListType::Playlist => match current_tracklist.playlist {
+            Some(playlist) => (
+                Some(playlist.title),
+                Some(format!("/playlist/{}", playlist.id)),
+            ),
+            None => (None, None),
+        },
+        TrackListType::Track => (
+            album.map(|album| album.title.clone()),
+            album.map(|album| format!("/album/{}", album.id.clone())),
+        ),
+        TrackListType::Unknown => (None, None),
     };
 
-    let (title, current_track_number, artist_name, duration_seconds, explicit, hires_available) =
-        current_track.map_or((String::default(), 0, None, None, false, false), |track| {
+    let (
+        title,
+        current_track_number,
+        artist_name,
+        artist_link,
+        duration_seconds,
+        explicit,
+        hires_available,
+    ) = current_track.map_or(
+        (String::default(), 0, None, None, None, false, false),
+        |track| {
             (
                 track.title.clone(),
                 track.number,
                 track.artist.as_ref().map(|artist| artist.name.clone()),
+                track
+                    .artist
+                    .as_ref()
+                    .map(|artist| artist.id)
+                    .map(|id| format!("/artist/{}", id)),
                 Some(track.duration_seconds),
                 track.explicit,
                 track.hires_available,
             )
-        });
+        },
+    );
 
     let number_of_tracks = current_tracklist.queue.len();
 
@@ -219,7 +276,9 @@ pub fn now_playing(
 
             <div class="flex flex-col flex-grow justify-center w-full max-w-md md:max-w-[600px]">
                 <div class="flex gap-2 justify-between items-center">
-                    <span class="text truncate">{entity_title}</span>
+                    <a class="text truncate" href=entity_link>
+                        {entity_title}
+                    </a>
                     <div class="text-gray-500 whitespace-nowrap">
                         {if current_track.is_some() {
                             format!("{} of {}", current_track_number, number_of_tracks)
@@ -229,7 +288,9 @@ pub fn now_playing(
                     </div>
                 </div>
 
-                <div class="text-gray-400 truncate">{artist_name}</div>
+                <a href=artist_link class="text-gray-400 truncate">
+                    {artist_name}
+                </a>
 
                 <div class="flex flex-col gap-y-4 w-full">
                     <div class="flex gap-2 justify-between items-center">
@@ -258,18 +319,7 @@ pub fn now_playing(
                             <Forward />
                         </button>
                     </div>
-
-                    <input
-                        class="w-full"
-                        hx-post="api/volume"
-                        hx-trigger="input delay:100ms"
-                        hx-swap="none"
-                        value=current_volume
-                        type="range"
-                        name="volume"
-                        min="0"
-                        max="100"
-                    />
+                    <VolumeSlider current_volume=current_volume />
                 </div>
             </div>
         </div>

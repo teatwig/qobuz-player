@@ -72,23 +72,19 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 />
                 <meta name="theme-color" content="#000" />
                 <link rel="stylesheet" href=style_url />
-                <script src="https://unpkg.com/htmx.org@2.0.0"></script>
+                <script src="https://unpkg.com/htmx.org@2.0.4"></script>
                 <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
             </head>
 
-            <body class="text-gray-50 bg-black h-dvh touch-none overflow-clip" hx-boost="true">
-                <div
-                    id="main"
-                    class="flex flex-col justify-between h-full px-safe pt-safe"
-                    hx-ext="sse"
-                    sse-connect="/sse"
-                >
-                    <div class="flex overflow-hidden flex-col justify-between h-full">
-                        {children()}
-                    </div>
+            <body
+                class="flex flex-col justify-between text-gray-50 bg-black h-dvh touch-none overflow-clip px-safe pt-safe"
+                hx-ext="sse"
+                sse-connect="/sse"
+                hx-boost="true"
+            >
+                <div class="flex overflow-hidden flex-col justify-between h-full">{children()}</div>
 
-                    <Navigation active_page=active_page />
-                </div>
+                <Navigation active_page=active_page />
             </body>
         </html>
     }

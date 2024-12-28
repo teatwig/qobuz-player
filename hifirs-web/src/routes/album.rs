@@ -89,6 +89,9 @@ fn album(album: Album, is_favorite: bool, now_playing_id: Option<u32>) -> impl I
 
             <div class="flex overflow-auto flex-col gap-4 items-center w-full h-full">
                 <div class="flex flex-col gap-2 items-center w-full text-center">
+                    <a href=format!("/artist/{}", album.artist.id) class="text-gray-400">
+                        {album.artist.name}
+                    </a>
                     <span class="w-full text-lg truncate">{album.title}</span>
                     <span class="text-gray-400">{album.release_year}</span>
                 </div>

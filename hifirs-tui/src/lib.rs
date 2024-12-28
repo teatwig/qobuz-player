@@ -1041,6 +1041,7 @@ pub async fn receive_notifications() {
                         })).expect("failed to send update");
                     }
                     Notification::Error { error: _ } => {}
+                    Notification::Volume{ volume: _ } => {}
                 }
             }
         }

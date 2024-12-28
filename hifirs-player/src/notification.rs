@@ -43,4 +43,7 @@ pub enum Notification {
     Error {
         error: error::Error,
     },
+    Volume {
+        volume: f64,
+    },
 }

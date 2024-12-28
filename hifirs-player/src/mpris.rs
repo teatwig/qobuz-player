@@ -189,6 +189,7 @@ pub async fn receive_notifications(conn: &Connection) {
                     bitdepth: _,
                     sampling_rate: _,
                 } => {}
+                Notification::Volume { volume: _ } => {}
             }
         }
     }

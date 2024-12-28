@@ -55,7 +55,7 @@ install-toolchain kind="stable" target=detected_target:
   rustup toolchain install {{kind}}-{{target}}
 
 install-sqlx:
-  cargo install sqlx-cli
+  cargo install sqlx-cli --force
 
 reset-database:
   touch $(echo $DATABASE_URL | sed -e "s/sqlite:\/\///g") && cargo sqlx database reset --source {{invocation_directory()}}/hifirs-player/migrations -y

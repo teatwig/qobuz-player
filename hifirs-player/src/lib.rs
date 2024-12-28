@@ -139,7 +139,6 @@ pub async fn init(username: Option<&str>, password: Option<&str>) -> Result<()> 
     debug!(?version);
 
     QUEUE.set(state).expect("error setting player state");
-    set_volume(1.0);
 
     Ok(())
 }
@@ -255,7 +254,14 @@ pub fn volume() -> f64 {
 #[instrument]
 /// Set volume
 pub fn set_volume(value: f64) {
-    PLAYBIN.set_property("volume", value)
+    PLAYBIN.set_property("volume", value);
+
+    tokio::task::spawn(async move {
+        _ = BROADCAST_CHANNELS
+            .tx
+            .broadcast(Notification::Volume { volume: value })
+            .await;
+    });
 }
 #[instrument]
 /// Seek to a specified time in the current track.
