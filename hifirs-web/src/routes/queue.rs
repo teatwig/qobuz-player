@@ -83,7 +83,7 @@ pub fn queue(current_tracklist: TrackListValue) -> impl IntoView {
                                     hx-swap="none"
                                     hx-put=format!("/queue/skip-to/{}", track.position)
                                     class=format!(
-                                        "flex w-full flex-row gap-4 text-left {}",
+                                        "flex w-full items-center flex-row gap-4 text-left {}",
                                         if track.status == TrackStatus::Playing {
                                             "bg-blue-800"
                                         } else if track.status == TrackStatus::Played {

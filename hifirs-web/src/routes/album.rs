@@ -103,11 +103,11 @@ fn album(
             hx-swap="outerHTML"
             class="flex flex-col justify-center items-center landscape:flex-row"
         >
-            <div class="flex justify-center p-4 landscape::max-w-[50%] portrait:max-h-[50%] size-full aspect-square">
+            <div class="p-4 w-full">
                 <img
                     src=album.cover_art
                     alt=album.title.clone()
-                    class="inline object-contain rounded-lg size-full"
+                    class="object-contain rounded-lg size-full aspect-square"
                 />
             </div>
 
