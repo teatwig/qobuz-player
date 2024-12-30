@@ -605,14 +605,14 @@ pub async fn album(id: &str) -> Album {
 }
 
 #[instrument]
-/// Get album
-pub async fn related_albums(album_id: &str) -> Vec<Album> {
+/// Get suggested albums
+pub async fn suggested_albums(album_id: &str) -> Vec<Album> {
     QUEUE
         .get()
         .unwrap()
         .read()
         .await
-        .get_related_albums(album_id)
+        .get_suggested_albums(album_id)
         .await
         .unwrap()
 }

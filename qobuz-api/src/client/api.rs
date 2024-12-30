@@ -523,8 +523,8 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
-    // Retrieve related albums for an album
-    pub async fn related_albums(&self, album_id: &str) -> Result<AlbumSuggestionResults> {
+    // Retrieve suggested albums for an album
+    pub async fn suggested_albums(&self, album_id: &str) -> Result<AlbumSuggestionResults> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::AlbumSuggest);
         let params = vec![("album_id", album_id)];
 

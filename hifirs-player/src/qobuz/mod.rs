@@ -37,8 +37,8 @@ impl MusicService for QobuzClient {
         }
     }
 
-    async fn related_albums(&self, album_id: &str) -> Option<Vec<Album>> {
-        match self.related_albums(album_id).await {
+    async fn suggested_albums(&self, album_id: &str) -> Option<Vec<Album>> {
+        match self.suggested_albums(album_id).await {
             Ok(album_suggestions) => Some(
                 album_suggestions
                     .albums

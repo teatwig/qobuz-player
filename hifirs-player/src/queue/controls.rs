@@ -295,8 +295,8 @@ impl PlayerState {
         self.service.album(id).await
     }
 
-    pub async fn get_related_albums(&self, id: &str) -> Option<Vec<Album>> {
-        self.service.related_albums(id).await
+    pub async fn get_suggested_albums(&self, id: &str) -> Option<Vec<Album>> {
+        self.service.suggested_albums(id).await
     }
 
     pub async fn get_playlist(&self, playlist_id: i64) -> Option<Playlist> {

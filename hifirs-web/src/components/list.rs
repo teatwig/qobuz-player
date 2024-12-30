@@ -24,7 +24,7 @@ pub enum AlbumSort {
 }
 
 #[component]
-pub fn list_related_albums(albums: Vec<Album>) -> impl IntoView {
+pub fn list_albums_vertical(albums: Vec<Album>) -> impl IntoView {
     html! {
         <div class="flex overflow-scroll gap-4 p-2 w-full">
             {albums
@@ -152,7 +152,7 @@ pub fn list_tracks(
                                 hx-put=format!("{}/play/{}", parent_id, track.position)
                                 class="flex justify-between items-center w-full text-left"
                             >
-                                <span class="flex gap-4 items-center">
+                                <span class="flex overflow-hidden gap-4 items-center w-full">
                                     <span class="w-5 text-center">
                                         {now_playing
                                             .then(|| {
@@ -170,7 +170,7 @@ pub fn list_tracks(
                                             })}
                                     </span>
 
-                                    <h2 class="truncate">{track.title}</h2>
+                                    <h2 class="w-full truncate">{track.title}</h2>
                                 </span>
                                 <Info
                                     explicit=track.explicit

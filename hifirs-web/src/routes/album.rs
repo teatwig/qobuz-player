@@ -12,7 +12,7 @@ use tokio::join;
 
 use crate::{
     components::{
-        list::{ListRelatedAlbums, ListTracks},
+        list::{ListAlbumsVertical, ListTracks},
         ToggleFavorite,
     },
     html,
@@ -34,7 +34,7 @@ pub fn routes() -> Router<Arc<AppState>> {
 }
 
 async fn suggestions(Path(id): Path<String>) -> impl IntoResponse {
-    let suggestions = hifirs_player::related_albums(&id).await;
+    let suggestions = hifirs_player::suggested_albums(&id).await;
 
     serde_json::to_string(&suggestions).unwrap_or("Error".into())
 }
@@ -59,9 +59,9 @@ async fn play(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn index(Path(id): Path<String>, headers: HeaderMap) -> impl IntoResponse {
-    let (album, related_albums, now_playing, favorites) = join!(
+    let (album, suggested_albums, now_playing, favorites) = join!(
         hifirs_player::album(&id),
-        hifirs_player::related_albums(&id),
+        hifirs_player::suggested_albums(&id),
         hifirs_player::current_track(),
         hifirs_player::favorites()
     );
@@ -72,7 +72,7 @@ async fn index(Path(id): Path<String>, headers: HeaderMap) -> impl IntoResponse 
     let inner = html! {
         <Album
             album=album
-            related_albums=related_albums
+            suggested_albums=suggested_albums
             is_favorite=is_favorite
             now_playing_id=now_playing_id
         />
@@ -90,7 +90,7 @@ async fn index(Path(id): Path<String>, headers: HeaderMap) -> impl IntoResponse 
 #[component]
 fn album(
     album: Album,
-    related_albums: Vec<Album>,
+    suggested_albums: Vec<Album>,
     is_favorite: bool,
     now_playing_id: Option<u32>,
 ) -> impl IntoView {
@@ -144,7 +144,7 @@ fn album(
 
                 <div class="px-4 w-full">
                     <p>Album suggestions</p>
-                    <ListRelatedAlbums albums=related_albums />
+                    <ListAlbumsVertical albums=suggested_albums />
                 </div>
             </div>
         </div>

@@ -6,7 +6,7 @@ use std::{collections::BTreeMap, fmt::Debug};
 pub trait MusicService: Send + Sync + Debug {
     async fn login(&self, username: &str, password: &str);
     async fn album(&self, album_id: &str) -> Option<Album>;
-    async fn related_albums(&self, album_id: &str) -> Option<Vec<Album>>;
+    async fn suggested_albums(&self, album_id: &str) -> Option<Vec<Album>>;
     async fn track(&self, track_id: i32) -> Option<Track>;
     async fn artist(&self, artist_id: i32) -> Option<Artist>;
     async fn artist_releases(&self, artist_id: i32) -> Option<Vec<Album>>;
