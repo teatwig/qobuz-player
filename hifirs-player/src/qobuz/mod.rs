@@ -4,6 +4,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use hifirs_qobuz_api::client::{
+    album_suggestion::AlbumSuggestion,
     api::{self, Client as QobuzClient},
     favorites::Favorites as QobuzFavorites,
     release::{Release, Track as QobuzTrack},
@@ -29,6 +30,23 @@ impl MusicService for QobuzClient {
     async fn album(&self, album_id: &str) -> Option<Album> {
         match self.album(album_id).await {
             Ok(album) => Some(album.into()),
+            Err(err) => {
+                error!("failed to get album: {}", err);
+                None
+            }
+        }
+    }
+
+    async fn related_albums(&self, album_id: &str) -> Option<Vec<Album>> {
+        match self.related_albums(album_id).await {
+            Ok(album_suggestions) => Some(
+                album_suggestions
+                    .albums
+                    .items
+                    .into_iter()
+                    .map(|x| x.into())
+                    .collect(),
+            ),
             Err(err) => {
                 error!("failed to get album: {}", err);
                 None
@@ -339,6 +357,42 @@ impl From<Release> for Album {
             hires_available: s.rights.hires_streamable,
             explicit: s.parental_warning,
             total_tracks: s.tracks_count as u32,
+            tracks,
+            available: s.rights.streamable,
+            cover_art: s.image.large,
+            cover_art_small: s.image.small,
+        }
+    }
+}
+
+impl From<AlbumSuggestion> for Album {
+    fn from(s: AlbumSuggestion) -> Self {
+        let year = chrono::NaiveDate::from_str(&s.dates.original)
+            .expect("failed to parse date")
+            .format("%Y");
+
+        let tracks = BTreeMap::new();
+
+        let artist = s.artists.and_then(|vec| vec.into_iter().next());
+        let (artist_id, artist_name) = artist.map_or((0, "Unknown".into()), |artist| {
+            (artist.id as u32, artist.name)
+        });
+
+        Self {
+            id: s.id,
+            title: s.title,
+            artist: Artist {
+                id: artist_id,
+                name: artist_name,
+                albums: None,
+            },
+            release_year: year
+                .to_string()
+                .parse::<u32>()
+                .expect("error converting year"),
+            hires_available: s.rights.hires_streamable,
+            explicit: s.parental_warning,
+            total_tracks: s.track_count as u32,
             tracks,
             available: s.rights.streamable,
             cover_art: s.image.large,

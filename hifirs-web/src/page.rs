@@ -82,7 +82,7 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 sse-connect="/sse"
                 hx-boost="true"
             >
-                <div class="flex overflow-hidden flex-col justify-between h-full">{children()}</div>
+                <div class="overflow-auto h-full">{children()}</div>
 
                 <Navigation active_page=active_page />
             </body>

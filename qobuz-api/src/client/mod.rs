@@ -4,6 +4,7 @@ use snafu::prelude::*;
 use std::fmt::Display;
 
 pub mod album;
+pub mod album_suggestion;
 pub mod api;
 pub mod artist;
 pub mod favorites;

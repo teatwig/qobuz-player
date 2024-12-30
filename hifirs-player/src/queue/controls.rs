@@ -225,7 +225,7 @@ impl PlayerState {
     }
 
     /// Attach a `TrackURL` to the given track.
-    pub async fn attach_track_url(&mut self, track: &mut Track) {
+    async fn attach_track_url(&mut self, track: &mut Track) {
         debug!("fetching track url");
         if let Some(track_url) = self.service.track_url(track.id as i32).await {
             debug!("attaching url information to track");
@@ -295,6 +295,10 @@ impl PlayerState {
         self.service.album(id).await
     }
 
+    pub async fn get_related_albums(&self, id: &str) -> Option<Vec<Album>> {
+        self.service.related_albums(id).await
+    }
+
     pub async fn get_playlist(&self, playlist_id: i64) -> Option<Playlist> {
         self.service.playlist(playlist_id).await
     }
@@ -354,7 +358,7 @@ impl PlayerState {
         }
     }
 
-    pub async fn persist(&self) {
+    async fn persist(&self) {
         debug!("persisting state to database");
         if self.current_track.is_some() {
             db::persist_state(self.clone()).await;

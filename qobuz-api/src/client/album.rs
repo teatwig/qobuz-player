@@ -1,5 +1,4 @@
 use crate::client::{
-    api::Client,
     artist::{Artist, OtherArtists},
     track::Tracks,
     Composer, Image,
@@ -63,15 +62,6 @@ pub struct Album {
     pub version: Option<String>,
 }
 
-impl Album {
-    pub async fn attach_tracks(&mut self, client: Client) {
-        debug!("attaching tracks to album");
-        if let Ok(album) = client.album(&self.id).await {
-            self.tracks = album.tracks;
-        }
-    }
-}
-
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AlbumSearchResults {
     pub query: String,
@@ -84,22 +74,6 @@ pub struct Albums {
     pub offset: i64,
     pub total: i64,
     pub items: Vec<Album>,
-}
-
-impl Albums {
-    pub fn sort_by_date(&mut self) {
-        self.items.sort_by(|a, b| {
-            chrono::NaiveDate::parse_from_str(a.release_date_original.as_str(), "%Y-%m-%d")
-                .unwrap()
-                .cmp(
-                    &chrono::NaiveDate::parse_from_str(
-                        b.release_date_original.as_str(),
-                        "%Y-%m-%d",
-                    )
-                    .unwrap(),
-                )
-        });
-    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

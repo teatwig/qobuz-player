@@ -605,6 +605,19 @@ pub async fn album(id: &str) -> Album {
 }
 
 #[instrument]
+/// Get album
+pub async fn related_albums(album_id: &str) -> Vec<Album> {
+    QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .get_related_albums(album_id)
+        .await
+        .unwrap()
+}
+
+#[instrument]
 /// Get playlist
 pub async fn playlist(id: i64) -> Playlist {
     QUEUE

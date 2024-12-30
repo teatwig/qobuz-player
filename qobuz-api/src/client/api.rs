@@ -21,6 +21,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, fmt::Display};
 
+use super::album_suggestion::AlbumSuggestionResults;
+
 const BUNDLE_REGEX: &str =
     r#"<script src="(/resources/\d+\.\d+\.\d+-[a-z0-9]\d{3}/bundle\.js)"></script>"#;
 const APP_REGEX: &str =
@@ -112,6 +114,7 @@ enum Endpoint {
     FavoriteRemove,
     FavoritePlaylistAdd,
     FavoritePlaylistRemove,
+    AlbumSuggest,
 }
 
 impl Display for Endpoint {
@@ -138,6 +141,7 @@ impl Display for Endpoint {
             Endpoint::FavoriteRemove => "favorite/delete",
             Endpoint::FavoritePlaylistAdd => "playlist/subscribe",
             Endpoint::FavoritePlaylistRemove => "playlist/unsubscribe",
+            Endpoint::AlbumSuggest => "album/suggest",
         };
 
         f.write_str(endpoint)
@@ -515,6 +519,14 @@ impl Client {
             ("offset", "0"),
             ("limit", "500"),
         ];
+
+        get!(self, &endpoint, Some(&params))
+    }
+
+    // Retrieve related albums for an album
+    pub async fn related_albums(&self, album_id: &str) -> Result<AlbumSuggestionResults> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::AlbumSuggest);
+        let params = vec![("album_id", album_id)];
 
         get!(self, &endpoint, Some(&params))
     }

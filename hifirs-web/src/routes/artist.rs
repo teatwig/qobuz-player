@@ -54,7 +54,7 @@ async fn index(Path(id): Path<i32>) -> impl IntoResponse {
 #[component]
 fn artist(artist: Artist, albums: Vec<Album>, is_favorite: bool) -> impl IntoView {
     html! {
-        <div class="flex flex-col flex-grow max-h-full">
+        <div class="flex flex-col h-full">
             <div class="flex gap-4 justify-between items-center p-4">
                 <h1 class="text-2xl">{artist.name}</h1>
 

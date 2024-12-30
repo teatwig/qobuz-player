@@ -30,59 +30,73 @@ async fn index() -> impl IntoResponse {
 #[component]
 fn favorites(favorites: Favorites, playlists: Vec<Playlist>) -> impl IntoView {
     html! {
-        <div class="flex flex-col flex-grow gap-4 p-4 max-h-full peer">
-            <input
-                type="radio"
-                id="albums"
-                value="albums"
-                class="sr-only peer/albums"
-                name="tab"
-                checked
-            />
-            <input
-                type="radio"
-                id="artists"
-                value="artists"
-                class="sr-only peer/artists"
-                name="tab"
-            />
-            <input
-                type="radio"
-                id="playlists"
-                value="playlists"
-                class="sr-only peer/playlists"
-                name="tab"
-            />
+        <div class="flex flex-col h-full">
+            <div class="flex flex-col flex-grow gap-4 p-4 max-h-full peer">
+                <input
+                    type="radio"
+                    id="albums"
+                    value="albums"
+                    class="sr-only peer/albums"
+                    name="tab"
+                    checked
+                />
+                <input
+                    type="radio"
+                    id="artists"
+                    value="artists"
+                    class="sr-only peer/artists"
+                    name="tab"
+                />
+                <input
+                    type="radio"
+                    id="playlists"
+                    value="playlists"
+                    class="sr-only peer/playlists"
+                    name="tab"
+                />
 
-            <h1 class="text-2xl">Favorites</h1>
+                <h1 class="text-2xl">Favorites</h1>
 
-            <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors">
-                <label for="albums" class="hover:bg-blue-600 group-[#albums:checked~&]:bg-blue-800">
-                    Albums
-                </label>
-                <label
-                    for="artists"
-                    class="hover:bg-blue-600 group-[#artists:checked~&]:bg-blue-800"
-                >
-                    Artists
-                </label>
-                <label
-                    for="playlists"
-                    class="hover:bg-blue-600 group-[#playlists:checked~&]:bg-blue-800"
-                >
-                    Playlists
-                </label>
+                <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors">
+                    <label
+                        for="albums"
+                        class="hover:bg-blue-600 group-[#albums:checked~&]:bg-blue-800"
+                    >
+                        Albums
+                    </label>
+                    <label
+                        for="artists"
+                        class="hover:bg-blue-600 group-[#artists:checked~&]:bg-blue-800"
+                    >
+                        Artists
+                    </label>
+                    <label
+                        for="playlists"
+                        class="hover:bg-blue-600 group-[#playlists:checked~&]:bg-blue-800"
+                    >
+                        Playlists
+                    </label>
+                </div>
             </div>
-        </div>
 
-        <div class="hidden overflow-auto h-full peer-[:has(#albums:checked)]:block">
-            <ListAlbums albums=favorites.albums sort=crate::components::list::AlbumSort::Artist />
-        </div>
-        <div class="hidden overflow-auto h-full peer-[:has(#artists:checked)]:block">
-            <ListArtists artists=favorites.artists sort=crate::components::list::ArtistSort::Name />
-        </div>
-        <div class="hidden overflow-auto h-full peer-[:has(#playlists:checked)]:block">
-            <ListPlaylists playlists=playlists sort=crate::components::list::PlaylistSort::Title />
+            <div class="hidden overflow-auto h-full peer-[:has(#albums:checked)]:block">
+                <ListAlbums
+                    albums=favorites.albums
+                    sort=crate::components::list::AlbumSort::Artist
+                />
+            </div>
+            <div class="hidden overflow-auto h-full peer-[:has(#artists:checked)]:block">
+                <ListArtists
+                    artists=favorites.artists
+                    sort=crate::components::list::ArtistSort::Name
+                />
+            </div>
+            <div class="hidden overflow-auto h-full peer-[:has(#playlists:checked)]:block">
+                <ListPlaylists
+                    playlists=playlists
+                    sort=crate::components::list::PlaylistSort::Title
+                />
+            </div>
         </div>
     }
 }

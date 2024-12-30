@@ -24,6 +24,26 @@ pub enum AlbumSort {
 }
 
 #[component]
+pub fn list_related_albums(albums: Vec<Album>) -> impl IntoView {
+    html! {
+        <div class="flex overflow-scroll gap-4 p-2 w-full">
+            {albums
+                .into_iter()
+                .map(|album| {
+                    html! {
+                        <a href=format!("/album/{}", album.id) class="h-full shrink-0 size-32">
+                            <img class="rounded-lg" alt=album.title.clone() src=album.cover_art />
+                            <p class="text-sm truncate">{album.title}</p>
+                            <p class="text-sm text-gray-500 truncate">{album.artist.name}</p>
+                        </a>
+                    }
+                })
+                .collect::<Vec<_>>()}
+        </div>
+    }
+}
+
+#[component]
 pub fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
     match sort {
         AlbumSort::Default => (),
