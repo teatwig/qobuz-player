@@ -71,7 +71,7 @@ pub fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
                                 href=format!("/album/{}", album.id)
                             >
                                 <img
-                                    class="text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
+                                    class="inline text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
                                     alt=album.title.clone()
                                     src=album.cover_art_small
                                 />
@@ -209,13 +209,10 @@ pub fn list_playlists(mut playlists: Vec<Playlist>, sort: PlaylistSort) -> impl 
                                 href=format!("/playlist/{}", playlist.id)
                             >
                                 <img
-                                    class="text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
-                                    alt=playlist.title.clone()
+                                    class="inline text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
+                                    alt=playlist.title
                                     src=playlist.cover_art
                                 />
-                                <span class="overflow-hidden w-full truncate">
-                                    {playlist.title}
-                                </span>
                             </a>
                         </ListItem>
                     }

@@ -74,6 +74,7 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 <link rel="stylesheet" href=style_url />
                 <script src="https://unpkg.com/htmx.org@2.0.4"></script>
                 <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+                <script src="/assets/reconnect.js"></script>
             </head>
 
             <body

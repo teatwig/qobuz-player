@@ -265,12 +265,18 @@ pub fn now_playing(
             hx-swap="outerHTML"
             class="flex flex-col gap-4 justify-center items-center p-4 h-full landscape:flex-row"
         >
-            <div class="max-h-full rounded-lg shadow-lg aspect-square max-w-[600px] overflow-clip">
+            <div class="w-full max-h-full rounded-lg shadow-lg aspect-square max-w-[600px] overflow-clip">
                 {if let Some(cover_image_url) = cover_image {
-                    html! { <img src=cover_image_url alt=title.clone() class="object-contain" /> }
+                    html! {
+                        <img
+                            src=cover_image_url
+                            alt=title.clone()
+                            class="inline object-contain size-full"
+                        />
+                    }
                         .into_any()
                 } else {
-                    html! { <div class="bg-gray-900 h-[300px] w-[300px]"></div> }.into_any()
+                    html! { <div class="bg-gray-900 size-full"></div> }.into_any()
                 }}
             </div>
 
