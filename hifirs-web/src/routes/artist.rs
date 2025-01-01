@@ -74,13 +74,18 @@ fn artist(
 
                 <ToggleFavorite id=artist.id.to_string() is_favorite=is_favorite />
             </div>
-            <div class="overflow-auto">
-                <ListAlbums albums=albums sort=crate::components::list::AlbumSort::ReleaseYear />
+            <div class="flex overflow-auto flex-col gap-4">
+                <div>
+                    <ListAlbums
+                        albums=albums
+                        sort=crate::components::list::AlbumSort::ReleaseYear
+                    />
+                </div>
                 {if !similar_artists.is_empty() {
                     Some(
                         html! {
-                            <div class="p-4">
-                                <p>Similar artists</p>
+                            <div>
+                                <p class="px-4">Similar artists</p>
                                 <ListArtistsVertical artists=similar_artists />
                             </div>
                         },

@@ -144,8 +144,8 @@ fn album(
                     />
                 </div>
 
-                <div class="px-4 w-full">
-                    <p>Album suggestions</p>
+                <div class="w-full">
+                    <p class="px-4">Album suggestions</p>
                     <ListAlbumsVertical albums=suggested_albums />
                 </div>
             </div>
