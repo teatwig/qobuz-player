@@ -14,6 +14,7 @@ impl From<QobuzTrack> for Track {
                 id: p.id as u32,
                 name: p.name.clone(),
                 albums: None,
+                image: None,
             })
         } else {
             value.album.as_ref().map(|a| a.clone().artist.into())

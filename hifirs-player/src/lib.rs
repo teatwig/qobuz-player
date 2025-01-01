@@ -592,6 +592,18 @@ pub async fn artist(artist_id: i32) -> Artist {
 }
 
 #[instrument]
+/// Get similar artists
+pub async fn similar_artists(artist_id: i32) -> Vec<Artist> {
+    QUEUE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .get_similar_artists(artist_id)
+        .await
+}
+
+#[instrument]
 /// Get album
 pub async fn album(id: &str) -> Album {
     QUEUE

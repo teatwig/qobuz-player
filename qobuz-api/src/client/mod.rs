@@ -37,7 +37,6 @@ pub struct Image {
     pub small: String,
     pub thumbnail: Option<String>,
     pub large: String,
-    pub back: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

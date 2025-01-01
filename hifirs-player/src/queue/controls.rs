@@ -299,6 +299,10 @@ impl PlayerState {
         self.service.suggested_albums(id).await
     }
 
+    pub async fn get_similar_artists(&self, id: i32) -> Vec<Artist> {
+        self.service.similar_artists(id).await
+    }
+
     pub async fn get_playlist(&self, playlist_id: i64) -> Option<Playlist> {
         self.service.playlist(playlist_id).await
     }

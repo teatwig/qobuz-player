@@ -6,6 +6,7 @@ impl From<QobuzArtist> for Artist {
         Self {
             id: a.id as u32,
             name: a.name,
+            image: a.image,
             albums: a.albums.map(|a| {
                 a.items
                     .into_iter()

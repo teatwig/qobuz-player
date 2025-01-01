@@ -44,6 +44,35 @@ pub fn list_albums_vertical(albums: Vec<Album>) -> impl IntoView {
 }
 
 #[component]
+pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
+    html! {
+        <div class="flex overflow-scroll gap-4 p-2 w-full">
+            {artists
+                .into_iter()
+                .map(|artist| {
+                    let artist_image_style = artist
+                        .image
+                        .map_or(
+                            "".into(),
+                            |image| format!("background-image: url({});", image.large),
+                        );
+                    html! {
+                        <a href=format!("/artist/{}", artist.id) class="h-full text-center">
+                            <div
+                                class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full size-32"
+                                style=artist_image_style
+                            ></div>
+
+                            <p class="text-sm truncate">{artist.name}</p>
+                        </a>
+                    }
+                })
+                .collect::<Vec<_>>()}
+        </div>
+    }
+}
+
+#[component]
 pub fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
     match sort {
         AlbumSort::Default => (),

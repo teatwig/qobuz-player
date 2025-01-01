@@ -9,6 +9,11 @@ pub struct ArtistSearchResults {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ArtistsResponse {
+    pub artists: Artists,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Artists {
     pub limit: i64,
     pub offset: i64,

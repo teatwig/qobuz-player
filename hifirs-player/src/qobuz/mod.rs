@@ -68,6 +68,16 @@ impl MusicService for QobuzClient {
         }
     }
 
+    async fn similar_artists(&self, artist_id: i32) -> Vec<Artist> {
+        match self.similar_artists(artist_id, None).await {
+            Ok(artists) => artists.items.into_iter().map(|x| x.into()).collect(),
+            Err(err) => {
+                error!("failed to get similar artists: {}", err);
+                vec![]
+            }
+        }
+    }
+
     async fn artist_releases(&self, artist_id: i32) -> Option<Vec<Album>> {
         match self.artist_releases(artist_id, None).await {
             Ok(artist_releases) => Some(artist_releases.into_iter().map(|x| x.into()).collect()),
@@ -239,11 +249,7 @@ impl From<SearchAllResults> for SearchResults {
                 .artists
                 .items
                 .into_iter()
-                .map(|a| Artist {
-                    name: a.name,
-                    id: a.id as u32,
-                    albums: None,
-                })
+                .map(|a| a.into())
                 .collect::<Vec<Artist>>(),
             playlists: s
                 .playlists
@@ -274,11 +280,7 @@ impl From<QobuzFavorites> for Favorites {
                 .artists
                 .items
                 .into_iter()
-                .map(|a| Artist {
-                    name: a.name,
-                    id: a.id as u32,
-                    albums: None,
-                })
+                .map(|a| a.into())
                 .collect::<Vec<Artist>>(),
         }
     }
@@ -294,7 +296,7 @@ impl From<QobuzTrack> for Track {
             artist: Some(Artist {
                 id: s.artist.id as u32,
                 name: s.artist.name.display,
-                albums: None,
+                ..Default::default()
             }),
             duration_seconds: s.duration as u32,
             explicit: s.parental_warning,
@@ -348,7 +350,7 @@ impl From<Release> for Album {
             artist: Artist {
                 id: s.artist.id as u32,
                 name: s.artist.name.display,
-                albums: None,
+                ..Default::default()
             },
             release_year: year
                 .to_string()
@@ -384,7 +386,7 @@ impl From<AlbumSuggestion> for Album {
             artist: Artist {
                 id: artist_id,
                 name: artist_name,
-                albums: None,
+                ..Default::default()
             },
             release_year: year
                 .to_string()

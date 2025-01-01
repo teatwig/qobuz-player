@@ -21,7 +21,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, fmt::Display};
 
-use super::album_suggestion::AlbumSuggestionResults;
+use super::{
+    album_suggestion::AlbumSuggestionResults,
+    artist::{Artists, ArtistsResponse},
+};
 
 const BUNDLE_REGEX: &str =
     r#"<script src="(/resources/\d+\.\d+\.\d+-[a-z0-9]\d{3}/bundle\.js)"></script>"#;
@@ -95,6 +98,7 @@ pub async fn new(
 enum Endpoint {
     Album,
     Artist,
+    SimilarArtists,
     ArtistReleases,
     Login,
     Track,
@@ -123,6 +127,7 @@ impl Display for Endpoint {
             Endpoint::Album => "album/get",
             Endpoint::Artist => "artist/get",
             Endpoint::ArtistReleases => "artist/getReleasesList",
+            Endpoint::SimilarArtists => "artist/getSimilarArtists",
             Endpoint::Login => "user/login",
             Endpoint::Playlist => "playlist/get",
             Endpoint::PlaylistCreate => "playlist/create",
@@ -538,11 +543,7 @@ impl Client {
         limit: Option<i32>,
     ) -> Result<AlbumSearchResults> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::SearchAlbums);
-        let limit = if let Some(limit) = limit {
-            limit.to_string()
-        } else {
-            100.to_string()
-        };
+        let limit = limit.unwrap_or(100).to_string();
         let params = vec![("query", query), ("limit", limit.as_str())];
 
         get!(self, &endpoint, Some(&params))
@@ -552,18 +553,14 @@ impl Client {
     pub async fn artist(&self, artist_id: i32, limit: Option<i32>) -> Result<Artist> {
         if let Some(app_id) = &self.app_id {
             let endpoint = format!("{}{}", self.base_url, Endpoint::Artist);
-            let limit = if let Some(limit) = limit {
-                limit.to_string()
-            } else {
-                100.to_string()
-            };
+            let limit = limit.unwrap_or(100).to_string();
 
             let artistid_string = artist_id.to_string();
 
             let params = vec![
                 ("artist_id", artistid_string.as_str()),
                 ("app_id", app_id),
-                ("limit", limit.as_str()),
+                ("limit", &limit),
                 ("offset", "0"),
                 ("extra", "albums"),
             ];
@@ -574,6 +571,24 @@ impl Client {
         }
     }
 
+    // Retrieve similar artists to artist
+    pub async fn similar_artists(&self, artist_id: i32, limit: Option<i32>) -> Result<Artists> {
+        let limit = limit.unwrap_or(10).to_string();
+
+        let endpoint = format!("{}{}", self.base_url, Endpoint::SimilarArtists);
+        let artistid_string = artist_id.to_string();
+
+        let params = vec![
+            ("artist_id", artistid_string.as_str()),
+            ("limit", &limit),
+            ("offset", "0"),
+        ];
+
+        let response: Result<ArtistsResponse> = get!(self, &endpoint, Some(&params));
+
+        response.map(|res| res.artists)
+    }
+
     // Retrieve releases for an artist
     pub async fn artist_releases(
         &self,
@@ -581,17 +596,13 @@ impl Client {
         limit: Option<i32>,
     ) -> Result<Vec<Release>> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::ArtistReleases);
-        let limit = if let Some(limit) = limit {
-            limit.to_string()
-        } else {
-            100.to_string()
-        };
+        let limit = limit.unwrap_or(100).to_string();
 
         let artistid_string = artist_id.to_string();
 
         let params = vec![
             ("artist_id", artistid_string.as_str()),
-            ("limit", limit.as_str()),
+            ("limit", &limit),
             ("release_type", "album"),
             ("sort", "release_date"),
         ];
@@ -623,11 +634,7 @@ impl Client {
         limit: Option<i32>,
     ) -> Result<ArtistSearchResults> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::SearchArtists);
-        let limit = if let Some(limit) = limit {
-            limit.to_string()
-        } else {
-            100.to_string()
-        };
+        let limit = limit.unwrap_or(100).to_string();
         let params = vec![("query", query), ("limit", &limit)];
 
         get!(self, &endpoint, Some(&params))

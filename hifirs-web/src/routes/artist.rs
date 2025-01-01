@@ -10,7 +10,10 @@ use std::sync::Arc;
 use tokio::join;
 
 use crate::{
-    components::{list::ListAlbums, ToggleFavorite},
+    components::{
+        list::{ListAlbums, ListArtistsVertical},
+        ToggleFavorite,
+    },
     html,
     page::Page,
     view::render,
@@ -33,9 +36,10 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn index(Path(id): Path<i32>) -> impl IntoResponse {
-    let (artist, albums, favorites) = join!(
+    let (artist, albums, similar_artists, favorites) = join!(
         hifirs_player::artist(id),
         hifirs_player::artist_albums(id),
+        hifirs_player::similar_artists(id),
         hifirs_player::favorites()
     );
 
@@ -46,13 +50,23 @@ async fn index(Path(id): Path<i32>) -> impl IntoResponse {
 
     render(html! {
         <Page active_page=Page::Search>
-            <Artist artist=artist albums=albums is_favorite=is_favorite />
+            <Artist
+                artist=artist
+                albums=albums
+                is_favorite=is_favorite
+                similar_artists=similar_artists
+            />
         </Page>
     })
 }
 
 #[component]
-fn artist(artist: Artist, albums: Vec<Album>, is_favorite: bool) -> impl IntoView {
+fn artist(
+    artist: Artist,
+    albums: Vec<Album>,
+    similar_artists: Vec<Artist>,
+    is_favorite: bool,
+) -> impl IntoView {
     html! {
         <div class="flex flex-col h-full">
             <div class="flex gap-4 justify-between items-center p-4">
@@ -60,7 +74,21 @@ fn artist(artist: Artist, albums: Vec<Album>, is_favorite: bool) -> impl IntoVie
 
                 <ToggleFavorite id=artist.id.to_string() is_favorite=is_favorite />
             </div>
-            <ListAlbums albums=albums sort=crate::components::list::AlbumSort::ReleaseYear />
+            <div class="overflow-auto">
+                <ListAlbums albums=albums sort=crate::components::list::AlbumSort::ReleaseYear />
+                {if !similar_artists.is_empty() {
+                    Some(
+                        html! {
+                            <div class="p-4">
+                                <p>Similar artists</p>
+                                <ListArtistsVertical artists=similar_artists />
+                            </div>
+                        },
+                    )
+                } else {
+                    None
+                }}
+            </div>
         </div>
     }
 }

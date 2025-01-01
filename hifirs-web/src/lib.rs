@@ -59,14 +59,11 @@ async fn create_router() -> Router {
         .nest("/playlist", playlist::routes())
         .nest("/favorites", favorites::routes())
         .nest("/queue", queue::routes())
-        .route("/dummy", get(dummy))
         .route("/sse", get(sse_handler))
         .route("/assets/*file", get(static_handler));
 
     router.with_state(shared_state)
 }
-
-async fn dummy() -> impl axum::response::IntoResponse {}
 
 async fn background_task(tx: Sender<ServerSentEvent>) {
     let mut receiver = hifirs_player::notify_receiver();

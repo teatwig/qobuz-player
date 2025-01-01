@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use hifirs_qobuz_api::client::Image;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
@@ -10,6 +11,7 @@ pub trait MusicService: Send + Sync + Debug {
     async fn track(&self, track_id: i32) -> Option<Track>;
     async fn artist(&self, artist_id: i32) -> Option<Artist>;
     async fn artist_releases(&self, artist_id: i32) -> Option<Vec<Album>>;
+    async fn similar_artists(&self, artist_id: i32) -> Vec<Artist>;
     async fn playlist(&self, playlist_id: i64) -> Option<Playlist>;
     async fn search(&self, query: &str) -> Option<SearchResults>;
     async fn track_url(&self, track_id: i32) -> Option<String>;
@@ -90,6 +92,7 @@ pub struct Favorites {
 pub struct Artist {
     pub id: u32,
     pub name: String,
+    pub image: Option<Image>,
     pub albums: Option<Vec<Album>>,
 }
 
