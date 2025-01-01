@@ -646,20 +646,14 @@ pub async fn playlist(id: i64) -> Playlist {
 #[cached(size = 10, time = 600)]
 /// Fetch the albums for a specific artist.
 pub async fn artist_albums(artist_id: i32) -> Vec<Album> {
-    if let Some(mut albums) = QUEUE
+    (QUEUE
         .get()
         .unwrap()
         .read()
         .await
         .fetch_artist_albums(artist_id)
-        .await
-    {
-        albums.sort_by_key(|a| a.release_year);
-
-        albums
-    } else {
-        Vec::new()
-    }
+        .await)
+        .unwrap_or_default()
 }
 
 #[instrument]

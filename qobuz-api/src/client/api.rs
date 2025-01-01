@@ -605,6 +605,8 @@ impl Client {
             ("limit", &limit),
             ("release_type", "album"),
             ("sort", "release_date"),
+            ("offset", "0"),
+            ("track_size", "1"),
         ];
 
         // let result: Result<ArtistReleases> = get!(self, &endpoint, Some(&params));
