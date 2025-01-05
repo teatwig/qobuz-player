@@ -55,7 +55,7 @@ fn Navigation(active_page: Page) -> impl IntoView {
 
 #[component]
 pub fn page(children: Children, active_page: Page) -> impl IntoView {
-    let style_url = "/assets/styles.css?version=14";
+    let style_url = "/assets/styles.css?version=15";
 
     html! {
         <!DOCTYPE html>

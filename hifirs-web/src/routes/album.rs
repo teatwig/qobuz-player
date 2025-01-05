@@ -1,6 +1,5 @@
 use axum::{
     extract::Path,
-    http::HeaderMap,
     response::IntoResponse,
     routing::{get, put},
     Router,
@@ -17,8 +16,6 @@ use crate::{
     },
     html,
     icons::Play,
-    is_htmx_request,
-    page::Page,
     view::render,
     AppState,
 };
@@ -59,7 +56,7 @@ async fn play(Path(id): Path<String>) -> impl IntoResponse {
     _ = hifirs_player::play_album(&id).await;
 }
 
-async fn index(Path(id): Path<String>, headers: HeaderMap) -> impl IntoResponse {
+async fn index(Path(id): Path<String>) -> impl IntoResponse {
     let (album, suggested_albums, now_playing, favorites) = join!(
         hifirs_player::album(&id),
         hifirs_player::suggested_albums(&id),
@@ -70,22 +67,14 @@ async fn index(Path(id): Path<String>, headers: HeaderMap) -> impl IntoResponse 
     let now_playing_id = now_playing.map(|track| track.id);
     let is_favorite = favorites.albums.iter().any(|album| album.id == id);
 
-    let inner = html! {
+    render(html! {
         <Album
             album=album
             suggested_albums=suggested_albums
             is_favorite=is_favorite
             now_playing_id=now_playing_id
         />
-    };
-
-    let hx_request = is_htmx_request(&headers);
-    let html = match hx_request {
-        true => inner.into_any(),
-        false => html! { <Page active_page=Page::Search>{inner}</Page> }.into_any(),
-    };
-
-    render(html)
+    })
 }
 
 async fn album_tracks_partial(Path(id): Path<String>) -> impl IntoResponse {
@@ -130,9 +119,9 @@ fn album(
     let tracks: Vec<Track> = album.tracks.into_iter().map(|x| x.1).collect();
 
     html! {
-        <div class="flex flex-col justify-center items-center">
-            <div class="bg-red-500">
-                <div class="p-4 w-full">
+        <div class="flex flex-col justify-center items-center sm:p-4">
+            <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full">
+                <div class="max-w-sm">
                     <img
                         src=album.cover_art
                         alt=album.title.clone()
@@ -140,18 +129,21 @@ fn album(
                     />
                 </div>
 
-                <div class="flex flex-col gap-4 items-center w-full max-w-screen-sm">
-                    <div class="flex flex-col gap-2 items-center w-full text-center">
-                        <a href=format!("/artist/{}", album.artist.id) class="text-gray-400">
+                <div class="flex flex-col flex-grow gap-4 items-center">
+                    <div class="flex flex-col gap-2 justify-center items-center w-full text-center">
+                        <a
+                            href=format!("/artist/{}", album.artist.id)
+                            class="text-gray-400 sm:text-lg"
+                        >
                             {album.artist.name}
                         </a>
-                        <span class="w-full text-lg truncate">{album.title}</span>
-                        <span class="text-gray-400">{album.release_year}</span>
+                        <span class="w-full text-lg sm:text-xl truncate">{album.title}</span>
+                        <span class="text-gray-400 sm:text-lg">{album.release_year}</span>
                     </div>
 
-                    <div class="flex gap-4">
+                    <div class="grid grid-cols-2 gap-4">
                         <button
-                            class="flex gap-2 items-center py-2 px-4 bg-blue-500 rounded"
+                            class="flex gap-2 justify-center items-center py-2 px-4 bg-blue-500 rounded"
                             hx-swap="none"
                             hx-put=format!("{}/play", album.id.clone())
                         >
@@ -164,26 +156,21 @@ fn album(
                         <ToggleFavorite id=album.id.clone() is_favorite=is_favorite />
                     </div>
                 </div>
-
-                <AlbumTracks
-                    now_playing_id=now_playing_id
-                    tracks=tracks
-                    album_id=album.id.clone()
-                />
-
-                {if !suggested_albums.is_empty() {
-                    Some(
-                        html! {
-                            <div class="w-full">
-                                <p class="px-4">Album suggestions</p>
-                                <ListAlbumsVertical albums=suggested_albums />
-                            </div>
-                        },
-                    )
-                } else {
-                    None
-                }}
             </div>
+            <AlbumTracks now_playing_id=now_playing_id tracks=tracks album_id=album.id.clone() />
+
+            {if !suggested_albums.is_empty() {
+                Some(
+                    html! {
+                        <div class="w-full">
+                            <p class="px-4">Album suggestions</p>
+                            <ListAlbumsVertical albums=suggested_albums />
+                        </div>
+                    },
+                )
+            } else {
+                None
+            }}
         </div>
     }
 }

@@ -1,6 +1,5 @@
 use axum::{
     extract::Path,
-    http::HeaderMap,
     response::IntoResponse,
     routing::{get, put},
     Router,
@@ -14,7 +13,6 @@ use crate::{
     components::{list::ListTracks, ToggleFavorite},
     html,
     icons::Play,
-    is_htmx_request,
     page::Page,
     view::render,
     AppState,
@@ -23,6 +21,7 @@ use crate::{
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/playlist/{id}", get(index))
+        .route("/playlist/{id}/tracks", get(tracks_partial))
         .route("/playlist/{id}/set-favorite", put(set_favorite))
         .route("/playlist/{id}/unset-favorite", put(unset_favorite))
         .route("/playlist/{id}/play", put(play))
@@ -46,7 +45,7 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
     hifirs_player::remove_favorite_playlist(&id).await;
 }
 
-async fn index(Path(id): Path<i64>, headers: HeaderMap) -> impl IntoResponse {
+async fn index(Path(id): Path<i64>) -> impl IntoResponse {
     let (playlist, now_playing, favorites) = join!(
         hifirs_player::playlist(id),
         hifirs_player::current_track(),
@@ -56,15 +55,35 @@ async fn index(Path(id): Path<i64>, headers: HeaderMap) -> impl IntoResponse {
     let now_playing_id = now_playing.map(|track| track.id);
     let is_favorite = favorites.iter().any(|playlist| playlist.id == id as u32);
 
-    let inner = html! { <Playlist playlist=playlist is_favorite=is_favorite now_playing_id=now_playing_id /> };
+    render(html! {
+        <Page active_page=Page::Search>
+            <Playlist playlist=playlist is_favorite=is_favorite now_playing_id=now_playing_id />
+        </Page>
+    })
+}
 
-    let hx_request = is_htmx_request(&headers);
-    let html = match hx_request {
-        true => inner.into_any(),
-        false => html! { <Page active_page=Page::Search>{inner}</Page> }.into_any(),
-    };
+async fn tracks_partial(Path(id): Path<i64>) -> impl IntoResponse {
+    let (playlist, now_playing) =
+        join!(hifirs_player::playlist(id), hifirs_player::current_track());
 
-    render(html)
+    let now_playing_id = now_playing.map(|track| track.id);
+    let tracks: Vec<Track> = playlist.tracks.into_iter().map(|x| x.1).collect();
+
+    render(html! { <Tracks now_playing_id=now_playing_id tracks=tracks playlist_id=playlist.id /> })
+}
+
+#[component]
+fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> impl IntoView {
+    html! {
+        <div class="w-full max-w-screen-sm">
+            <ListTracks
+                show_track_number=true
+                now_playing_id=now_playing_id
+                tracks=tracks
+                parent_id=playlist_id.to_string()
+            />
+        </div>
+    }
 }
 
 #[component]
@@ -76,7 +95,7 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
             class="flex flex-col justify-center items-center h-full landscape:flex-row"
             hx-trigger="sse:position"
             hx-swap="outerHTML"
-            hx-get=""
+            hx-get=format!("/playlist/{}/tracks", playlist.id)
         >
             {playlist
                 .cover_art
@@ -114,14 +133,7 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
                     <ToggleFavorite id=playlist.id.to_string() is_favorite=is_favorite />
                 </div>
 
-                <div class="w-full max-w-screen-sm">
-                    <ListTracks
-                        show_track_number=true
-                        now_playing_id=now_playing_id
-                        tracks=tracks
-                        parent_id=playlist.id.to_string()
-                    />
-                </div>
+                <Tracks now_playing_id=now_playing_id tracks=tracks playlist_id=playlist.id />
             </div>
         </div>
     }

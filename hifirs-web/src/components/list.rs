@@ -239,9 +239,11 @@ pub fn list_playlists(mut playlists: Vec<Playlist>, sort: PlaylistSort) -> impl 
                             >
                                 <img
                                     class="inline text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
-                                    alt=playlist.title
+                                    alt=playlist.title.clone()
                                     src=playlist.cover_art
                                 />
+
+                                <p class="w-full text-lg truncate">{playlist.title}</p>
                             </a>
                         </ListItem>
                     }
