@@ -75,7 +75,12 @@ async fn tracks_partial(Path(id): Path<i64>) -> impl IntoResponse {
 #[component]
 fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> impl IntoView {
     html! {
-        <div class="w-full max-w-screen-sm">
+        <div
+            class="w-full"
+            hx-trigger="sse:tracklist"
+            hx-swap="outerHTML"
+            hx-get=format!("/playlist/{}/tracks", playlist_id)
+        >
             <ListTracks
                 show_track_number=true
                 now_playing_id=now_playing_id
@@ -91,50 +96,80 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
     let tracks: Vec<Track> = playlist.tracks.into_iter().map(|x| x.1).collect();
 
     html! {
-        <div
-            class="flex flex-col justify-center items-center h-full landscape:flex-row"
-            hx-trigger="sse:position"
-            hx-swap="outerHTML"
-            hx-get=format!("/playlist/{}/tracks", playlist.id)
-        >
-            {playlist
-                .cover_art
-                .map(|cover_art| {
-                    html! {
-                        <div class="flex justify-center p-4 landscape::max-w-[50%] portrait:max-h-[50%]">
-                            <div class="max-h-full rounded-lg shadow-lg aspect-square overflow-clip">
-                                <img
-                                    src=cover_art
-                                    alt=playlist.title.clone()
-                                    class="object-contain"
-                                />
-                            </div>
-                        </div>
-                    }
-                })}
-            <div class="flex overflow-auto flex-col gap-4 items-center w-full h-full">
-                <div class="flex flex-col gap-2 items-center w-full text-center">
-                    <span class="text-lg">{playlist.title}</span>
+        <div class="flex flex-col justify-center items-center sm:p-4">
+            <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full">
+                <div class="max-w-sm">
+                    <img
+                        src=playlist.cover_art
+                        alt=playlist.title.clone()
+                        class="object-contain rounded-lg size-full aspect-square"
+                    />
                 </div>
 
-                <div class="flex gap-4">
-                    <button
-                        class="flex gap-2 items-center py-2 px-4 bg-blue-500 rounded"
-                        hx-swap="none"
-                        hx-put=format!("{}, play", playlist.id)
-                    >
+                <div class="flex flex-col flex-grow gap-4 items-center">
+                    <div class="flex flex-col gap-2 justify-center items-center w-full text-center">
+                        <span class="w-full text-lg sm:text-xl truncate">{playlist.title}</span>
+                    </div>
 
-                        <span class="size-6">
-                            <Play />
-                        </span>
-                        <span>Play</span>
-                    </button>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button
+                            class="flex gap-2 justify-center items-center py-2 px-4 bg-blue-500 rounded"
+                            hx-swap="none"
+                            hx-put=format!("{}/play", playlist.id.clone())
+                        >
+                            <span class="size-6">
+                                <Play />
+                            </span>
+                            <span>Play</span>
+                        </button>
 
-                    <ToggleFavorite id=playlist.id.to_string() is_favorite=is_favorite />
+                        <ToggleFavorite id=playlist.id.to_string() is_favorite=is_favorite />
+                    </div>
                 </div>
-
-                <Tracks now_playing_id=now_playing_id tracks=tracks playlist_id=playlist.id />
             </div>
+            <Tracks now_playing_id=now_playing_id tracks=tracks playlist_id=playlist.id />
         </div>
     }
+
+    // html! {
+    //     <div class="flex flex-col justify-center items-center h-full landscape:flex-row">
+    //         {playlist
+    //             .cover_art
+    //             .map(|cover_art| {
+    //                 html! {
+    //                     <div class="flex justify-center p-4 landscape::max-w-[50%] portrait:max-h-[50%]">
+    //                         <div class="max-h-full rounded-lg shadow-lg aspect-square overflow-clip">
+    //                             <img
+    //                                 src=cover_art
+    //                                 alt=playlist.title.clone()
+    //                                 class="object-contain"
+    //                             />
+    //                         </div>
+    //                     </div>
+    //                 }
+    //             })} <div class="flex overflow-auto flex-col gap-4 items-center w-full h-full">
+    //             <div class="flex flex-col gap-2 items-center w-full text-center">
+    //                 <span class="text-lg">{playlist.title}</span>
+    //             </div>
+
+    //             <div class="flex gap-4">
+    //                 <button
+    //                     class="flex gap-2 items-center py-2 px-4 bg-blue-500 rounded"
+    //                     hx-swap="none"
+    //                     hx-put=format!("{}, play", playlist.id)
+    //                 >
+
+    //                     <span class="size-6">
+    //                         <Play />
+    //                     </span>
+    //                     <span>Play</span>
+    //                 </button>
+
+    //                 <ToggleFavorite id=playlist.id.to_string() is_favorite=is_favorite />
+    //             </div>
+
+    //             <Tracks now_playing_id=now_playing_id tracks=tracks playlist_id=playlist.id />
+    //         </div>
+    //     </div>
+    // }
 }
