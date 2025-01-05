@@ -17,7 +17,7 @@ use crate::{
 };
 
 pub fn routes() -> Router<Arc<AppState>> {
-    Router::new().route("/", get(index))
+    Router::new().route("/search", get(index))
 }
 
 #[derive(Deserialize, Clone)]

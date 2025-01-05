@@ -22,9 +22,9 @@ use crate::{
 
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/:id", get(index))
-        .route("/:id/set-favorite", put(set_favorite))
-        .route("/:id/unset-favorite", put(unset_favorite))
+        .route("/artist/{id}", get(index))
+        .route("/artist/{id}/set-favorite", put(set_favorite))
+        .route("/artist/{id}/unset-favorite", put(unset_favorite))
 }
 
 async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {

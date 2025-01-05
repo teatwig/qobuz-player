@@ -1,5 +1,6 @@
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
-    location.reload();
+    // location.reload();
+    htmx.ajax("GET", "");
   }
 });

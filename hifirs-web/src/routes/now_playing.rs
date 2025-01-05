@@ -1,5 +1,4 @@
 use axum::{
-    http::HeaderMap,
     response::IntoResponse,
     routing::{get, post, put},
     Router,
@@ -12,7 +11,6 @@ use crate::{
     components::Info,
     html,
     icons::{Backward, Forward, Pause, Play},
-    is_htmx_request,
     page::Page,
     view::render,
     AppState,
@@ -24,6 +22,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/progress", get(progress_partial))
         .route("/status", get(status_partial))
         .route("/volume-slider", get(volume_slider_partial))
+        .route("/now-playing", get(now_playing_partial))
         .route("/api/play", put(play))
         .route("/api/pause", put(pause))
         .route("/api/previous", put(previous))
@@ -131,28 +130,38 @@ async fn next() -> impl IntoResponse {
     _ = hifirs_player::next().await;
 }
 
-async fn index(headers: HeaderMap) -> impl IntoResponse {
+async fn index() -> impl IntoResponse {
     let current_tracklist = hifirs_player::current_tracklist().await;
     let position_mseconds = hifirs_player::position().map(|position| position.mseconds());
     let current_status = hifirs_player::current_state();
     let current_volume = (hifirs_player::volume() * 100.0) as u32;
 
-    let inner = html! {
+    render(html! {
+        <Page active_page=Page::NowPlaying>
+            <NowPlaying
+                current_tracklist=current_tracklist
+                position_mseconds=position_mseconds
+                current_status=current_status
+                current_volume=current_volume
+            />
+        </Page>
+    })
+}
+
+async fn now_playing_partial() -> impl IntoResponse {
+    let current_tracklist = hifirs_player::current_tracklist().await;
+    let position_mseconds = hifirs_player::position().map(|position| position.mseconds());
+    let current_status = hifirs_player::current_state();
+    let current_volume = (hifirs_player::volume() * 100.0) as u32;
+
+    render(html! {
         <NowPlaying
             current_tracklist=current_tracklist
             position_mseconds=position_mseconds
             current_status=current_status
             current_volume=current_volume
         />
-    };
-
-    let hx_request = is_htmx_request(&headers);
-    let html = match hx_request {
-        true => inner.into_any(),
-        false => html! { <Page active_page=Page::NowPlaying>{inner}</Page> }.into_any(),
-    };
-
-    render(html)
+    })
 }
 
 async fn progress_partial() -> impl IntoResponse {
@@ -260,7 +269,7 @@ pub fn now_playing(
 
     html! {
         <div
-            hx-get=""
+            hx-get="/now-playing"
             hx-trigger="sse:tracklist"
             hx-swap="outerHTML"
             class="flex flex-col gap-4 justify-center items-center p-4 h-full landscape:flex-row"
@@ -276,7 +285,8 @@ pub fn now_playing(
                     }
                         .into_any()
                 } else {
-                    html! { <div class="bg-gray-900 rounded-lg size-full"></div> }.into_any()
+                    html! { <div class="bg-gray-900 rounded-lg size-full aspect-square"></div> }
+                        .into_any()
                 }}
             </div>
 

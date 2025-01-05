@@ -52,15 +52,15 @@ async fn create_router() -> Router {
     tokio::spawn(background_task(tx));
 
     let router = axum::Router::new()
-        .nest("/", now_playing::routes())
-        .nest("/search", search::routes())
-        .nest("/album", album::routes())
-        .nest("/artist", artist::routes())
-        .nest("/playlist", playlist::routes())
-        .nest("/favorites", favorites::routes())
-        .nest("/queue", queue::routes())
+        .merge(now_playing::routes())
+        .merge(search::routes())
+        .merge(album::routes())
+        .merge(artist::routes())
+        .merge(playlist::routes())
+        .merge(favorites::routes())
+        .merge(queue::routes())
         .route("/sse", get(sse_handler))
-        .route("/assets/*file", get(static_handler));
+        .route("/assets/{*file}", get(static_handler));
 
     router.with_state(shared_state)
 }

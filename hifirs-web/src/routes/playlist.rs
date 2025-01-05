@@ -22,11 +22,11 @@ use crate::{
 
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/:id", get(index))
-        .route("/:id/set-favorite", put(set_favorite))
-        .route("/:id/unset-favorite", put(unset_favorite))
-        .route("/:id/play", put(play))
-        .route("/:id/play/:track_position", put(play_track))
+        .route("/playlist/{id}", get(index))
+        .route("/playlist/{id}/set-favorite", put(set_favorite))
+        .route("/playlist/{id}/unset-favorite", put(unset_favorite))
+        .route("/playlist/{id}/play", put(play))
+        .route("/playlist/{id}/play/{track_position}", put(play_track))
 }
 
 async fn play_track(Path((id, track_position)): Path<(String, u32)>) -> impl IntoResponse {

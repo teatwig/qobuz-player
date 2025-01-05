@@ -25,8 +25,8 @@ use crate::{
 
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/", get(index))
-        .route("/skip-to/:track_number", put(skip_to))
+        .route("/queue", get(index))
+        .route("/queue/skip-to/{track_number}", put(skip_to))
 }
 
 async fn skip_to(Path(track_number): Path<u32>) -> impl IntoResponse {

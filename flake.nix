@@ -17,15 +17,9 @@
 
     flake-utils.url = "github:numtide/flake-utils";
 
-    helix.url = "github:helix-editor/helix/master";
-
-    advisory-db = {
-      url = "github:rustsec/advisory-db";
-      flake = false;
-    };
   };
 
-  outputs = { self, nixpkgs, crane, fenix, flake-utils, helix, advisory-db, ... }:
+  outputs = { self, nixpkgs, crane, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -118,8 +112,6 @@
             gst_all_1.gstreamer.dev
             gst_all_1.gst-plugins-base.dev
             glib.dev
-            helix.packages.${system}.helix
-            tailwindcss
             cargo-machete
           ];
 

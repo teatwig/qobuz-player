@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub fn routes() -> Router<Arc<AppState>> {
-    Router::new().route("/", get(index))
+    Router::new().route("/favorites", get(index))
 }
 
 async fn index() -> impl IntoResponse {

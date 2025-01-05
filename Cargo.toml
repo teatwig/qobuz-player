@@ -20,7 +20,7 @@ name = "hifi-rs"
 [workspace.dependencies]
 async-broadcast = "0.7"
 async-trait = "0.1.73"
-axum = "0.7.5"
+axum = "0.8"
 base64 = "0.22"
 cached = "0.50"
 chrono = "0.4"

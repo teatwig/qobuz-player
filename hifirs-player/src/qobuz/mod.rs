@@ -93,7 +93,7 @@ impl MusicService for QobuzClient {
     }
 
     async fn search(&self, query: &str) -> Option<SearchResults> {
-        match self.search_all(query, 100).await {
+        match self.search_all(query, 20).await {
             Ok(results) => Some(results.into()),
             Err(_) => None,
         }
