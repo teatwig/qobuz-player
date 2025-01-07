@@ -16,6 +16,7 @@ use crate::{
     },
     html,
     icons::Play,
+    page::Page,
     view::render,
     AppState,
 };
@@ -68,12 +69,14 @@ async fn index(Path(id): Path<String>) -> impl IntoResponse {
     let is_favorite = favorites.albums.iter().any(|album| album.id == id);
 
     render(html! {
-        <Album
-            album=album
-            suggested_albums=suggested_albums
-            is_favorite=is_favorite
-            now_playing_id=now_playing_id
-        />
+        <Page active_page=Page::Search>
+            <Album
+                album=album
+                suggested_albums=suggested_albums
+                is_favorite=is_favorite
+                now_playing_id=now_playing_id
+            />
+        </Page>
     })
 }
 
@@ -157,20 +160,26 @@ fn album(
                     </div>
                 </div>
             </div>
-            <AlbumTracks now_playing_id=now_playing_id tracks=tracks album_id=album.id.clone() />
+            <div class="flex flex-col gap-4 w-full">
+                <AlbumTracks
+                    now_playing_id=now_playing_id
+                    tracks=tracks
+                    album_id=album.id.clone()
+                />
 
-            {if !suggested_albums.is_empty() {
-                Some(
-                    html! {
-                        <div class="w-full">
-                            <p class="px-4">Album suggestions</p>
-                            <ListAlbumsVertical albums=suggested_albums />
-                        </div>
-                    },
-                )
-            } else {
-                None
-            }}
+                {if !suggested_albums.is_empty() {
+                    Some(
+                        html! {
+                            <div class="flex flex-col gap-2 w-full">
+                                <h3 class="px-4 text-lg">Album suggestions</h3>
+                                <ListAlbumsVertical albums=suggested_albums />
+                            </div>
+                        },
+                    )
+                } else {
+                    None
+                }}
+            </div>
         </div>
     }
 }

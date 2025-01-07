@@ -130,46 +130,4 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
             <Tracks now_playing_id=now_playing_id tracks=tracks playlist_id=playlist.id />
         </div>
     }
-
-    // html! {
-    //     <div class="flex flex-col justify-center items-center h-full landscape:flex-row">
-    //         {playlist
-    //             .cover_art
-    //             .map(|cover_art| {
-    //                 html! {
-    //                     <div class="flex justify-center p-4 landscape::max-w-[50%] portrait:max-h-[50%]">
-    //                         <div class="max-h-full rounded-lg shadow-lg aspect-square overflow-clip">
-    //                             <img
-    //                                 src=cover_art
-    //                                 alt=playlist.title.clone()
-    //                                 class="object-contain"
-    //                             />
-    //                         </div>
-    //                     </div>
-    //                 }
-    //             })} <div class="flex overflow-auto flex-col gap-4 items-center w-full h-full">
-    //             <div class="flex flex-col gap-2 items-center w-full text-center">
-    //                 <span class="text-lg">{playlist.title}</span>
-    //             </div>
-
-    //             <div class="flex gap-4">
-    //                 <button
-    //                     class="flex gap-2 items-center py-2 px-4 bg-blue-500 rounded"
-    //                     hx-swap="none"
-    //                     hx-put=format!("{}, play", playlist.id)
-    //                 >
-
-    //                     <span class="size-6">
-    //                         <Play />
-    //                     </span>
-    //                     <span>Play</span>
-    //                 </button>
-
-    //                 <ToggleFavorite id=playlist.id.to_string() is_favorite=is_favorite />
-    //             </div>
-
-    //             <Tracks now_playing_id=now_playing_id tracks=tracks playlist_id=playlist.id />
-    //         </div>
-    //     </div>
-    // }
 }

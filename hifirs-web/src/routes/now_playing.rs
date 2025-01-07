@@ -269,28 +269,29 @@ pub fn now_playing(
 
     html! {
         <div
+            class="grid grid-cols-1 gap-4 p-4 mx-auto h-full"
+            style="max-width: calc(600px + 2rem)"
             hx-get="/now-playing"
             hx-trigger="sse:tracklist"
             hx-swap="outerHTML"
-            class="flex flex-col gap-4 justify-center items-center p-4 h-full landscape:flex-row"
         >
-            <div class="w-full max-w-[800px]">
-                {if let Some(cover_image_url) = cover_image {
-                    html! {
-                        <img
-                            src=cover_image_url
-                            alt=title.clone()
-                            class="object-contain rounded-lg size-full"
-                        />
-                    }
-                        .into_any()
-                } else {
-                    html! { <div class="bg-gray-900 rounded-lg size-full aspect-square"></div> }
-                        .into_any()
-                }}
-            </div>
 
-            <div class="flex flex-col flex-grow justify-center w-full max-w-md md:max-w-[800px]">
+            {if let Some(cover_image_url) = cover_image {
+                html! {
+                    <img
+                        src=cover_image_url
+                        alt=title.clone()
+                        class="justify-self-center max-h-full rounded-lg"
+                    />
+                }
+                    .into_any()
+            } else {
+                html! {
+                    <div class="justify-self-center bg-gray-900 rounded-lg size-full aspect-square"></div>
+                }
+                    .into_any()
+            }}
+            <div class="flex flex-col flex-grow justify-center w-full">
                 <div class="flex gap-2 justify-between items-center">
                     <a class="text truncate" href=entity_link>
                         {entity_title}
