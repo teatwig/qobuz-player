@@ -146,10 +146,24 @@ pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView
             {artists
                 .into_iter()
                 .map(|artist| {
+                    let artist_image_style = artist
+                        .image
+                        .map_or(
+                            "".into(),
+                            |image| format!("background-image: url({});", image.large),
+                        );
                     html! {
                         <ListItem>
-                            <a href=format!("/artist/{}", artist.id) class="block text-lg truncate">
-                                {artist.name}
+                            <a
+                                href=format!("/artist/{}", artist.id)
+                                class="flex gap-4 items-center"
+                            >
+                                <div
+                                    class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full size-12"
+                                    style=artist_image_style
+                                ></div>
+
+                                <p class="w-full text-lg truncate">{artist.name}</p>
                             </a>
                         </ListItem>
                     }

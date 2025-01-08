@@ -34,6 +34,9 @@ build-bin target=detected_target:
   @echo Building for target {{target}}
   cargo build --release --target={{target}}
 
+build-bin-debug target=detected_target:
+  cargo build --target={{target}}
+
 install-deps target=detected_target:
   #!/usr/bin/env sh
   if ! just check-deps; then
