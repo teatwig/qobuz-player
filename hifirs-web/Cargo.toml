@@ -19,3 +19,4 @@ gstreamer = { workspace = true, features = ["serde", "v1_16"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tokio-stream = { workspace = true, features = ["sync"] }
+tracing = { workspace = true }

@@ -1,6 +1,6 @@
 # hifi.rs
 
-### A terminal-based (tui), high resolution audio player backed by Qobuz
+### High resolution audio player backed by Qobuz
 
 Powered by [Qobuz](https://www.qobuz.com). Requires a paid subscription. This does not allow you to listen for free.
 
@@ -10,28 +10,26 @@ Qobuz only supports Linux through the browser and has no officially supported AP
 
 ## Player Features
 
-- Low resource usage
-- [GStreamer](https://gstreamer.freedesktop.org/)-backed player, [SQLite](https://www.sqlite.org/index.html) database
+- [GStreamer](https://gstreamer.freedesktop.org/)-backed player
 - High resolution audio: Supports up to 24bit/192Khz (max quality Qobuz offers)
 - MPRIS support (control via [playerctl](https://github.com/altdesktop/playerctl) or other D-Bus client)
 - Gapless playback
-- Resume last session
 - Web UI 
+- Terminal UI 
 
 ## Requirements
 
-- [GStreamer v1.18+](https://gstreamer.freedesktop.org/documentation/installing/index.html) (comes with most/all current Linux and MacOS versions)
-- [Just](https://github.com/casey/just) (optional, useful for building and development)
+- [GStreamer v1.18+](https://gstreamer.freedesktop.org/documentation/installing/index.html) (comes with most/all current Linux)
 
 ## Installation
 
 ### Download Release
 
-Download the tar.gz file for your supported OS from the [releases page](https://github.com/iamdb/hifi.rs/releases), extract the file and execute `hifi-rs` or copy it to the your `$PATH`.
+Download the tar.gz file for your supported OS from the releases page, extract the file and execute `hifi-rs` or copy it to the your `$PATH`.
 
 ### Build from source
 
-On MacOS, Debian, Arch and Fedora, `just build-player` should make a reasonable effort to install the necessary dependencies needed to build the app and then build it.
+On Debian, Arch and Fedora, `just build-player` should make a reasonable effort to install the necessary dependencies needed to build the app and then build it.
 
 ## Get started
 

@@ -143,18 +143,6 @@ pub async fn init(username: Option<&str>, password: Option<&str>) -> Result<()> 
     Ok(())
 }
 #[instrument]
-/// Play the player.
-pub async fn play() -> Result<()> {
-    set_player_state(gst::State::Playing).await?;
-    Ok(())
-}
-#[instrument]
-/// Pause the player.
-pub async fn pause() -> Result<()> {
-    set_player_state(gst::State::Paused).await?;
-    Ok(())
-}
-#[instrument]
 /// Ready the player.
 pub async fn ready() -> Result<()> {
     set_player_state(gst::State::Ready).await?;
@@ -204,16 +192,36 @@ async fn broadcast_track_list<'a>(list: &TrackListValue) -> Result<()> {
 #[instrument]
 /// Toggle play and pause.
 pub async fn play_pause() -> Result<()> {
-    let mut state = QUEUE.get().unwrap().write().await;
-
     if is_playing() {
-        state.set_target_status(GstState::Paused);
         pause().await?;
     } else if is_paused() || is_ready() {
-        state.set_target_status(GstState::Playing);
         play().await?;
     }
 
+    Ok(())
+}
+
+#[instrument]
+/// Play the player.
+pub async fn play() -> Result<()> {
+    if let Some(queue) = QUEUE.get() {
+        let mut state = queue.write().await;
+        state.set_target_status(GstState::Playing);
+    }
+
+    set_player_state(gst::State::Playing).await?;
+    Ok(())
+}
+
+#[instrument]
+/// Pause the player.
+pub async fn pause() -> Result<()> {
+    if let Some(queue) = QUEUE.get() {
+        let mut state = queue.write().await;
+        state.set_target_status(GstState::Paused);
+    }
+
+    set_player_state(gst::State::Paused).await?;
     Ok(())
 }
 #[instrument]
@@ -271,53 +279,7 @@ pub async fn seek(time: ClockTime, flags: Option<SeekFlags>) -> Result<()> {
     PLAYBIN.seek_simple(flags, time)?;
     Ok(())
 }
-#[instrument]
-/// Load the previous player state and seek to the last known position.
-pub async fn resume(autoplay: bool) -> Result<()> {
-    let mut state = QUEUE.get().unwrap().write().await;
 
-    if let Some(last_position) = state.load_last_state().await {
-        state.set_resume(true);
-
-        let list = state.track_list();
-        BROADCAST_CHANNELS
-            .tx
-            .broadcast(Notification::CurrentTrackList { list: list.clone() })
-            .await?;
-
-        if autoplay {
-            state.set_target_status(GstState::Playing);
-        } else {
-            state.set_target_status(GstState::Paused);
-        }
-
-        if let Some(track) = state.current_track() {
-            if let Some(url) = &track.track_url {
-                PLAYBIN.set_property("uri", url);
-
-                ready().await?;
-                pause().await?;
-
-                let mut interval = tokio::time::interval(Duration::from_millis(100));
-
-                while !is_paused() {
-                    debug!("wait for paused state");
-                    interval.tick().await;
-                }
-
-                seek(last_position, None).await?;
-
-                return Ok(());
-            } else {
-                return Err(Error::Resume);
-            }
-        } else {
-            return Err(Error::Resume);
-        }
-    }
-
-    Ok(())
-}
 #[instrument]
 /// Jump forward in the currently playing track +10 seconds.
 pub async fn jump_forward() -> Result<()> {

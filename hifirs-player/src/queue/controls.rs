@@ -1,5 +1,4 @@
-use futures::executor;
-use gstreamer::{ClockTime, State as GstState};
+use gstreamer::State as GstState;
 use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::{
     broadcast::{Receiver as BroadcastReceiver, Sender as BroadcastSender},
@@ -12,7 +11,6 @@ use crate::{
     service::{
         Album, Artist, Favorites, MusicService, Playlist, SearchResults, Track, TrackStatus,
     },
-    sql::db,
 };
 
 use super::{TrackListType, TrackListValue};
@@ -327,8 +325,6 @@ impl PlayerState {
     }
 
     pub fn quit(&self) {
-        executor::block_on(self.persist());
-
         self.quit_sender
             .send(true)
             .expect("failed to send quit message");
@@ -360,87 +356,5 @@ impl PlayerState {
             resume: false,
             quit_sender,
         }
-    }
-
-    async fn persist(&self) {
-        debug!("persisting state to database");
-        if self.current_track.is_some() {
-            db::persist_state(self.clone()).await;
-        }
-    }
-
-    pub async fn load_last_state(&mut self) -> Option<ClockTime> {
-        if let Some(last_state) = db::get_last_state().await {
-            let entity_type: TrackListType = last_state.playback_entity_type.as_str().into();
-
-            match entity_type {
-                TrackListType::Album => {
-                    if let Some(album) = self.service.album(&last_state.playback_entity_id).await {
-                        self.replace_list(TrackListValue::new(Some(&album.tracks)));
-                        self.tracklist.set_list_type(TrackListType::Album);
-                        self.tracklist.set_album(album);
-
-                        self.skip_track(last_state.playback_track_index as u32)
-                            .await;
-
-                        let position =
-                            ClockTime::from_mseconds(last_state.playback_position as u64);
-                        return Some(position);
-                    }
-                }
-                TrackListType::Playlist => {
-                    if let Some(playlist) = self
-                        .service
-                        .playlist(
-                            last_state
-                                .playback_entity_id
-                                .parse::<i64>()
-                                .expect("failed to parse integer"),
-                        )
-                        .await
-                    {
-                        self.replace_list(TrackListValue::new(Some(&playlist.tracks)));
-                        self.tracklist.set_list_type(TrackListType::Playlist);
-                        self.tracklist.set_playlist(playlist);
-
-                        self.skip_track(last_state.playback_track_index as u32)
-                            .await;
-
-                        let position =
-                            ClockTime::from_mseconds(last_state.playback_position as u64);
-                        return Some(position);
-                    }
-                }
-                TrackListType::Track => {
-                    let track_id: i32 = last_state
-                        .playback_entity_id
-                        .parse()
-                        .expect("failed to parse track id");
-                    if let Some(mut track) = self.service.track(track_id).await {
-                        track.status = TrackStatus::Playing;
-                        track.number = 1;
-
-                        let mut queue = BTreeMap::new();
-                        queue.entry(track.position).or_insert_with(|| track);
-
-                        let mut tracklist = TrackListValue::new(Some(&queue));
-                        tracklist.set_list_type(TrackListType::Track);
-
-                        self.replace_list(tracklist);
-                        self.tracklist.set_list_type(TrackListType::Track);
-
-                        self.skip_track(last_state.playback_track_index as u32)
-                            .await;
-
-                        let position =
-                            ClockTime::from_mseconds(last_state.playback_position as u64);
-                        return Some(position);
-                    }
-                }
-                TrackListType::Unknown => unreachable!(),
-            }
-        }
-
-        None
     }
 }

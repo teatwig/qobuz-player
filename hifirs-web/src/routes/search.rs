@@ -1,4 +1,4 @@
-use axum::{extract::Query, response::IntoResponse, routing::get, Router};
+use axum::{extract::Query, response::IntoResponse, routing::get, Form, Router};
 use hifirs_player::service::SearchResults;
 use leptos::{component, prelude::*, IntoView};
 use serde::Deserialize;
@@ -17,7 +17,7 @@ use crate::{
 };
 
 pub fn routes() -> Router<Arc<AppState>> {
-    Router::new().route("/search", get(index))
+    Router::new().route("/search", get(index).post(search_partial))
 }
 
 #[derive(Deserialize, Clone)]
@@ -50,14 +50,35 @@ async fn index(Query(query): Query<SearchQuery>) -> impl IntoResponse {
     render(html)
 }
 
+async fn search_partial(Form(query): Form<SearchQuery>) -> impl IntoResponse {
+    let tab = query.tab.unwrap_or(Tab::Albums);
+    let query = query.query;
+
+    let search_results = match &query {
+        Some(query) => hifirs_player::search(query).await,
+        None => SearchResults {
+            query: query.unwrap_or("".into()),
+            albums: vec![],
+            tracks: vec![],
+            artists: vec![],
+            playlists: vec![],
+        },
+    };
+
+    render(html! { <Search search_results=search_results tab=tab /> })
+}
+
 #[component]
 fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
     html! {
-        <div class="flex flex-col h-full">
+        <div class="flex flex-col h-full" id="search">
             <form
-                id="search-form"
                 class="flex flex-col flex-grow gap-4 p-4 max-h-full peer"
                 action="#"
+                hx-post="/search"
+                hx-trigger="input from:#query delay:300ms, change"
+                hx-target="#search"
+                hx-swap="outerHTML"
             >
                 <div class="flex flex-row gap-4 items-center">
                     <input
@@ -70,7 +91,7 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
                         placeholder="Search"
                         spellcheck="false"
                         type="search"
-                        autofocus
+                        hx-preserve
                     />
                     <span class="size-8">
                         <MagnifyingGlass />
@@ -84,6 +105,7 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
                     class="sr-only peer/albums"
                     name="tab"
                     checked=tab == Tab::Albums
+                    hx-preserve
                 />
                 <input
                     type="radio"
@@ -92,6 +114,7 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
                     class="sr-only peer/artists"
                     name="tab"
                     checked=tab == Tab::Artists
+                    hx-preserve
                 />
                 <input
                     type="radio"
@@ -100,6 +123,7 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
                     class="sr-only peer/playlists"
                     name="tab"
                     checked=tab == Tab::Playlists
+                    hx-preserve
                 />
 
                 <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors *:cursor-pointer">

@@ -94,10 +94,9 @@ async fn status_partial() -> impl IntoResponse {
 fn play_pause(play: bool) -> impl IntoView {
     html! {
         <button
-            id="play-pause"
-            hx-swap="outerHTML"
+            id="play-pause-button"
+            hx-swap="none"
             hx-target="this"
-            hx-trigger="click, sse:status"
             hx-put=format!("api/{}", if play { "pause" } else { "play" })
         >
             {match play {
@@ -169,12 +168,9 @@ async fn progress_partial() -> impl IntoResponse {
     let current_track = hifirs_player::current_track().await;
     let duration_seconds = current_track.map(|track| track.duration_seconds);
 
-    render(html! {
-        <Progress position_seconds=position_mseconds duration_seconds=duration_seconds />
-        <div hx-swap-oob="innerHTML:#play-pause">
-            <Pause />
-        </div>
-    })
+    render(
+        html! { <Progress position_seconds=position_mseconds duration_seconds=duration_seconds /> },
+    )
 }
 
 #[component]
@@ -187,19 +183,17 @@ fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> imp
         .unwrap_or(0);
 
     html! {
-        <div hx-get="progress" hx-trigger="sse:position" hx-swap="outerHTML">
-            <div class="grid h-2 rounded-full overflow-clip">
-                <div style="grid-column: 1; grid-row: 1;" class="w-full bg-gray-800"></div>
-                <div
-                    id="progress-bar"
-                    class="bg-gray-500 transition-all"
-                    style=format!("grid-column: 1; grid-row: 1; width: calc({progress}%/1000)")
-                ></div>
-            </div>
-            <div class="flex justify-between text-sm text-gray-500">
-                <span>{position}</span>
-                <span>{duration}</span>
-            </div>
+        <div class="grid h-2 rounded-full overflow-clip">
+            <div style="grid-column: 1; grid-row: 1;" class="w-full bg-gray-800"></div>
+            <div
+                id="progress-bar"
+                class="bg-gray-500 transition-all"
+                style=format!("grid-column: 1; grid-row: 1; width: calc({progress}%/1000)")
+            ></div>
+        </div>
+        <div class="flex justify-between text-sm text-gray-500">
+            <span>{position}</span>
+            <span>{duration}</span>
         </div>
     }
 }
@@ -286,9 +280,7 @@ pub fn now_playing(
                 }
                     .into_any()
             } else {
-                html! {
-                    <div class="justify-self-center bg-gray-900 rounded-lg size-full aspect-square"></div>
-                }
+                html! { <div class="justify-self-center w-full bg-gray-900 rounded-lg"></div> }
                     .into_any()
             }}
             <div class="flex flex-col flex-grow justify-center w-full">
@@ -315,10 +307,12 @@ pub fn now_playing(
                         <Info explicit=explicit hires_available=hires_available />
                     </div>
 
-                    <Progress
-                        position_seconds=position_mseconds
-                        duration_seconds=duration_seconds
-                    />
+                    <div hx-get="progress" hx-trigger="sse:position" hx-swap="innerHTML">
+                        <Progress
+                            position_seconds=position_mseconds
+                            duration_seconds=duration_seconds
+                        />
+                    </div>
                 </div>
 
                 <div class="flex flex-col gap-4">
@@ -327,11 +321,18 @@ pub fn now_playing(
                             <Backward />
                         </button>
 
-                        {if current_status != gstreamer::State::Playing {
-                            html! { <PlayPause play=false /> }.into_any()
-                        } else {
-                            html! { <PlayPause play=true /> }.into_any()
-                        }}
+                        <div
+                            hx-trigger="sse:status"
+                            hx-get="status"
+                            hx-swap="innerHTML"
+                            class="contents"
+                        >
+                            {if current_status != gstreamer::State::Playing {
+                                html! { <PlayPause play=false /> }.into_any()
+                            } else {
+                                html! { <PlayPause play=true /> }.into_any()
+                            }}
+                        </div>
                         <button hx-put="api/next" hx-swap="none">
                             <Forward />
                         </button>

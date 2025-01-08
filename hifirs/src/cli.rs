@@ -148,7 +148,6 @@ impl From<hifirs_player::error::Error> for Error {
 }
 
 async fn setup_player(
-    resume: bool,
     web: bool,
     interface: String,
     username: Option<&str>,
@@ -157,15 +156,6 @@ async fn setup_player(
     hifirs_player::init(username, password).await?;
 
     let mut handles: Vec<JoinHandle<()>> = Vec::new();
-
-    if resume {
-        handles.push(tokio::spawn(async move {
-            match hifirs_player::resume(false).await {
-                Ok(_) => debug!("resume success"),
-                Err(error) => debug!("resume error {error}"),
-            }
-        }));
-    }
 
     #[cfg(target_os = "linux")]
     {
@@ -213,7 +203,6 @@ pub async fn run() -> Result<(), Error> {
     match cli.command {
         Commands::Open {} => {
             let mut handles = setup_player(
-                true,
                 cli.web,
                 cli.interface,
                 cli.username.as_deref(),

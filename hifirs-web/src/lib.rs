@@ -88,7 +88,22 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
                     percent: _,
                     target_state: _,
                 } => {}
-                Notification::Status { status: _ } => (),
+                Notification::Status { status } => {
+                    let message_data = match status {
+                        gstreamer::State::VoidPending => "pause",
+                        gstreamer::State::Null => "pause",
+                        gstreamer::State::Ready => "pause",
+                        gstreamer::State::Paused => "pause",
+                        gstreamer::State::Playing => "play",
+                    };
+                    tracing::info!("status event: {}", message_data);
+
+                    let event = ServerSentEvent {
+                        event_name: "status".into(),
+                        event_data: message_data.into(),
+                    };
+                    _ = tx.send(event);
+                }
                 Notification::Position { clock } => {
                     let event = ServerSentEvent {
                         event_name: "position".into(),

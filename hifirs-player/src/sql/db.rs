@@ -4,10 +4,7 @@ use sqlx::{sqlite::SqliteConnectOptions, Pool, Sqlite, SqlitePool};
 use std::path::PathBuf;
 use tracing::debug;
 
-use crate::{
-    acquire, get_one, query,
-    queue::controls::{PlayerState, SavedState},
-};
+use crate::{acquire, get_one, query};
 
 static POOL: OnceCell<Pool<Sqlite>> = OnceCell::new();
 
@@ -167,41 +164,6 @@ pub async fn get_config() -> Option<ApiConfig> {
             conn
         ) {
             Some(conf)
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
-
-pub async fn persist_state(state: PlayerState) {
-    if let Ok(mut conn) = acquire!() {
-        let saved_state: SavedState = state.into();
-        let playback_entity_type = saved_state.playback_entity_type.to_string();
-
-        sqlx::query!(
-            r#"INSERT INTO player_state VALUES(NULL,?1,?2,?3,?4,?5);"#,
-            saved_state.playback_track_id,
-            saved_state.playback_position,
-            saved_state.playback_track_index,
-            saved_state.playback_entity_id,
-            playback_entity_type
-        )
-        .execute(&mut *conn)
-        .await
-        .expect("database failure");
-    }
-}
-
-pub async fn get_last_state() -> Option<SavedState> {
-    if let Ok(mut conn) = acquire!() {
-        if let Ok(state) = get_one!(
-            r#"SELECT * FROM player_state ORDER BY rowid DESC LIMIT 1;"#,
-            SavedState,
-            conn
-        ) {
-            Some(state)
         } else {
             None
         }

@@ -59,7 +59,7 @@ pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
                     html! {
                         <a href=format!("/artist/{}", artist.id) class="h-full text-center">
                             <div
-                                class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full size-32"
+                                class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-32"
                                 style=artist_image_style
                             ></div>
 
@@ -159,7 +159,7 @@ pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView
                                 class="flex gap-4 items-center"
                             >
                                 <div
-                                    class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full size-12"
+                                    class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-12"
                                     style=artist_image_style
                                 ></div>
 
