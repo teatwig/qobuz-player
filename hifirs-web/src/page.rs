@@ -36,14 +36,14 @@ fn Navigation(active_page: Page) -> impl IntoView {
                 Queue
             </a>
             <a
-                href="/favorites"
+                href="/favorites/albums"
                 class=if active_page == Page::Favorites { "text-blue-500" } else { "text-gray-500" }
             >
                 <Star solid=true />
                 Favorites
             </a>
             <a
-                href="/search"
+                href="/search/albums"
                 class=if active_page == Page::Search { "text-blue-500" } else { "text-gray-500" }
             >
                 <MagnifyingGlass />
@@ -81,7 +81,6 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 class="flex flex-col justify-between text-gray-50 bg-black h-dvh touch-none overflow-clip px-safe pt-safe"
                 hx-ext="sse"
                 sse-connect="/sse"
-                hx-boost="true"
             >
                 <div class="overflow-auto h-full">{children()}</div>
 

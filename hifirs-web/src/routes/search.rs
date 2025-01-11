@@ -1,4 +1,9 @@
-use axum::{extract::Query, response::IntoResponse, routing::get, Form, Router};
+use axum::{
+    extract::{Path, Query},
+    response::IntoResponse,
+    routing::get,
+    Form, Router,
+};
 use hifirs_player::service::SearchResults;
 use leptos::{component, prelude::*, IntoView};
 use serde::Deserialize;
@@ -17,23 +22,28 @@ use crate::{
 };
 
 pub fn routes() -> Router<Arc<AppState>> {
-    Router::new().route("/search", get(index).post(search_partial))
+    Router::new().route("/search/{tab}", get(index).post(search))
 }
 
 #[derive(Deserialize, Clone)]
 struct SearchQuery {
     query: Option<String>,
-    tab: Option<Tab>,
 }
 
-async fn index(Query(query): Query<SearchQuery>) -> impl IntoResponse {
-    let tab = query.tab.unwrap_or(Tab::Albums);
-    let query = query.query;
+async fn index(
+    Path(tab): Path<Tab>,
+    Query(query): Query<Vec<(String, String)>>,
+) -> impl IntoResponse {
+    let query = query
+        .iter()
+        .rev()
+        .find(|q| q.0 == "query")
+        .map(|q| q.1.clone());
 
     let search_results = match &query {
         Some(query) => hifirs_player::search(query).await,
         None => SearchResults {
-            query: query.unwrap_or("".into()),
+            query: query.clone().unwrap_or("".into()),
             albums: vec![],
             tracks: vec![],
             artists: vec![],
@@ -50,14 +60,13 @@ async fn index(Query(query): Query<SearchQuery>) -> impl IntoResponse {
     render(html)
 }
 
-async fn search_partial(Form(query): Form<SearchQuery>) -> impl IntoResponse {
-    let tab = query.tab.unwrap_or(Tab::Albums);
+async fn search(Path(tab): Path<Tab>, Form(query): Form<SearchQuery>) -> impl IntoResponse {
     let query = query.query;
 
     let search_results = match &query {
         Some(query) => hifirs_player::search(query).await,
         None => SearchResults {
-            query: query.unwrap_or("".into()),
+            query: query.clone().unwrap_or("".into()),
             albums: vec![],
             tracks: vec![],
             artists: vec![],
@@ -65,22 +74,87 @@ async fn search_partial(Form(query): Form<SearchQuery>) -> impl IntoResponse {
         },
     };
 
-    render(html! { <Search search_results=search_results tab=tab /> })
+    let html = html! {
+        <SearchPartial search_results=search_results tab=tab.clone() />
+
+        <TabBar query=query.unwrap_or_default() tab=tab />
+    };
+
+    render(html)
+}
+
+#[component]
+fn search_partial(search_results: SearchResults, tab: Tab) -> impl IntoView {
+    match tab {
+        Tab::Albums => html! {
+            <ListAlbums
+                albums=search_results.albums
+                sort=crate::components::list::AlbumSort::Default
+            />
+        }
+        .into_any(),
+        Tab::Artists => html! {
+            <ListArtists
+                artists=search_results.artists
+                sort=crate::components::list::ArtistSort::Default
+            />
+        }
+        .into_any(),
+        Tab::Playlists => html! {
+            <ListPlaylists
+                playlists=search_results.playlists
+                sort=crate::components::list::PlaylistSort::Default
+            />
+        }
+        .into_any(),
+    }
+}
+
+#[component]
+fn tab_bar(query: String, tab: Tab) -> impl IntoView {
+    html! {
+        <div
+            id="tabs"
+            hx-swap-oob="true"
+            class="flex justify-between *:rounded-full *:px-2 *:py-1 *:transition-colors *:hover:bg-blue-600"
+        >
+            <a
+                href=format!("albums?query={}", query)
+                class=if tab == Tab::Albums { "bg-blue-800" } else { "" }
+            >
+                Albums
+            </a>
+            <a
+                href=format!("artists?query={}", query)
+                class=if tab == Tab::Artists { "bg-blue-800" } else { "" }
+            >
+                Artists
+            </a>
+            <a
+                href=format!("playlists?query={}", query)
+                class=if tab == Tab::Playlists { "bg-blue-800" } else { "" }
+            >
+                Playlists
+            </a>
+        </div>
+    }
 }
 
 #[component]
 fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
+    let query = search_results.query.clone();
     html! {
-        <div class="flex flex-col h-full" id="search">
-            <form
-                class="flex flex-col flex-grow gap-4 p-4 max-h-full peer"
-                action="#"
-                hx-post="/search"
-                hx-trigger="input from:#query delay:300ms, change"
-                hx-target="#search"
-                hx-swap="outerHTML"
-            >
-                <div class="flex flex-row gap-4 items-center">
+        <div class="flex flex-col h-full">
+            <div class="flex flex-col flex-grow gap-4 p-4 max-h-full">
+                <form
+                    class="flex flex-row gap-4 items-center"
+                    id="search-form"
+                    hx-preserve
+                    hx-post=""
+                    hx-trigger="input from:#query delay:500ms, change"
+                    hx-target="#search-results"
+                    hx-swap="innerHTML"
+                >
                     <input
                         id="query"
                         name="query"
@@ -91,80 +165,18 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
                         placeholder="Search"
                         spellcheck="false"
                         type="search"
-                        hx-preserve
+                        autofocus
                     />
                     <span class="size-8">
                         <MagnifyingGlass />
                     </span>
-                </div>
+                </form>
 
-                <input
-                    type="radio"
-                    id="albums"
-                    value="albums"
-                    class="sr-only peer/albums"
-                    name="tab"
-                    checked=tab == Tab::Albums
-                    hx-preserve
-                />
-                <input
-                    type="radio"
-                    id="artists"
-                    value="artists"
-                    class="sr-only peer/artists"
-                    name="tab"
-                    checked=tab == Tab::Artists
-                    hx-preserve
-                />
-                <input
-                    type="radio"
-                    id="playlists"
-                    value="playlists"
-                    class="sr-only peer/playlists"
-                    name="tab"
-                    checked=tab == Tab::Playlists
-                    hx-preserve
-                />
-
-                <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors *:cursor-pointer">
-                    <label
-                        for="albums"
-                        class="hover:bg-blue-600 group-[#albums:checked~&]:bg-blue-800"
-                    >
-                        Albums
-                    </label>
-                    <label
-                        for="artists"
-                        class="hover:bg-blue-600 group-[#artists:checked~&]:bg-blue-800"
-                    >
-                        Artists
-                    </label>
-                    <label
-                        for="playlists"
-                        class="hover:bg-blue-600 group-[#playlists:checked~&]:bg-blue-800"
-                    >
-                        Playlists
-                    </label>
-                </div>
-            </form>
-
-            <div class="hidden overflow-auto h-full peer-[:has(#albums:checked)]:block">
-                <ListAlbums
-                    albums=search_results.albums
-                    sort=crate::components::list::AlbumSort::Default
-                />
+                <TabBar query=query tab=tab.clone() />
             </div>
-            <div class="hidden overflow-auto h-full peer-[:has(#artists:checked)]:block">
-                <ListArtists
-                    artists=search_results.artists
-                    sort=crate::components::list::ArtistSort::Default
-                />
-            </div>
-            <div class="hidden overflow-auto h-full peer-[:has(#playlists:checked)]:block">
-                <ListPlaylists
-                    playlists=search_results.playlists
-                    sort=crate::components::list::PlaylistSort::Default
-                />
+
+            <div id="search-results" class="overflow-auto h-full">
+                <SearchPartial search_results=search_results tab=tab />
             </div>
         </div>
     }
