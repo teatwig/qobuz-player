@@ -132,7 +132,7 @@ fn album(
                     />
                 </div>
 
-                <div class="flex flex-col flex-grow gap-4 items-center">
+                <div class="flex flex-col flex-grow gap-4 items-center w-full">
                     <div class="flex flex-col gap-2 justify-center items-center w-full text-center">
                         <a
                             href=format!("/artist/{}", album.artist.id)
