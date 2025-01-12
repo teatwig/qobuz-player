@@ -7,7 +7,7 @@ use crate::{
         release::{Release, ReleaseQuery},
         search_results::SearchAllResults,
         track::Track,
-        AudioQuality, TrackURL,
+        TrackURL,
     },
     Error, Result,
 };
@@ -46,7 +46,6 @@ pub struct Client {
     app_id: Option<String>,
     base_url: String,
     client: reqwest::Client,
-    default_quality: AudioQuality,
     user_token: Option<String>,
     bundle_regex: regex::Regex,
     app_id_regex: regex::Regex,
@@ -56,7 +55,6 @@ pub struct Client {
 pub async fn new(
     active_secret: Option<String>,
     app_id: Option<String>,
-    audio_quality: Option<AudioQuality>,
     user_token: Option<String>,
 ) -> Result<Client> {
     let mut headers = HeaderMap::new();
@@ -74,19 +72,12 @@ pub async fn new(
         .build()
         .unwrap();
 
-    let default_quality = if let Some(quality) = audio_quality {
-        quality
-    } else {
-        AudioQuality::HIFI192
-    };
-
     Ok(Client {
         client,
         secrets: HashMap::new(),
         active_secret,
         user_token,
         app_id,
-        default_quality,
         base_url: "https://www.qobuz.com/api.json/0.2/".to_string(),
         bundle_regex: regex::Regex::new(BUNDLE_REGEX).unwrap(),
         app_id_regex: regex::Regex::new(APP_REGEX).unwrap(),
@@ -186,10 +177,6 @@ macro_rules! post {
 }
 
 impl Client {
-    pub fn quality(&self) -> &AudioQuality {
-        &self.default_quality
-    }
-
     pub fn signed_in(&self) -> bool {
         self.user_token.is_some()
     }
@@ -403,12 +390,7 @@ impl Client {
     }
 
     /// Retrieve url information for a track's audio file
-    pub async fn track_url(
-        &self,
-        track_id: i32,
-        fmt_id: Option<&AudioQuality>,
-        sec: Option<&str>,
-    ) -> Result<TrackURL> {
+    pub async fn track_url(&self, track_id: i32, sec: Option<&str>) -> Result<TrackURL> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::TrackURL);
         let now = format!("{}", chrono::Utc::now().timestamp());
         let secret = if let Some(secret) = sec {
@@ -419,29 +401,19 @@ impl Client {
             return Err(Error::ActiveSecret);
         };
 
-        let format_id = if let Some(quality) = fmt_id {
-            quality
-        } else {
-            self.quality()
-        };
-
         let sig = format!(
             "trackgetFileUrlformat_id{}intentstreamtrack_id{}{}{}",
-            format_id.clone(),
-            track_id,
-            now,
-            secret
+            "27", track_id, now, secret
         );
         let hashed_sig = format!("{:x}", md5::compute(sig.as_str()));
 
         let track_id = track_id.to_string();
-        let format_string = format_id.to_string();
 
         let params = vec![
             ("request_ts", now.as_str()),
             ("request_sig", hashed_sig.as_str()),
             ("track_id", track_id.as_str()),
-            ("format_id", format_string.as_str()),
+            ("format_id", "27"),
             ("intent", "stream"),
         ];
 
@@ -657,10 +629,6 @@ impl Client {
         self.active_secret = Some(active_secret);
     }
 
-    pub fn set_default_quality(&mut self, quality: AudioQuality) {
-        self.default_quality = quality;
-    }
-
     pub fn get_token(&self) -> Option<&String> {
         self.user_token.as_ref()
     }
@@ -834,9 +802,7 @@ impl Client {
         debug!("testing secrets: {secrets:?}");
 
         for (timezone, secret) in secrets.iter() {
-            let response = self
-                .track_url(64868955, Some(&AudioQuality::Mp3), Some(secret))
-                .await;
+            let response = self.track_url(64868955, Some(secret)).await;
 
             if response.is_ok() {
                 debug!("found good secret: {}\t{}", timezone, secret);

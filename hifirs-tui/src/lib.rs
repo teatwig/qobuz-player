@@ -1027,19 +1027,6 @@ pub async fn receive_notifications() {
                             }))
                             .expect("failed to send update");
                     }
-                    Notification::AudioQuality { bitdepth, sampling_rate} => {
-                        SINK.get().unwrap().send(Box::new(move |s| {
-                            s.call_on_name("bit_depth", |view: &mut TextView| {
-                                view.set_content(format!("{bitdepth} bits"));
-                            });
-                        })).expect("failed to send update");
-
-                        SINK.get().unwrap().send(Box::new(move |s| {
-                            s.call_on_name("sample_rate", |view: &mut TextView| {
-                                view.set_content(format!("{} kHz", sampling_rate as f32 / 1000.));
-                            });
-                        })).expect("failed to send update");
-                    }
                     Notification::Error { error: _ } => {}
                     Notification::Volume{ volume: _ } => {}
                 }

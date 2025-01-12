@@ -1,7 +1,5 @@
-use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use snafu::prelude::*;
-use std::fmt::Display;
 
 pub mod album;
 pub mod album_suggestion;
@@ -74,34 +72,6 @@ pub enum UrlTypeError {
 }
 
 pub type ParseUrlResult<T, E = UrlTypeError> = std::result::Result<T, E>;
-
-/// The audio quality as defined by the Qobuz API.
-#[derive(Default, Clone, Debug, Serialize, Deserialize, ValueEnum)]
-pub enum AudioQuality {
-    Mp3 = 5,
-    CD = 6,
-    HIFI96 = 7,
-    #[default]
-    HIFI192 = 27,
-}
-
-impl From<i64> for AudioQuality {
-    fn from(quality_id: i64) -> Self {
-        match quality_id {
-            5 => Self::Mp3,
-            6 => Self::CD,
-            7 => Self::HIFI96,
-            27 => Self::HIFI192,
-            _ => Self::Mp3,
-        }
-    }
-}
-
-impl Display for AudioQuality {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}", self.clone() as u32))
-    }
-}
 
 pub fn parse_url(string_url: &str) -> ParseUrlResult<UrlType> {
     if let Ok(url) = url::Url::parse(string_url) {

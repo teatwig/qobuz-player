@@ -125,7 +125,7 @@ impl MusicService for QobuzClient {
     }
 
     async fn track_url(&self, track_id: i32) -> Option<String> {
-        match self.track_url(track_id, None, None).await {
+        match self.track_url(track_id, None).await {
             Ok(track_url) => Some(track_url.url),
             Err(_) => None,
         }
@@ -146,7 +146,7 @@ impl MusicService for QobuzClient {
 }
 
 pub async fn make_client(username: Option<&str>, password: Option<&str>) -> Result<QobuzClient> {
-    let mut client = api::new(None, None, None, None).await?;
+    let mut client = api::new(None, None, None).await?;
 
     setup_client(&mut client, username, password).await
 }

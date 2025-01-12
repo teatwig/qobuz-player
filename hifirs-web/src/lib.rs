@@ -96,7 +96,6 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
                         gstreamer::State::Paused => "pause",
                         gstreamer::State::Playing => "play",
                     };
-                    tracing::info!("status event: {}", message_data);
 
                     let event = ServerSentEvent {
                         event_name: "status".into(),
@@ -120,10 +119,6 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
                     };
                     _ = tx.send(event);
                 }
-                Notification::AudioQuality {
-                    bitdepth: _,
-                    sampling_rate: _,
-                } => {}
                 Notification::Quit => (),
                 Notification::Loading {
                     is_loading: _,

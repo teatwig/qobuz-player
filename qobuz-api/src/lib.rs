@@ -19,8 +19,6 @@ pub enum Error {
     NoUsername,
     #[snafu(display("No username or password provided."))]
     NoCredentials,
-    #[snafu(display("No audio quality provided."))]
-    NoQuality,
     #[snafu(display("Failed to get a usable secret from Qobuz."))]
     ActiveSecret,
     #[snafu(display("Failed to get an app id from Qobuz."))]

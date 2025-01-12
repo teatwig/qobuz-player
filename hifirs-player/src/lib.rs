@@ -3,7 +3,7 @@ use error::Error;
 use flume::{Receiver, Sender};
 use futures::prelude::*;
 use gst::{
-    prelude::*, Caps, ClockTime, Element, Message, MessageType, MessageView, SeekFlags,
+    prelude::*, ClockTime, Element, Message, MessageType, MessageView, SeekFlags,
     State as GstState, StateChangeSuccess, Structure,
 };
 use gstreamer as gst;
@@ -18,7 +18,7 @@ use service::{Album, Artist, Favorites, Playlist, SearchResults, Track};
 use std::{
     str::FromStr,
     sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
     time::Duration,
@@ -124,8 +124,6 @@ static ABOUT_TO_FINISH: Lazy<AboutToFinish> = Lazy::new(|| {
 });
 static IS_BUFFERING: AtomicBool = AtomicBool::new(false);
 static IS_LIVE: AtomicBool = AtomicBool::new(false);
-static SAMPLING_RATE: AtomicU32 = AtomicU32::new(44100);
-static BIT_DEPTH: AtomicU32 = AtomicU32::new(16);
 static QUEUE: OnceCell<SafePlayerState> = OnceCell::new();
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
@@ -855,50 +853,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
                 .broadcast(Notification::Position { clock: position })
                 .await?;
         }
-        MessageView::PropertyNotify(el) => {
-            let (_, prop_name, value) = el.get();
-
-            if let Some(v) = value {
-                if prop_name == "caps" {
-                    if let Ok(caps) = v.get::<&Caps>() {
-                        if !caps.is_empty() {
-                            if let Some(structure) = caps.structure(0) {
-                                let rate: u32 = structure.get("rate").unwrap_or_default();
-                                let format: &str = structure.get("format").unwrap_or_default();
-                                let bits = if format.starts_with("S24") {
-                                    24_u32
-                                } else if format.starts_with("S16") {
-                                    16_u32
-                                } else {
-                                    0
-                                };
-
-                                if rate == 0 || bits == 0 {
-                                    return Ok(());
-                                }
-
-                                let previous_bits = BIT_DEPTH.swap(bits, Ordering::SeqCst);
-                                let previous_rate = SAMPLING_RATE.swap(rate, Ordering::SeqCst);
-
-                                if previous_rate != rate || previous_bits != bits {
-                                    match BROADCAST_CHANNELS.tx.try_broadcast(
-                                        Notification::AudioQuality {
-                                            bitdepth: bits,
-                                            sampling_rate: rate,
-                                        },
-                                    ) {
-                                        Ok(_) => {}
-                                        Err(err) => {
-                                            debug!(?err);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        MessageView::PropertyNotify(_) => {}
         MessageView::Buffering(buffering) => {
             if IS_LIVE.load(Ordering::Relaxed) {
                 debug!("stream is live, ignore buffering");

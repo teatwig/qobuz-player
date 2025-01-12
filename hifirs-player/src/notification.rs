@@ -31,10 +31,6 @@ pub enum Notification {
     CurrentTrackList {
         list: TrackListValue,
     },
-    AudioQuality {
-        bitdepth: u32,
-        sampling_rate: u32,
-    },
     Quit,
     Loading {
         is_loading: bool,
