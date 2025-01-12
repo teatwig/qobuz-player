@@ -83,5 +83,5 @@ but an inteface can be specified with the `--interface` argument.
 Go to `http://<ip>:9888` to view the UI.
 
 ## Credits
-Qobuz-player started as a fork of ![hifi.rs](https://github.com/iamdb/hifi.rs) but has since diverged. 
+Qobuz-player started as a fork of [hifi.rs](https://github.com/iamdb/hifi.rs) but has since diverged. 
 Qobuz-player is mainly focused on the setup where a single boatd computer is connected to a speaker system.
