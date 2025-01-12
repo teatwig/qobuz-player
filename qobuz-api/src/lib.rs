@@ -7,8 +7,6 @@ extern crate tracing;
 
 pub mod client;
 
-pub const TEST_TEMP_PATH: &str = "/tmp/hifirs_test";
-
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, Snafu)]
