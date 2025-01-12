@@ -4,9 +4,12 @@
 
 Powered by [Qobuz](https://www.qobuz.com). Requires a paid subscription. This does not allow you to listen for free.
 
-Qobuz only supports Linux through the browser and has no officially supported API. There are ways of accessing Qobuz in Linux outside of the browser through third-party applications like Squeezelite and Roon. These apps are great, but I wanted something simpler that just focused on being able to quickly find and play an album inside the console.
+The player includes a terminal ui and a webui. 
+The web interface is ideal for a setup with a single board conputer, raspberry pi, connected to the speaker system and controlled with a smartphone or tablet.
 
 ![TUI Screenshot](/qobuz-player.png?raw=true)
+
+<img src="/qobuz-player-webui-desktop.png?raw=true" width="240">
 
 ## Player Features
 
@@ -74,9 +77,11 @@ The TUI has full mouse support.
 
 ## Web UI
 
-<img src="/qobuz-player-webui-desktop.png?raw=true" width="240">
-
 The player can start an embedded web interface. This is disabled by default and must be started with the `--web` argument. It also listens on `0.0.0.0:9888` by default,
 but an inteface can be specified with the `--interface` argument.
 
 Go to `http://<ip>:9888` to view the UI.
+
+## Credits
+Qobuz-player started as a fork of ![hifi.rs](https://github.com/iamdb/hifi.rs) but has since diverged. 
+Qobuz-player is mainly focused on the setup where a single boatd computer is connected to a speaker system.
