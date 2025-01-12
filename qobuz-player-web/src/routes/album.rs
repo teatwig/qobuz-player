@@ -126,8 +126,8 @@ fn album(
 
     html! {
         <div class="flex flex-col justify-center items-center sm:p-4">
-            <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full">
-                <div class="max-w-sm">
+            <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full *:max-w-sm">
+                <div>
                     <img
                         src=album.cover_art
                         alt=album.title.clone()
@@ -143,7 +143,7 @@ fn album(
                         >
                             {album.artist.name}
                         </a>
-                        <span class="w-full text-lg sm:text-xl truncate">{album.title}</span>
+                        <span class="text-lg sm:text-xl">{album.title}</span>
                         <span class="text-gray-400 sm:text-lg">{album.release_year}</span>
                     </div>
 
