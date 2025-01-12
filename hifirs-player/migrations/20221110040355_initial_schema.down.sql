@@ -1,4 +1,0 @@
-DROP TABLE IF EXISTS audio_quality;
-DROP TABLE IF EXISTS config; 
-DROP TABLE IF EXISTS player_queue;
-DROP TABLE IF EXISTS state;

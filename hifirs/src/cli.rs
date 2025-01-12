@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand};
-use dialoguer::{Confirm, Input, Password};
+use dialoguer::{Input, Password};
 use hifirs_player::mpris;
 use hifirs_player::sql::db;
-use hifirs_qobuz_api::client::{api::OutputFormat, AudioQuality};
+use hifirs_qobuz_api::client::api::OutputFormat;
 use snafu::prelude::*;
 use tokio::task::JoinHandle;
 use tracing_subscriber::EnvFilter;
@@ -39,8 +39,6 @@ struct Cli {
 enum Commands {
     /// Open the player
     Open {},
-    /// Reset the player state
-    Reset,
     /// Set configuration options
     Config {
         #[clap(subcommand)]
@@ -112,13 +110,6 @@ pub enum ConfigCommands {
     /// Save password to database.
     #[clap(value_parser)]
     Password {},
-    /// Clear saved username and password.
-    Clear {},
-    /// Target this quality when playing audio.
-    DefaultQuality {
-        #[clap(value_enum)]
-        quality: AudioQuality,
-    },
 }
 
 #[derive(Debug, Snafu)]
@@ -241,10 +232,6 @@ pub async fn run() -> Result<(), Error> {
 
             Ok(())
         }
-        Commands::Reset => {
-            db::clear_state().await;
-            Ok(())
-        }
         Commands::Config { command } => match command {
             ConfigCommands::Username {} => {
                 if let Ok(username) = Input::new()
@@ -269,25 +256,6 @@ pub async fn run() -> Result<(), Error> {
                     db::set_password(md5_pw).await;
 
                     println!("Password saved.");
-                }
-                Ok(())
-            }
-            ConfigCommands::DefaultQuality { quality } => {
-                db::set_default_quality(quality).await;
-
-                println!("Default quality saved.");
-
-                Ok(())
-            }
-            ConfigCommands::Clear {} => {
-                if let Ok(ok) = Confirm::new()
-                    .with_prompt("This will clear the configuration in the database.\nDo you want to continue?")
-                    .interact()
-                {
-                    if ok {
-                        db::clear_state().await;
-                        println!("Database cleared.");
-                    }
                 }
                 Ok(())
             }

@@ -9,7 +9,6 @@ use hifirs_qobuz_api::client::{
     favorites::Favorites as QobuzFavorites,
     release::{Release, Track as QobuzTrack},
     search_results::SearchAllResults,
-    AudioQuality,
 };
 use std::{collections::BTreeMap, str::FromStr};
 use tracing::{debug, error, info};
@@ -162,12 +161,6 @@ pub async fn setup_client(
 
     if let Some(config) = db::get_config().await {
         let mut refresh_config = false;
-
-        if let Some(quality) = config.default_quality {
-            info!("using default quality from cache: {}", quality);
-            let quality: AudioQuality = quality.into();
-            client.set_default_quality(quality);
-        }
 
         if let Some(app_id) = config.app_id {
             debug!("using app_id from cache");

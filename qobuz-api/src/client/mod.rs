@@ -17,7 +17,6 @@ pub mod track;
 pub struct ApiConfig {
     pub username: Option<String>,
     pub password: Option<String>,
-    pub default_quality: Option<i64>,
     pub user_token: Option<String>,
     pub app_id: Option<String>,
     pub active_secret: Option<String>,
@@ -79,10 +78,10 @@ pub type ParseUrlResult<T, E = UrlTypeError> = std::result::Result<T, E>;
 /// The audio quality as defined by the Qobuz API.
 #[derive(Default, Clone, Debug, Serialize, Deserialize, ValueEnum)]
 pub enum AudioQuality {
-    #[default]
     Mp3 = 5,
     CD = 6,
     HIFI96 = 7,
+    #[default]
     HIFI192 = 27,
 }
 

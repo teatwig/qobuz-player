@@ -1,4 +1,4 @@
-use hifirs_qobuz_api::client::{ApiConfig, AudioQuality};
+use hifirs_qobuz_api::client::ApiConfig;
 use once_cell::sync::OnceCell;
 use sqlx::{sqlite::SqliteConnectOptions, Pool, Sqlite, SqlitePool};
 use std::path::PathBuf;
@@ -43,15 +43,6 @@ pub async fn init() {
     POOL.set(pool).expect("error setting static pool");
 
     create_config().await;
-}
-
-pub async fn clear_state() {
-    if let Ok(mut conn) = acquire!() {
-        sqlx::query("DELETE FROM player_state")
-            .execute(&mut *conn)
-            .await
-            .expect("failed to clear state");
-    }
 }
 
 pub async fn set_username(username: String) {
@@ -120,22 +111,6 @@ pub async fn set_active_secret(secret: &String) {
             "#,
             conn,
             secret
-        );
-    }
-}
-
-pub async fn set_default_quality(quality: AudioQuality) {
-    if let Ok(mut conn) = acquire!() {
-        let quality_id = quality as i32;
-
-        query!(
-            r#"
-            UPDATE config
-            SET default_quality=?1
-            WHERE ROWID = 1
-            "#,
-            conn,
-            quality_id
         );
     }
 }

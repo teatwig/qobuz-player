@@ -77,7 +77,7 @@ pub async fn new(
     let default_quality = if let Some(quality) = audio_quality {
         quality
     } else {
-        AudioQuality::Mp3
+        AudioQuality::HIFI192
     };
 
     Ok(Client {

@@ -14,23 +14,18 @@
         "type_info": "Text"
       },
       {
-        "name": "default_quality",
-        "ordinal": 2,
-        "type_info": "Int64"
-      },
-      {
         "name": "user_token",
-        "ordinal": 3,
+        "ordinal": 2,
         "type_info": "Text"
       },
       {
         "name": "active_secret",
-        "ordinal": 4,
+        "ordinal": 3,
         "type_info": "Text"
       },
       {
         "name": "app_id",
-        "ordinal": 5,
+        "ordinal": 4,
         "type_info": "Text"
       }
     ],
@@ -38,7 +33,6 @@
       "Right": 0
     },
     "nullable": [
-      true,
       true,
       true,
       true,
