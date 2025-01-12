@@ -9,7 +9,7 @@ The web interface is ideal for a setup with a single board conputer, raspberry p
 
 ![TUI Screenshot](/qobuz-player.png?raw=true)
 
-<img src="/qobuz-player-webui-desktop.png?raw=true" width="240">
+<img src="/qobuz-player-webui.png?raw=true" width="240">
 
 ## Player Features
 
