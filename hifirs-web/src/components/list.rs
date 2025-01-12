@@ -57,7 +57,7 @@ pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
                             |image| format!("background-image: url({});", image.large),
                         );
                     html! {
-                        <a href=format!("/artist/{}", artist.id) class="h-full text-center">
+                        <a href=format!("/artist/{}", artist.id) class="w-32 h-full text-center">
                             <div
                                 class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-32"
                                 style=artist_image_style
@@ -97,6 +97,7 @@ pub fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
                         <ListItem>
                             <a
                                 class="flex gap-4 items-center w-full"
+                                hx-push-url="true"
                                 href=format!("/album/{}", album.id)
                             >
                                 <img
@@ -155,8 +156,9 @@ pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView
                     html! {
                         <ListItem>
                             <a
-                                href=format!("/artist/{}", artist.id)
                                 class="flex gap-4 items-center"
+                                hx-push-url="true"
+                                href=format!("/artist/{}", artist.id)
                             >
                                 <div
                                     class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-12"

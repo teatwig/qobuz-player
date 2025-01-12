@@ -26,19 +26,15 @@ pub fn routes() -> Router<Arc<AppState>> {
 }
 
 #[derive(Deserialize, Clone)]
-struct SearchQuery {
+struct SearchParameters {
     query: Option<String>,
 }
 
 async fn index(
     Path(tab): Path<Tab>,
-    Query(query): Query<Vec<(String, String)>>,
+    Query(parameters): Query<SearchParameters>,
 ) -> impl IntoResponse {
-    let query = query
-        .iter()
-        .rev()
-        .find(|q| q.0 == "query")
-        .map(|q| q.1.clone());
+    let query = parameters.query;
 
     let search_results = match &query {
         Some(query) => hifirs_player::search(query).await,
@@ -60,7 +56,7 @@ async fn index(
     render(html)
 }
 
-async fn search(Path(tab): Path<Tab>, Form(query): Form<SearchQuery>) -> impl IntoResponse {
+async fn search(Path(tab): Path<Tab>, Form(query): Form<SearchParameters>) -> impl IntoResponse {
     let query = query.query;
 
     let search_results = match &query {
@@ -116,23 +112,32 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
         <div
             id="tabs"
             hx-swap-oob="true"
-            class="flex justify-between *:rounded-full *:px-2 *:py-1 *:transition-colors *:hover:bg-blue-600"
+            class="flex justify-between *:rounded-full *:px-2 *:py-1 *:transition-colors"
         >
             <a
                 href=format!("albums?query={}", query)
-                class=if tab == Tab::Albums { "bg-blue-800" } else { "" }
+                class=format!(
+                    "hover:bg-blue-600 {}",
+                    if tab == Tab::Albums { "bg-blue-800" } else { "" },
+                )
             >
                 Albums
             </a>
             <a
                 href=format!("artists?query={}", query)
-                class=if tab == Tab::Artists { "bg-blue-800" } else { "" }
+                class=format!(
+                    "hover:bg-blue-600 {}",
+                    if tab == Tab::Artists { "bg-blue-800" } else { "" },
+                )
             >
                 Artists
             </a>
             <a
                 href=format!("playlists?query={}", query)
-                class=if tab == Tab::Playlists { "bg-blue-800" } else { "" }
+                class=format!(
+                    "hover:bg-blue-600 {}",
+                    if tab == Tab::Playlists { "bg-blue-800" } else { "" },
+                )
             >
                 Playlists
             </a>

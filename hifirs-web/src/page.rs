@@ -81,6 +81,7 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 class="flex flex-col justify-between text-gray-50 bg-black h-dvh touch-none overflow-clip px-safe pt-safe"
                 hx-ext="sse"
                 sse-connect="/sse"
+                hx-boost="true"
             >
                 <div class="overflow-auto h-full">{children()}</div>
 

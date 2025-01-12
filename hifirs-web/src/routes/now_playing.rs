@@ -31,7 +31,7 @@ pub fn routes() -> Router<Arc<AppState>> {
 }
 
 #[derive(serde::Deserialize, Clone, Copy)]
-struct VolumeQuery {
+struct VolumeParameters {
     volume: i32,
 }
 
@@ -64,8 +64,8 @@ fn volume_slider(current_volume: u32) -> impl IntoView {
     }
 }
 
-async fn set_volume(axum::Form(query): axum::Form<VolumeQuery>) -> impl IntoResponse {
-    let mut volume = query.volume;
+async fn set_volume(axum::Form(parameters): axum::Form<VolumeParameters>) -> impl IntoResponse {
+    let mut volume = parameters.volume;
 
     if volume < 0 {
         volume = 0;
