@@ -31,9 +31,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: ${{ runner.target }}-rust-cache
       - uses: extractions/setup-just@v1
       - name: Build player ${{ matrix.arch }}-unknown-linux-gnu
         run: just build-player ${{ matrix.arch }}-unknown-linux-gnu
