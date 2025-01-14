@@ -11,6 +11,7 @@ pub enum Page {
     Queue,
     Favorites,
     Search,
+    None,
 }
 
 #[component]
@@ -52,13 +53,23 @@ fn Navigation(active_page: Page) -> impl IntoView {
                 </a>
             }
                 .attr("preload", "mouseover")}
-            <a
-                href="/search/albums"
-                class=if active_page == Page::Search { "text-blue-500" } else { "text-gray-500" }
-            >
-                <MagnifyingGlass />
-                Search
-            </a>
+            {if active_page == Page::Search {
+                html! {
+                    <button class="text-blue-500" onclick="focusSearch()">
+                        <MagnifyingGlass />
+                        Search
+                    </button>
+                }
+                    .into_any()
+            } else {
+                html! {
+                    <a href="/search/albums" class="text-gray-500">
+                        <MagnifyingGlass />
+                        Search
+                    </a>
+                }
+                    .into_any()
+            }}
         </nav>
     }
 }
@@ -85,7 +96,7 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 <script src="https://unpkg.com/htmx.org@2.0.4"></script>
                 <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
                 <script src="https://unpkg.com/htmx-ext-preload@2.1.0/preload.js"></script>
-                <script src="/assets/reconnect.js?version=1"></script>
+                <script src="/assets/script.js?version=1"></script>
             </head>
 
             <body

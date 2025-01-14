@@ -69,7 +69,7 @@ async fn index(Path(id): Path<String>) -> impl IntoResponse {
     let is_favorite = favorites.albums.iter().any(|album| album.id == id);
 
     render(html! {
-        <Page active_page=Page::Search>
+        <Page active_page=Page::None>
             <Album
                 album=album
                 suggested_albums=suggested_albums

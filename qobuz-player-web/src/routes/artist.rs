@@ -49,7 +49,7 @@ async fn index(Path(id): Path<i32>) -> impl IntoResponse {
         .any(|artist| artist.id == id as u32);
 
     render(html! {
-        <Page active_page=Page::Search>
+        <Page active_page=Page::None>
             <Artist
                 artist=artist
                 albums=albums

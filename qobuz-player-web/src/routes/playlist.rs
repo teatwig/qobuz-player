@@ -56,7 +56,7 @@ async fn index(Path(id): Path<i64>) -> impl IntoResponse {
     let is_favorite = favorites.iter().any(|playlist| playlist.id == id as u32);
 
     render(html! {
-        <Page active_page=Page::Search>
+        <Page active_page=Page::None>
             <Playlist playlist=playlist is_favorite=is_favorite now_playing_id=now_playing_id />
         </Page>
     })

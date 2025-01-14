@@ -171,7 +171,6 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
                         placeholder="Search"
                         spellcheck="false"
                         type="search"
-                        autofocus
                     />
                     <span class="size-8">
                         <MagnifyingGlass />

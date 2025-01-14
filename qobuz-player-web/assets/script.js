@@ -3,3 +3,7 @@ document.addEventListener("visibilitychange", () => {
     location.reload();
   }
 });
+
+function focusSearch() {
+  document.getElementById("query").focus();
+}
