@@ -73,7 +73,9 @@ async fn search(Path(tab): Path<Tab>, Form(query): Form<SearchParameters>) -> im
     let html = html! {
         <SearchPartial search_results=search_results tab=tab.clone() />
 
-        <TabBar query=query.unwrap_or_default() tab=tab />
+        <div hx-swap-oob="true">
+            <TabBar query=query.unwrap_or_default() tab=tab />
+        </div>
     };
 
     render(html)
@@ -111,7 +113,6 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
     html! {
         <div
             id="tabs"
-            hx-swap-oob="true"
             class="flex justify-between *:rounded-full *:px-2 *:py-1 *:transition-colors"
         >
             <a
