@@ -17,17 +17,20 @@ pub enum Page {
 fn Navigation(active_page: Page) -> impl IntoView {
     html! {
         <nav class="flex gap-2 justify-evenly w-full p-safe *:flex *:h-[3.25rem] *:w-20 *:flex-col *:items-center *:overflow-visible *:text-nowrap *:px-4 *:py-1 *:text-[10px] *:font-medium *:transition-colors">
-            <a
-                href="/"
-                class=if active_page == Page::NowPlaying {
-                    "text-blue-500"
-                } else {
-                    "text-gray-500"
-                }
-            >
-                <PlayCircle />
-                Now Playing
-            </a>
+            {html! {
+                <a
+                    href="/"
+                    class=if active_page == Page::NowPlaying {
+                        "text-blue-500"
+                    } else {
+                        "text-gray-500"
+                    }
+                >
+                    <PlayCircle />
+                    Now Playing
+                </a>
+            }
+                .attr("preload", "mousedown")}
             <a
                 href="/queue"
                 class=if active_page == Page::Queue { "text-blue-500" } else { "text-gray-500" }
@@ -35,13 +38,20 @@ fn Navigation(active_page: Page) -> impl IntoView {
                 <QueueList />
                 Queue
             </a>
-            <a
-                href="/favorites/albums"
-                class=if active_page == Page::Favorites { "text-blue-500" } else { "text-gray-500" }
-            >
-                <Star solid=true />
-                Favorites
-            </a>
+            {html! {
+                <a
+                    href="/favorites/albums"
+                    class=if active_page == Page::Favorites {
+                        "text-blue-500"
+                    } else {
+                        "text-gray-500"
+                    }
+                >
+                    <Star solid=true />
+                    Favorites
+                </a>
+            }
+                .attr("preload", "mouseover")}
             <a
                 href="/search/albums"
                 class=if active_page == Page::Search { "text-blue-500" } else { "text-gray-500" }
@@ -74,12 +84,13 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 <link rel="stylesheet" href=style_url />
                 <script src="https://unpkg.com/htmx.org@2.0.4"></script>
                 <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+                <script src="https://unpkg.com/htmx-ext-preload@2.1.0/preload.js"></script>
                 <script src="/assets/reconnect.js?version=1"></script>
             </head>
 
             <body
                 class="flex flex-col justify-between text-gray-50 bg-black h-dvh touch-none overflow-clip px-safe pt-safe"
-                hx-ext="sse"
+                hx-ext="sse, preload"
                 sse-connect="/sse"
                 hx-boost="true"
             >
