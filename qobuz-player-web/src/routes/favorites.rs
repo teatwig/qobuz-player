@@ -40,18 +40,38 @@ fn favorites(favorites: Favorites, playlists: Vec<Playlist>, tab: Tab) -> impl I
                 <h1 class="text-2xl">Favorites</h1>
 
                 <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors *:hover:bg-blue-600">
-                    <a href="albums" class=if tab == Tab::Albums { "bg-blue-800" } else { "" }>
-                        Albums
-                    </a>
-                    <a href="artists" class=if tab == Tab::Artists { "bg-blue-800" } else { "" }>
-                        Artists
-                    </a>
-                    <a
-                        href="playlists"
-                        class=if tab == Tab::Playlists { "bg-blue-800" } else { "" }
-                    >
-                        Playlists
-                    </a>
+                    {
+                        html! {
+                            <a
+                                href="albums"
+                                class=if tab == Tab::Albums { "bg-blue-800" } else { "" }
+                            >
+                                Albums
+                            </a>
+                        }
+                            .attr("preload", "mouseover")
+                            .attr("preload-images", "true");
+                        html! {
+                            <a
+                                href="artists"
+                                class=if tab == Tab::Artists { "bg-blue-800" } else { "" }
+                            >
+                                Artists
+                            </a>
+                        }
+                            .attr("preload", "mouseover")
+                            .attr("preload-images", "true");
+                        html! {
+                            <a
+                                href="playlists"
+                                class=if tab == Tab::Playlists { "bg-blue-800" } else { "" }
+                            >
+                                Playlists
+                            </a>
+                        }
+                            .attr("preload", "mouseover")
+                            .attr("preload-images", "true");
+                    }
                 </div>
             </div>
 

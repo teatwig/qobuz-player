@@ -115,33 +115,49 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
             id="tabs"
             class="flex justify-between *:rounded-full *:px-2 *:py-1 *:transition-colors"
         >
-            <a
-                href=format!("albums?query={}", query)
-                class=format!(
-                    "hover:bg-blue-600 {}",
-                    if tab == Tab::Albums { "bg-blue-800" } else { "" },
-                )
-            >
-                Albums
-            </a>
-            <a
-                href=format!("artists?query={}", query)
-                class=format!(
-                    "hover:bg-blue-600 {}",
-                    if tab == Tab::Artists { "bg-blue-800" } else { "" },
-                )
-            >
-                Artists
-            </a>
-            <a
-                href=format!("playlists?query={}", query)
-                class=format!(
-                    "hover:bg-blue-600 {}",
-                    if tab == Tab::Playlists { "bg-blue-800" } else { "" },
-                )
-            >
-                Playlists
-            </a>
+            {
+                html! {
+                    <a
+                        href=format!("albums?query={}", query)
+                        class=format!(
+                            "hover:bg-blue-600 {}",
+                            if tab == Tab::Albums { "bg-blue-800" } else { "" },
+                        )
+                    >
+
+                        Albums
+                    </a>
+                }
+                    .attr("preload", "mouseover")
+                    .attr("preload-images", "true");
+                html! {
+                    <a
+                        href=format!("artists?query={}", query)
+                        class=format!(
+                            "hover:bg-blue-600 {}",
+                            if tab == Tab::Artists { "bg-blue-800" } else { "" },
+                        )
+                    >
+                        Artists
+                    </a>
+                }
+                    .attr("preload", "mouseover")
+                    .attr("preload-images", "true");
+                html! {
+                    <a
+                        href=format!("playlists?query={}", query)
+                        class=format!(
+                            "hover:bg-blue-600 {}",
+                            if tab == Tab::Playlists { "bg-blue-800" } else { "" },
+                        )
+                    >
+                        Playlists
+                    </a>
+                }
+                    .attr("preload", "mouseover")
+                    .attr("preload-images", "true");
+            }
+
         </div>
     }
 }

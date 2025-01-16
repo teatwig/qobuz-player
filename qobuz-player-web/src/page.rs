@@ -31,7 +31,8 @@ fn Navigation(active_page: Page) -> impl IntoView {
                     Now Playing
                 </a>
             }
-                .attr("preload", "mousedown")}
+                .attr("preload", "mouseover")
+                .attr("preload-images", "true")}
             <a
                 href="/queue"
                 class=if active_page == Page::Queue { "text-blue-500" } else { "text-gray-500" }
@@ -52,7 +53,8 @@ fn Navigation(active_page: Page) -> impl IntoView {
                     Favorites
                 </a>
             }
-                .attr("preload", "mouseover")}
+                .attr("preload", "mouseover")
+                .attr("preload-images", "true")}
             {if active_page == Page::Search {
                 html! {
                     <button class="text-blue-500" onclick="focusSearch()">
