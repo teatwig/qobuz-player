@@ -39,39 +39,46 @@ fn favorites(favorites: Favorites, playlists: Vec<Playlist>, tab: Tab) -> impl I
             <div class="flex flex-col flex-grow gap-4 p-4 max-h-full">
                 <h1 class="text-2xl">Favorites</h1>
 
-                <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors *:hover:bg-blue-600">
-                    {
-                        html! {
-                            <a
-                                href="albums"
-                                class=if tab == Tab::Albums { "bg-blue-800" } else { "" }
-                            >
-                                Albums
-                            </a>
-                        }
-                            .attr("preload", "mouseover")
-                            .attr("preload-images", "true");
-                        html! {
-                            <a
-                                href="artists"
-                                class=if tab == Tab::Artists { "bg-blue-800" } else { "" }
-                            >
-                                Artists
-                            </a>
-                        }
-                            .attr("preload", "mouseover")
-                            .attr("preload-images", "true");
-                        html! {
-                            <a
-                                href="playlists"
-                                class=if tab == Tab::Playlists { "bg-blue-800" } else { "" }
-                            >
-                                Playlists
-                            </a>
-                        }
-                            .attr("preload", "mouseover")
-                            .attr("preload-images", "true");
+                <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors">
+                    {html! {
+                        <a
+                            href="albums"
+                            class=format!(
+                                "hover:bg-blue-600 {}",
+                                if tab == Tab::Albums { "bg-blue-800" } else { "" },
+                            )
+                        >
+                            Albums
+                        </a>
                     }
+                        .attr("preload", "mouseover")
+                        .attr("preload-images", "true")}
+                    {html! {
+                        <a
+                            href="artists"
+                            class=format!(
+                                "hover:bg-blue-600 {}",
+                                if tab == Tab::Artists { "bg-blue-800" } else { "" },
+                            )
+                        >
+                            Artists
+                        </a>
+                    }
+                        .attr("preload", "mouseover")
+                        .attr("preload-images", "true")}
+                    {html! {
+                        <a
+                            href="playlists"
+                            class=format!(
+                                "hover:bg-blue-600 {}",
+                                if tab == Tab::Playlists { "bg-blue-800" } else { "" },
+                            )
+                        >
+                            Playlists
+                        </a>
+                    }
+                        .attr("preload", "mouseover")
+                        .attr("preload-images", "true")}
                 </div>
             </div>
 

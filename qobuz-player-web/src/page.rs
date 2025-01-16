@@ -57,7 +57,7 @@ fn Navigation(active_page: Page) -> impl IntoView {
                 .attr("preload-images", "true")}
             {if active_page == Page::Search {
                 html! {
-                    <button class="text-blue-500" onclick="focusSearch()">
+                    <button class="text-blue-500" onclick="focusSearchInput()">
                         <MagnifyingGlass />
                         Search
                     </button>

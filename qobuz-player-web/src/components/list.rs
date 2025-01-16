@@ -38,6 +38,7 @@ pub fn list_albums_vertical(albums: Vec<Album>) -> impl IntoView {
                         </a>
                     }
                         .attr("preload", "mousedown")
+                        .attr("preload-images", "true")
                 })
                 .collect::<Vec<_>>()}
         </div>
@@ -68,6 +69,7 @@ pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
                         </a>
                     }
                         .attr("preload", "mousedown")
+                        .attr("preload-images", "true")
                 })
                 .collect::<Vec<_>>()}
         </div>
@@ -126,7 +128,8 @@ pub fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
                                     </div>
                                 </a>
                             }
-                                .attr("preload", "mousedown")}
+                                .attr("preload", "mousedown")
+                                .attr("preload-images", "true")}
                         </ListItem>
                     }
                 })
@@ -174,7 +177,8 @@ pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView
                                     <p class="w-full text-lg truncate">{artist.name}</p>
                                 </a>
                             }
-                                .attr("preload", "mousedown")}
+                                .attr("preload", "mousedown")
+                                .attr("preload-images", "true")}
                         </ListItem>
                     }
                 })
@@ -271,7 +275,8 @@ pub fn list_playlists(mut playlists: Vec<Playlist>, sort: PlaylistSort) -> impl 
                                     <p class="w-full text-lg truncate">{playlist.title}</p>
                                 </a>
                             }
-                                .attr("preload", "mousedown")}
+                                .attr("preload", "mousedown")
+                                .attr("preload-images", "true")}
                         </ListItem>
                     }
                 })
