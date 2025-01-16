@@ -10,8 +10,7 @@ function focusSearchInput() {
 
 function loadSearchInput() {
   let value = sessionStorage.getItem("search-query");
-  let inputElement = document.getElementById("query");
-  inputElement.value = value;
+  document.getElementById("query").value = value;
 }
 
 function setSearchQuery(value) {

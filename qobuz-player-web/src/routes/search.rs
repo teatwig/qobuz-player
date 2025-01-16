@@ -1,9 +1,4 @@
-use axum::{
-    extract::{Path, Query},
-    response::IntoResponse,
-    routing::get,
-    Form, Router,
-};
+use axum::{extract::Path, response::IntoResponse, routing::get, Form, Router};
 use leptos::{component, prelude::*, IntoView};
 use qobuz_player_controls::service::SearchResults;
 use serde::Deserialize;
@@ -27,24 +22,16 @@ pub fn routes() -> Router<Arc<AppState>> {
 
 #[derive(Deserialize, Clone)]
 struct SearchParameters {
-    query: Option<String>,
+    query: String,
 }
 
-async fn index(
-    Path(tab): Path<Tab>,
-    Query(parameters): Query<SearchParameters>,
-) -> impl IntoResponse {
-    let query = parameters.query;
-
-    let search_results = match &query {
-        Some(query) => qobuz_player_controls::search(query).await,
-        None => SearchResults {
-            query: query.clone().unwrap_or("".into()),
-            albums: vec![],
-            tracks: vec![],
-            artists: vec![],
-            playlists: vec![],
-        },
+async fn index(Path(tab): Path<Tab>) -> impl IntoResponse {
+    let search_results = SearchResults {
+        query: "".into(),
+        albums: vec![],
+        tracks: vec![],
+        artists: vec![],
+        playlists: vec![],
     };
 
     let html = html! {
@@ -56,25 +43,17 @@ async fn index(
     render(html)
 }
 
-async fn search(Path(tab): Path<Tab>, Form(query): Form<SearchParameters>) -> impl IntoResponse {
-    let query = query.query;
-
-    let search_results = match &query {
-        Some(query) => qobuz_player_controls::search(query).await,
-        None => SearchResults {
-            query: query.clone().unwrap_or("".into()),
-            albums: vec![],
-            tracks: vec![],
-            artists: vec![],
-            playlists: vec![],
-        },
-    };
+async fn search(
+    Path(tab): Path<Tab>,
+    Form(parameters): Form<SearchParameters>,
+) -> impl IntoResponse {
+    let search_results = qobuz_player_controls::search(&parameters.query).await;
 
     let html = html! {
         <SearchPartial search_results=search_results tab=tab.clone() />
 
         <div hx-swap-oob="true">
-            <TabBar query=query.unwrap_or_default() tab=tab />
+            <TabBar tab=tab />
         </div>
     };
 
@@ -109,7 +88,7 @@ fn search_partial(search_results: SearchResults, tab: Tab) -> impl IntoView {
 }
 
 #[component]
-fn tab_bar(query: String, tab: Tab) -> impl IntoView {
+fn tab_bar(tab: Tab) -> impl IntoView {
     html! {
         <div
             id="tabs"
@@ -117,7 +96,7 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
         >
             {html! {
                 <a
-                    href=format!("albums?query={}", query)
+                    href="albums"
                     class=format!(
                         "hover:bg-blue-600 {}",
                         if tab == Tab::Albums { "bg-blue-800" } else { "" },
@@ -131,7 +110,7 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
                 .attr("preload-images", "true")}
             {html! {
                 <a
-                    href=format!("artists?query={}", query)
+                    href="artists"
                     class=format!(
                         "hover:bg-blue-600 {}",
                         if tab == Tab::Artists { "bg-blue-800" } else { "" },
@@ -144,7 +123,7 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
                 .attr("preload-images", "true")}
             {html! {
                 <a
-                    href=format!("playlists?query={}", query)
+                    href="playlists"
                     class=format!(
                         "hover:bg-blue-600 {}",
                         if tab == Tab::Playlists { "bg-blue-800" } else { "" },
@@ -162,19 +141,10 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
 
 #[component]
 fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
-    let query = search_results.query.clone();
     html! {
         <div class="flex flex-col h-full">
             <div class="flex flex-col flex-grow gap-4 p-4 max-h-full">
-                <form
-                    class="flex flex-row gap-4 items-center"
-                    id="search-form"
-                    hx-preserve
-                    hx-post=""
-                    hx-trigger="input from:#query delay:500ms, change"
-                    hx-target="#search-results"
-                    hx-swap="innerHTML"
-                >
+                <div class="flex flex-row gap-4 items-center" id="search-form">
                     <input
                         id="query"
                         name="query"
@@ -186,14 +156,18 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
                         spellcheck="false"
                         type="search"
                         oninput="setSearchQuery(this.value)"
+                        hx-post=""
+                        hx-trigger="input changed delay:500ms, keyup[key=='Enter'], load"
+                        hx-target="#search-results"
+                        hx-swap="innerHTML"
                     />
                     <span class="size-8">
                         <MagnifyingGlass />
                     </span>
                     <script>loadSearchInput()</script>
-                </form>
+                </div>
 
-                <TabBar query=query tab=tab.clone() />
+                <TabBar tab=tab.clone() />
             </div>
 
             <div id="search-results" class="overflow-auto h-full">
