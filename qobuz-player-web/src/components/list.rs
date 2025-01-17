@@ -1,7 +1,11 @@
 use leptos::{component, prelude::*, IntoView};
 use qobuz_player_controls::service::{Album, Artist, Playlist, Track};
 
-use crate::{components::Info, html, icons::Play};
+use crate::{
+    components::Info,
+    html,
+    icons::{Play, User},
+};
 
 #[component]
 pub fn list(children: Children) -> impl IntoView {
@@ -54,16 +58,30 @@ pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
                 .map(|artist| {
                     let artist_image_style = artist
                         .image
-                        .map_or(
-                            "".into(),
-                            |image| format!("background-image: url({});", image.large),
-                        );
+                        .map(|image| format!("background-image: url({});", image.large));
                     html! {
                         <a href=format!("/artist/{}", artist.id) class="w-32 h-full text-center">
-                            <div
-                                class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-32"
-                                style=artist_image_style
-                            ></div>
+                            {match artist_image_style {
+                                Some(img_src) => {
+                                    html! {
+                                        <div
+                                            class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-32"
+                                            style=img_src
+                                        ></div>
+                                    }
+                                        .into_any()
+                                }
+                                None => {
+                                    html! {
+                                        <div class="flex justify-center items-center bg-gray-500 rounded-full aspect-square size-32">
+                                            <div class="w-20">
+                                                <User />
+                                            </div>
+                                        </div>
+                                    }
+                                        .into_any()
+                                }
+                            }}
 
                             <p class="text-sm truncate">{artist.name}</p>
                         </a>
@@ -157,10 +175,7 @@ pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView
                 .map(|artist| {
                     let artist_image_style = artist
                         .image
-                        .map_or(
-                            "".into(),
-                            |image| format!("background-image: url({});", image.large),
-                        );
+                        .map(|image| format!("background-image: url({});", image.large));
                     html! {
                         <ListItem>
                             {html! {
@@ -169,11 +184,27 @@ pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView
                                     hx-push-url="true"
                                     href=format!("/artist/{}", artist.id)
                                 >
-                                    <div
-                                        class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-12"
-                                        style=artist_image_style
-                                    ></div>
-
+                                    {match artist_image_style {
+                                        Some(img_src) => {
+                                            html! {
+                                                <div
+                                                    class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-12"
+                                                    style=img_src
+                                                ></div>
+                                            }
+                                                .into_any()
+                                        }
+                                        None => {
+                                            html! {
+                                                <div class="flex justify-center items-center bg-gray-500 rounded-full aspect-square size-12">
+                                                    <div class="w-8">
+                                                        <User />
+                                                    </div>
+                                                </div>
+                                            }
+                                                .into_any()
+                                        }
+                                    }}
                                     <p class="w-full text-lg truncate">{artist.name}</p>
                                 </a>
                             }
