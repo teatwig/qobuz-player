@@ -1,4 +1,9 @@
-use axum::{extract::Path, response::IntoResponse, routing::get, Form, Router};
+use axum::{
+    extract::{Path, Query},
+    response::IntoResponse,
+    routing::get,
+    Form, Router,
+};
 use leptos::{component, prelude::*, IntoView};
 use qobuz_player_controls::service::SearchResults;
 use serde::Deserialize;
@@ -22,16 +27,23 @@ pub fn routes() -> Router<Arc<AppState>> {
 
 #[derive(Deserialize, Clone)]
 struct SearchParameters {
-    query: String,
+    query: Option<String>,
 }
 
-async fn index(Path(tab): Path<Tab>) -> impl IntoResponse {
-    let search_results = SearchResults {
-        query: "".into(),
-        albums: vec![],
-        tracks: vec![],
-        artists: vec![],
-        playlists: vec![],
+async fn index(
+    Path(tab): Path<Tab>,
+    Query(parameters): Query<SearchParameters>,
+) -> impl IntoResponse {
+    let query = parameters.query;
+    let search_results = match &query {
+        Some(query) => qobuz_player_controls::search(query).await,
+        None => SearchResults {
+            query: query.clone().unwrap_or("".into()),
+            albums: vec![],
+            tracks: vec![],
+            artists: vec![],
+            playlists: vec![],
+        },
     };
 
     let html = html! {
@@ -47,14 +59,22 @@ async fn search(
     Path(tab): Path<Tab>,
     Form(parameters): Form<SearchParameters>,
 ) -> impl IntoResponse {
-    let search_results = qobuz_player_controls::search(&parameters.query).await;
+    let query = parameters.query;
+    let search_results = match &query {
+        Some(query) => qobuz_player_controls::search(query).await,
+        None => SearchResults {
+            query: query.clone().unwrap_or("".into()),
+            albums: vec![],
+            tracks: vec![],
+            artists: vec![],
+            playlists: vec![],
+        },
+    };
 
     let html = html! {
         <SearchPartial search_results=search_results tab=tab.clone() />
 
-        <div hx-swap-oob="true">
-            <TabBar tab=tab />
-        </div>
+        {html! { <TabBar query=query.unwrap_or_default() tab=tab /> }.attr("hx-swap-oob", "true")}
     };
 
     render(html)
@@ -88,7 +108,7 @@ fn search_partial(search_results: SearchResults, tab: Tab) -> impl IntoView {
 }
 
 #[component]
-fn tab_bar(tab: Tab) -> impl IntoView {
+fn tab_bar(query: String, tab: Tab) -> impl IntoView {
     html! {
         <div
             id="tabs"
@@ -96,7 +116,7 @@ fn tab_bar(tab: Tab) -> impl IntoView {
         >
             {html! {
                 <a
-                    href="albums"
+                    href=format!("albums?query={}", query)
                     class=format!(
                         "hover:bg-blue-600 {}",
                         if tab == Tab::Albums { "bg-blue-800" } else { "" },
@@ -110,7 +130,7 @@ fn tab_bar(tab: Tab) -> impl IntoView {
                 .attr("preload-images", "true")}
             {html! {
                 <a
-                    href="artists"
+                    href=format!("artists?query={}", query)
                     class=format!(
                         "hover:bg-blue-600 {}",
                         if tab == Tab::Artists { "bg-blue-800" } else { "" },
@@ -123,7 +143,7 @@ fn tab_bar(tab: Tab) -> impl IntoView {
                 .attr("preload-images", "true")}
             {html! {
                 <a
-                    href="playlists"
+                    href=format!("playlists?query={}", query)
                     class=format!(
                         "hover:bg-blue-600 {}",
                         if tab == Tab::Playlists { "bg-blue-800" } else { "" },
@@ -141,6 +161,7 @@ fn tab_bar(tab: Tab) -> impl IntoView {
 
 #[component]
 fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
+    let query = search_results.query.clone();
     html! {
         <div class="flex flex-col h-full">
             <div class="flex flex-col flex-grow gap-4 p-4 max-h-full">
@@ -157,7 +178,7 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
                         type="search"
                         oninput="setSearchQuery(this.value)"
                         hx-post=""
-                        hx-trigger="input changed delay:500ms, keyup[key=='Enter'], load"
+                        hx-trigger="input changed delay:500ms, keyup[key=='Enter']"
                         hx-target="#search-results"
                         hx-swap="innerHTML"
                     />
@@ -167,7 +188,7 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
                     <script>loadSearchInput()</script>
                 </div>
 
-                <TabBar tab=tab.clone() />
+                <TabBar query=query tab=tab.clone() />
             </div>
 
             <div id="search-results" class="overflow-auto h-full">

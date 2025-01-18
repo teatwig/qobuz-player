@@ -65,7 +65,7 @@ pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
                                 Some(img_src) => {
                                     html! {
                                         <div
-                                            class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-32"
+                                            class="bg-gray-800 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-32"
                                             style=img_src
                                         ></div>
                                     }
@@ -188,7 +188,7 @@ pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView
                                         Some(img_src) => {
                                             html! {
                                                 <div
-                                                    class="bg-gray-500 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-12"
+                                                    class="bg-gray-800 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-12"
                                                     style=img_src
                                                 ></div>
                                             }
