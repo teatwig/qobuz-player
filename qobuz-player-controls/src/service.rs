@@ -70,6 +70,7 @@ pub struct Album {
     pub available: bool,
     pub cover_art: String,
     pub cover_art_small: String,
+    pub duration_seconds: u32,
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]

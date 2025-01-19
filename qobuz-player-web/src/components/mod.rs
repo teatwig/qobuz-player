@@ -12,6 +12,16 @@ pub enum Tab {
     Playlists,
 }
 
+pub struct Duration {
+    pub minutes: u32,
+}
+
+pub fn parse_duration(seconds: u32) -> Duration {
+    Duration {
+        minutes: seconds / 60,
+    }
+}
+
 #[component]
 pub fn toggle_favorite(id: String, is_favorite: bool) -> impl IntoView {
     html! {

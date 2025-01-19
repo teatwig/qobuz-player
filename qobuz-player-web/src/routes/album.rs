@@ -12,7 +12,7 @@ use tokio::join;
 use crate::{
     components::{
         list::{ListAlbumsVertical, ListTracks},
-        ToggleFavorite,
+        parse_duration, ToggleFavorite,
     },
     html,
     icons::Play,
@@ -123,6 +123,7 @@ fn album(
     now_playing_id: Option<u32>,
 ) -> impl IntoView {
     let tracks: Vec<Track> = album.tracks.into_iter().map(|x| x.1).collect();
+    let duration = parse_duration(album.duration_seconds);
 
     html! {
         <div class="flex flex-col justify-center items-center sm:p-4">
@@ -144,7 +145,11 @@ fn album(
                             {album.artist.name}
                         </a>
                         <span class="text-lg sm:text-xl">{album.title}</span>
-                        <span class="text-gray-400 sm:text-lg">{album.release_year}</span>
+                        <span class="flex gap-2 text-gray-400 sm:text-lg">
+                            <span>{album.release_year}</span>
+                            <span>"•︎"</span>
+                            <span>{format!("{} minutes", duration.minutes)}</span>
+                        </span>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">

@@ -49,6 +49,7 @@ impl From<QobuzAlbum> for Album {
             tracks,
             cover_art: value.image.large,
             cover_art_small: value.image.small,
+            duration_seconds: value.duration.map_or(0, |duration| duration as u32),
         }
     }
 }

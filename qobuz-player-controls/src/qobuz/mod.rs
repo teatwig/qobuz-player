@@ -356,6 +356,7 @@ impl From<Release> for Album {
             available: s.rights.streamable,
             cover_art: s.image.large,
             cover_art_small: s.image.small,
+            duration_seconds: s.duration.map_or(0, |duration| duration as u32),
         }
     }
 }
@@ -392,6 +393,7 @@ impl From<AlbumSuggestion> for Album {
             available: s.rights.streamable,
             cover_art: s.image.large,
             cover_art_small: s.image.small,
+            duration_seconds: s.duration.map_or(0, |duration| duration as u32),
         }
     }
 }

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tokio::join;
 
 use crate::{
-    components::{list::ListTracks, ToggleFavorite},
+    components::{list::ListTracks, parse_duration, ToggleFavorite},
     html,
     icons::Play,
     page::Page,
@@ -96,6 +96,7 @@ fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> 
 #[component]
 fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) -> impl IntoView {
     let tracks: Vec<Track> = playlist.tracks.into_iter().map(|x| x.1).collect();
+    let duration = parse_duration(playlist.duration_seconds);
 
     html! {
         <div class="flex flex-col justify-center items-center sm:p-4">
@@ -110,7 +111,10 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
 
                 <div class="flex flex-col flex-grow gap-4 items-center">
                     <div class="flex flex-col gap-2 justify-center items-center w-full text-center">
-                        <span class="w-full text-lg sm:text-xl truncate">{playlist.title}</span>
+                        <span class="text-lg sm:text-xl">{playlist.title}</span>
+                        <span class="text-gray-400 sm:text-lg">
+                            {format!("{} minutes", duration.minutes)}
+                        </span>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
