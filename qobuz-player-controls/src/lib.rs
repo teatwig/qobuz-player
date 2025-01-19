@@ -10,10 +10,7 @@ use gstreamer as gst;
 use notification::{BroadcastReceiver, BroadcastSender, Notification};
 use once_cell::sync::{Lazy, OnceCell};
 use qobuz_api::client::{self, UrlType};
-use queue::{
-    controls::{PlayerState, SafePlayerState},
-    TrackListValue,
-};
+use queue::{controls::PlayerState, TrackListValue};
 use service::{Album, Artist, Favorites, Playlist, SearchResults, Track};
 use std::{
     str::FromStr,
@@ -124,7 +121,7 @@ static ABOUT_TO_FINISH: Lazy<AboutToFinish> = Lazy::new(|| {
 });
 static IS_BUFFERING: AtomicBool = AtomicBool::new(false);
 static IS_LIVE: AtomicBool = AtomicBool::new(false);
-static QUEUE: OnceCell<SafePlayerState> = OnceCell::new();
+static QUEUE: OnceCell<Arc<RwLock<PlayerState>>> = OnceCell::new();
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
@@ -159,10 +156,10 @@ pub async fn set_player_state(state: gst::State) -> Result<()> {
 
     match ret {
         StateChangeSuccess::Success => {
-            debug!("*** successful state change ***");
+            tracing::debug!("*** successful state change ***");
         }
         StateChangeSuccess::Async => {
-            debug!("*** async state change ***");
+            tracing::debug!("*** async state change ***");
 
             BROADCAST_CHANNELS
                 .tx
@@ -173,7 +170,7 @@ pub async fn set_player_state(state: gst::State) -> Result<()> {
                 .await?;
         }
         StateChangeSuccess::NoPreroll => {
-            debug!("*** stream is live ***");
+            tracing::debug!("*** stream is live ***");
             IS_LIVE.store(true, Ordering::Relaxed);
         }
     }
@@ -435,7 +432,13 @@ pub async fn play_album(album_id: &str) -> Result<()> {
 
         PLAYBIN.set_property("uri", Some(track_url));
 
-        play().await?;
+        match play().await {
+            Ok(_) => (),
+            Err(err) => {
+                tracing::error!("Error playing album: Not able to play: {}", err);
+                return Err(err);
+            }
+        };
     }
 
     Ok(())
@@ -875,7 +878,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
                 pause().await?;
                 IS_BUFFERING.store(true, Ordering::Relaxed);
             } else if percent > 99 && IS_BUFFERING.load(Ordering::Relaxed) && is_paused() {
-                set_player_state(target_status).await?;
+                play().await?;
                 IS_BUFFERING.store(false, Ordering::Relaxed);
             }
 

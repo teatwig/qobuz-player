@@ -645,14 +645,14 @@ impl Client {
         let mut headers = HeaderMap::new();
 
         if let Some(app_id) = &self.app_id {
-            info!("adding app_id to request headers: {}", app_id);
+            debug!("adding app_id to request headers: {}", app_id);
             headers.insert("X-App-Id", HeaderValue::from_str(app_id).unwrap());
         } else {
             error!("no app_id");
         }
 
         if let Some(token) = &self.user_token {
-            info!("adding token to request headers: {}", token);
+            debug!("adding token to request headers: {}", token);
             headers.insert(
                 "X-User-Auth-Token",
                 HeaderValue::from_str(token.as_str()).unwrap(),

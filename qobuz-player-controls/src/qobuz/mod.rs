@@ -31,7 +31,7 @@ async fn setup_client(
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<QobuzClient> {
-    info!("setting up the api client");
+    debug!("setting up the api client");
 
     if let Some(config) = db::get_config().await {
         let mut refresh_config = false;

@@ -5,8 +5,6 @@ use qobuz_player_controls::mpris;
 use qobuz_player_controls::sql::db;
 use snafu::prelude::*;
 use tokio::task::JoinHandle;
-use tracing_subscriber::EnvFilter;
-use tracing_subscriber::{fmt, prelude::*};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -174,14 +172,10 @@ async fn setup_player(
 }
 
 pub async fn run() -> Result<(), Error> {
-    tracing_subscriber::registry()
-        .with(
-            fmt::layer()
-                .compact()
-                .with_file(false)
-                .with_writer(std::io::stderr),
-        )
-        .with(EnvFilter::from_env("qobuz_player_LOG"))
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .with_target(false)
+        .compact()
         .init();
 
     // PARSE CLI ARGS

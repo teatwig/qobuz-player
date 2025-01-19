@@ -27,7 +27,7 @@ pub fn is_htmx_request(headers: &axum::http::HeaderMap) -> bool {
 }
 
 pub async fn init(address: String) {
-    println!("Lisening on {address}");
+    println!("Listening on {address}");
     let router = create_router().await;
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
     axum::serve(listener, router)

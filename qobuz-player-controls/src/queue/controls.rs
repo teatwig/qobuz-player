@@ -1,10 +1,7 @@
 use gstreamer::State as GstState;
 use qobuz_api::client::api::Client;
 use std::{collections::BTreeMap, sync::Arc};
-use tokio::sync::{
-    broadcast::{Receiver as BroadcastReceiver, Sender as BroadcastSender},
-    RwLock,
-};
+use tokio::sync::broadcast::{Receiver as BroadcastReceiver, Sender as BroadcastSender};
 use tracing::debug;
 
 use crate::{
@@ -24,12 +21,8 @@ pub struct PlayerState {
     quit_sender: BroadcastSender<bool>,
 }
 
-pub type SafePlayerState = Arc<RwLock<PlayerState>>;
-
 impl PlayerState {
     pub async fn play_album(&mut self, album_id: &str) -> Option<String> {
-        debug!("setting up album to play");
-
         if let Ok(album) = self.service.album(album_id).await {
             let album: Album = album.into();
             let mut tracklist = TrackListValue::new(Some(&album.tracks));
@@ -186,13 +179,15 @@ impl PlayerState {
     }
 
     pub async fn search_all(&self, query: &str) -> Option<SearchResults> {
-        let results = self.service.search_all(query, 20).await.ok();
-        results.map(|x| x.into())
+        self.service
+            .search_all(query, 20)
+            .await
+            .ok()
+            .map(|x| x.into())
     }
 
     pub async fn favorites(&self) -> Option<Favorites> {
-        let results = self.service.favorites(1000).await.ok();
-        results.map(|x| x.into())
+        self.service.favorites(1000).await.ok().map(|x| x.into())
     }
 
     pub async fn add_favorite_album(&self, id: &str) {
@@ -220,59 +215,79 @@ impl PlayerState {
     }
 
     pub async fn artist(&self, artist_id: i32) -> Option<Artist> {
-        let result = self.service.artist(artist_id, None).await.ok();
-        result.map(|x| x.into())
+        self.service
+            .artist(artist_id, None)
+            .await
+            .ok()
+            .map(|x| x.into())
     }
 
     pub async fn get_album(&self, id: &str) -> Option<Album> {
-        let result = self.service.album(id).await.ok();
-        result.map(|x| x.into())
+        self.service.album(id).await.ok().map(|x| x.into())
     }
 
     pub async fn get_suggested_albums(&self, id: &str) -> Vec<Album> {
-        let result = self.service.suggested_albums(id).await.ok();
-        result.map_or(vec![], |result| {
-            result.albums.items.into_iter().map(|x| x.into()).collect()
-        })
+        self.service
+            .suggested_albums(id)
+            .await
+            .ok()
+            .map_or(vec![], |result| {
+                result.albums.items.into_iter().map(|x| x.into()).collect()
+            })
     }
 
     pub async fn get_similar_artists(&self, id: i32) -> Vec<Artist> {
-        let result = self.service.similar_artists(id, None).await.ok();
-        result.map_or(vec![], |result| {
-            result.items.into_iter().map(|x| x.into()).collect()
-        })
+        self.service
+            .similar_artists(id, None)
+            .await
+            .ok()
+            .map_or(vec![], |result| {
+                result.items.into_iter().map(|x| x.into()).collect()
+            })
     }
 
     pub async fn get_playlist(&self, playlist_id: i64) -> Option<Playlist> {
-        let result = self.service.playlist(playlist_id).await.ok();
-        result.map(|x| x.into())
+        self.service
+            .playlist(playlist_id)
+            .await
+            .ok()
+            .map(|x| x.into())
     }
 
     pub async fn fetch_artist_albums(&self, artist_id: i32) -> Vec<Album> {
-        let result = self.service.artist_releases(artist_id, None).await.ok();
-        result.map_or(vec![], |result| {
-            result.into_iter().map(|release| release.into()).collect()
-        })
+        self.service
+            .artist_releases(artist_id, None)
+            .await
+            .ok()
+            .map_or(vec![], |result| {
+                result.into_iter().map(|release| release.into()).collect()
+            })
     }
 
     pub async fn fetch_playlist_tracks(&self, playlist_id: i64) -> Vec<Track> {
-        let result = self.service.playlist(playlist_id).await.ok();
-        result.map_or(vec![], |result| {
-            result.tracks.map_or(vec![], |tracks| {
-                tracks.items.into_iter().map(|track| track.into()).collect()
+        self.service
+            .playlist(playlist_id)
+            .await
+            .ok()
+            .map_or(vec![], |result| {
+                result.tracks.map_or(vec![], |tracks| {
+                    tracks.items.into_iter().map(|track| track.into()).collect()
+                })
             })
-        })
     }
 
     pub async fn fetch_user_playlists(&self) -> Vec<Playlist> {
-        let result = self.service.user_playlists().await.ok();
-        result.map_or(vec![], |x| {
-            x.playlists
-                .items
-                .into_iter()
-                .map(|playlist| playlist.into())
-                .collect()
-        })
+        self.service
+            .user_playlists()
+            .await
+            .ok()
+            .map_or(vec![], |x| {
+                x.playlists
+                    .items
+                    .into_iter()
+                    .map(|playlist| playlist.into())
+                    .collect()
+            })
     }
 
     pub fn quitter(&self) -> BroadcastReceiver<bool> {
