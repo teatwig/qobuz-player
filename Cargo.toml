@@ -19,7 +19,6 @@ name = "qobuz-player"
 
 [workspace.dependencies]
 async-broadcast = "0.7"
-async-trait = "0.1.73"
 axum = "0.8"
 base64 = "0.22"
 cached = "0.50"

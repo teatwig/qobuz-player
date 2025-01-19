@@ -1,8 +1,7 @@
 use crate::{
-    service::{Album, Artist, Favorites, MusicService, Playlist, SearchResults, Track},
+    service::{Album, Artist, Favorites, Playlist, SearchResults, Track},
     sql::db,
 };
-use async_trait::async_trait;
 use qobuz_api::client::{
     album_suggestion::AlbumSuggestion,
     api::{self, Client as QobuzClient},
@@ -11,7 +10,7 @@ use qobuz_api::client::{
     search_results::SearchAllResults,
 };
 use std::{collections::BTreeMap, str::FromStr};
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 pub type Result<T, E = qobuz_api::Error> = std::result::Result<T, E>;
 
@@ -20,131 +19,6 @@ pub mod artist;
 pub mod playlist;
 pub mod track;
 
-#[async_trait]
-impl MusicService for QobuzClient {
-    async fn login(&self, username: &str, password: &str) {
-        self.login(username, password).await;
-    }
-
-    async fn album(&self, album_id: &str) -> Option<Album> {
-        match self.album(album_id).await {
-            Ok(album) => Some(album.into()),
-            Err(err) => {
-                error!("failed to get album: {}", err);
-                None
-            }
-        }
-    }
-
-    async fn suggested_albums(&self, album_id: &str) -> Option<Vec<Album>> {
-        match self.suggested_albums(album_id).await {
-            Ok(album_suggestions) => Some(
-                album_suggestions
-                    .albums
-                    .items
-                    .into_iter()
-                    .map(|x| x.into())
-                    .collect(),
-            ),
-            Err(err) => {
-                error!("failed to get album: {}", err);
-                None
-            }
-        }
-    }
-
-    async fn track(&self, track_id: i32) -> Option<Track> {
-        match self.track(track_id).await {
-            Ok(track) => Some(track.into()),
-            Err(_) => None,
-        }
-    }
-
-    async fn artist(&self, artist_id: i32) -> Option<Artist> {
-        match self.artist(artist_id, None).await {
-            Ok(artist) => Some(artist.into()),
-            Err(_) => None,
-        }
-    }
-
-    async fn similar_artists(&self, artist_id: i32) -> Vec<Artist> {
-        match self.similar_artists(artist_id, None).await {
-            Ok(artists) => artists.items.into_iter().map(|x| x.into()).collect(),
-            Err(err) => {
-                error!("failed to get similar artists: {}", err);
-                vec![]
-            }
-        }
-    }
-
-    async fn artist_releases(&self, artist_id: i32) -> Option<Vec<Album>> {
-        match self.artist_releases(artist_id, None).await {
-            Ok(artist_releases) => Some(artist_releases.into_iter().map(|x| x.into()).collect()),
-            Err(_) => None,
-        }
-    }
-
-    async fn playlist(&self, playlist_id: i64) -> Option<Playlist> {
-        match self.playlist(playlist_id).await {
-            Ok(playlist) => Some(playlist.into()),
-            Err(_) => None,
-        }
-    }
-
-    async fn search(&self, query: &str) -> Option<SearchResults> {
-        match self.search_all(query, 20).await {
-            Ok(results) => Some(results.into()),
-            Err(_) => None,
-        }
-    }
-
-    async fn favorites(&self) -> Option<Favorites> {
-        match self.favorites(1000).await {
-            Ok(results) => Some(results.into()),
-            Err(_) => None,
-        }
-    }
-
-    async fn add_favorite_album(&self, id: &str) {
-        _ = self.add_favorite_album(id).await;
-    }
-    async fn remove_favorite_album(&self, id: &str) {
-        _ = self.remove_favorite_album(id).await;
-    }
-    async fn add_favorite_artist(&self, id: &str) {
-        _ = self.add_favorite_artist(id).await;
-    }
-    async fn remove_favorite_artist(&self, id: &str) {
-        _ = self.remove_favorite_artist(id).await;
-    }
-    async fn add_favorite_playlist(&self, id: &str) {
-        _ = self.add_favorite_playlist(id).await;
-    }
-    async fn remove_favorite_playlist(&self, id: &str) {
-        _ = self.remove_favorite_playlist(id).await;
-    }
-
-    async fn track_url(&self, track_id: i32) -> Option<String> {
-        match self.track_url(track_id, None).await {
-            Ok(track_url) => Some(track_url.url),
-            Err(_) => None,
-        }
-    }
-
-    async fn user_playlists(&self) -> Option<Vec<Playlist>> {
-        match self.user_playlists().await {
-            Ok(up) => Some(
-                up.playlists
-                    .items
-                    .into_iter()
-                    .map(|p| p.into())
-                    .collect::<Vec<Playlist>>(),
-            ),
-            Err(_) => None,
-        }
-    }
-}
-
 pub async fn make_client(username: Option<&str>, password: Option<&str>) -> Result<QobuzClient> {
     let mut client = api::new(None, None, None).await?;
 
@@ -152,7 +26,7 @@ pub async fn make_client(username: Option<&str>, password: Option<&str>) -> Resu
 }
 
 /// Setup app_id, secret and user credentials for authentication
-pub async fn setup_client(
+async fn setup_client(
     client: &mut QobuzClient,
     username: Option<&str>,
     password: Option<&str>,

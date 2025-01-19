@@ -222,41 +222,49 @@ pub async fn pause() -> Result<()> {
     set_player_state(gst::State::Paused).await?;
     Ok(())
 }
+
 #[instrument]
 /// Is the player paused?
 pub fn is_paused() -> bool {
     PLAYBIN.current_state() == gst::State::Paused
 }
+
 #[instrument]
 /// Is the player playing?
 pub fn is_playing() -> bool {
     PLAYBIN.current_state() == gst::State::Playing
 }
+
 #[instrument]
 /// Is the player ready?
 pub fn is_ready() -> bool {
     PLAYBIN.current_state() == gst::State::Ready
 }
+
 #[instrument]
 /// Current player state
 pub fn current_state() -> GstState {
     PLAYBIN.current_state()
 }
+
 #[instrument]
 /// Current track position.
 pub fn position() -> Option<ClockTime> {
     PLAYBIN.query_position::<ClockTime>()
 }
+
 #[instrument]
 /// Current track duraiton.
 pub fn duration() -> Option<ClockTime> {
     PLAYBIN.query_duration::<ClockTime>()
 }
+
 #[instrument]
 /// Current volume
 pub fn volume() -> f64 {
     PLAYBIN.property::<f64>("volume")
 }
+
 #[instrument]
 /// Set volume
 pub fn set_volume(value: f64) {
@@ -269,6 +277,7 @@ pub fn set_volume(value: f64) {
             .await;
     });
 }
+
 #[instrument]
 /// Seek to a specified time in the current track.
 pub async fn seek(time: ClockTime, flags: Option<SeekFlags>) -> Result<()> {
@@ -297,6 +306,7 @@ pub async fn jump_forward() -> Result<()> {
 
     Ok(())
 }
+
 #[instrument]
 /// Jump forward in the currently playing track -10 seconds.
 pub async fn jump_backward() -> Result<()> {
@@ -313,6 +323,7 @@ pub async fn jump_backward() -> Result<()> {
 
     Ok(())
 }
+
 #[instrument]
 /// Skip to a specific track in the playlist.
 pub async fn skip(new_position: u32, force: bool) -> Result<()> {
@@ -429,6 +440,7 @@ pub async fn play_album(album_id: &str) -> Result<()> {
 
     Ok(())
 }
+
 #[instrument]
 /// Plays all tracks in a playlist.
 pub async fn play_playlist(playlist_id: i64) -> Result<()> {
@@ -448,6 +460,7 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
 
     Ok(())
 }
+
 #[instrument]
 /// Play an item from Qobuz web uri
 pub async fn play_uri(uri: &str) -> Result<()> {
@@ -472,6 +485,7 @@ pub async fn play_uri(uri: &str) -> Result<()> {
 
     Ok(())
 }
+
 #[instrument]
 /// In response to the about-to-finish signal,
 /// prepare the next track by downloading the stream url.
@@ -491,26 +505,25 @@ async fn prep_next_track() -> Result<()> {
 
     Ok(())
 }
+
 #[instrument]
 /// Get a notification channel receiver
 pub fn notify_receiver() -> BroadcastReceiver {
     BROADCAST_CHANNELS.rx.clone()
 }
+
 #[instrument]
 /// Returns the current track list loaded in the player.
 pub async fn current_tracklist() -> TrackListValue {
     QUEUE.get().unwrap().read().await.track_list()
 }
+
 #[instrument]
 /// Returns the current track loaded in the player.
 pub async fn current_track() -> Option<Track> {
     QUEUE.get().unwrap().read().await.current_track().cloned()
 }
-#[instrument]
-/// Returns true if the player is currently buffering data.
-pub fn is_buffering() -> bool {
-    IS_BUFFERING.load(Ordering::Relaxed)
-}
+
 #[instrument]
 /// Search the service.
 pub async fn search(query: &str) -> SearchResults {
@@ -586,7 +599,6 @@ pub async fn suggested_albums(album_id: &str) -> Vec<Album> {
         .await
         .get_suggested_albums(album_id)
         .await
-        .unwrap()
 }
 
 #[instrument]
@@ -606,14 +618,13 @@ pub async fn playlist(id: i64) -> Playlist {
 #[cached(size = 10, time = 600)]
 /// Fetch the albums for a specific artist.
 pub async fn artist_albums(artist_id: i32) -> Vec<Album> {
-    (QUEUE
+    QUEUE
         .get()
         .unwrap()
         .read()
         .await
         .fetch_artist_albums(artist_id)
-        .await)
-        .unwrap_or_default()
+        .await
 }
 
 #[instrument]
@@ -692,28 +703,26 @@ pub async fn remove_favorite_playlist(id: &str) {
 #[cached(size = 10, time = 600)]
 /// Fetch the tracks for a specific playlist.
 pub async fn playlist_tracks(playlist_id: i64) -> Vec<Track> {
-    (QUEUE
+    QUEUE
         .get()
         .unwrap()
         .read()
         .await
         .fetch_playlist_tracks(playlist_id)
-        .await)
-        .unwrap_or_default()
+        .await
 }
 
 #[instrument]
 #[cached(size = 1, time = 600)]
 /// Fetch the current user's list of playlists.
 pub async fn user_playlists() -> Vec<Playlist> {
-    (QUEUE
+    QUEUE
         .get()
         .unwrap()
         .read()
         .await
         .fetch_user_playlists()
-        .await)
-        .unwrap_or_default()
+        .await
 }
 
 /// Inserts the most recent position into the state at a set interval.
@@ -853,7 +862,6 @@ async fn handle_message(msg: &Message) -> Result<()> {
                 .broadcast(Notification::Position { clock: position })
                 .await?;
         }
-        MessageView::PropertyNotify(_) => {}
         MessageView::Buffering(buffering) => {
             if IS_LIVE.load(Ordering::Relaxed) {
                 debug!("stream is live, ignore buffering");
