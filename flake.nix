@@ -113,6 +113,7 @@
             gst_all_1.gst-plugins-base.dev
             glib.dev
             cargo-machete
+            sqlx-cli
           ];
 
           RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
