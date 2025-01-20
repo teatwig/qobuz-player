@@ -2,7 +2,7 @@ use std::{
     rc::Rc,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, OnceLock,
     },
 };
 
@@ -23,7 +23,6 @@ use cursive::{
 };
 use futures::executor::block_on;
 use gstreamer::{ClockTime, State as GstState};
-use once_cell::sync::OnceCell;
 use qobuz_player_controls::{
     notification::Notification,
     queue::TrackListType,
@@ -35,7 +34,7 @@ use tracing::debug;
 
 type CursiveSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
 
-static SINK: OnceCell<CursiveSender> = OnceCell::new();
+static SINK: OnceLock<CursiveSender> = OnceLock::new();
 
 static UNSTREAMABLE: &str = "UNSTREAMABLE";
 static ENTER_URL_OPEN: AtomicBool = AtomicBool::new(false);

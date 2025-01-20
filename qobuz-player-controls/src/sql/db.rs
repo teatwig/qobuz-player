@@ -1,12 +1,11 @@
-use once_cell::sync::OnceCell;
 use qobuz_api::client::ApiConfig;
 use sqlx::{sqlite::SqliteConnectOptions, Pool, Sqlite, SqlitePool};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::OnceLock};
 use tracing::debug;
 
 use crate::{acquire, get_one, query};
 
-static POOL: OnceCell<Pool<Sqlite>> = OnceCell::new();
+static POOL: OnceLock<Pool<Sqlite>> = OnceLock::new();
 
 pub async fn init() {
     let database_url = if let Ok(url) = std::env::var("DATABASE_URL") {
