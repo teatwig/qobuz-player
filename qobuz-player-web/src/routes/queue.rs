@@ -7,7 +7,7 @@ use axum::{
 use leptos::{component, prelude::*, IntoView};
 use qobuz_player_controls::{
     service::TrackStatus,
-    tracklist::{TrackListType, TrackListValue},
+    tracklist::{TrackListType, Tracklist},
 };
 use std::sync::Arc;
 
@@ -44,7 +44,7 @@ async fn index() -> impl IntoResponse {
 }
 
 #[component]
-pub fn queue(current_tracklist: TrackListValue) -> impl IntoView {
+pub fn queue(current_tracklist: Tracklist) -> impl IntoView {
     let album = current_tracklist.get_album();
     let entity_title = match current_tracklist.list_type() {
         TrackListType::Album => album.map(|album| album.title.clone()),
@@ -79,7 +79,7 @@ async fn queue_partial() -> impl IntoResponse {
 }
 
 #[component]
-pub fn queue_list(current_tracklist: TrackListValue) -> impl IntoView {
+pub fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
     html! {
         <List>
             {current_tracklist

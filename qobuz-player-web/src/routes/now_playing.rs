@@ -4,7 +4,7 @@ use axum::{
     Router,
 };
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::tracklist::{TrackListType, TrackListValue};
+use qobuz_player_controls::tracklist::{TrackListType, Tracklist};
 use std::sync::Arc;
 
 use crate::{
@@ -200,7 +200,7 @@ fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> imp
 
 #[component]
 pub fn now_playing(
-    current_tracklist: TrackListValue,
+    current_tracklist: Tracklist,
     position_mseconds: Option<u64>,
     current_status: gstreamer::State,
     current_volume: u32,

@@ -22,7 +22,7 @@ use std::{
 };
 use tokio::{select, sync::RwLock};
 use tracing::{debug, instrument};
-use tracklist::{TrackListType, TrackListValue};
+use tracklist::{TrackListType, Tracklist};
 
 pub mod database;
 pub mod error;
@@ -34,8 +34,6 @@ pub mod tracklist;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-static VERSION: LazyLock<(u32, u32, u32, u32)> = LazyLock::new(gstreamer::version);
-
 static PLAYBIN: LazyLock<Element> = LazyLock::new(|| {
     gst::init().expect("error initializing gstreamer");
 
@@ -45,7 +43,7 @@ static PLAYBIN: LazyLock<Element> = LazyLock::new(|| {
 
     playbin.set_property_from_str("flags", "audio+buffering");
 
-    if VERSION.1 >= 22 {
+    if gstreamer::version().1 >= 22 {
         playbin.connect("element-setup", false, |value| {
             let element = &value[1].get::<gst::Element>().unwrap();
 
@@ -87,7 +85,7 @@ static PLAYBIN: LazyLock<Element> = LazyLock::new(|| {
     // can setup the next track to play. Enables gapless playback.
     playbin.connect("about-to-finish", false, move |_| {
         debug!("about to finish");
-        ABOUT_TO_FINISH
+        TRACK_ABOUT_TO_FINISH
             .tx
             .send(true)
             .expect("failed to send about to finish message");
@@ -110,20 +108,22 @@ static BROADCAST_CHANNELS: LazyLock<Broadcast> = LazyLock::new(|| {
     Broadcast { rx, tx }
 });
 
-struct AboutToFinish {
+// TODO: Replace with notification?
+struct TrackAboutToFinish {
     tx: Sender<bool>,
     rx: Receiver<bool>,
 }
 
-static ABOUT_TO_FINISH: LazyLock<AboutToFinish> = LazyLock::new(|| {
+static TRACK_ABOUT_TO_FINISH: LazyLock<TrackAboutToFinish> = LazyLock::new(|| {
     let (tx, rx) = flume::bounded::<bool>(1);
 
-    AboutToFinish { tx, rx }
+    TrackAboutToFinish { tx, rx }
 });
 static IS_BUFFERING: AtomicBool = AtomicBool::new(false);
 static IS_LIVE: AtomicBool = AtomicBool::new(false);
 static PLAYER_STATE: OnceLock<Arc<RwLock<PlayerState>>> = OnceLock::new();
 static CURRENT_TRACK: LazyLock<RwLock<Option<Track>>> = LazyLock::new(|| RwLock::new(None));
+static TRACKLIST: LazyLock<RwLock<Tracklist>> = LazyLock::new(|| RwLock::new(Tracklist::new(None)));
 static CLIENT: OnceLock<Client> = OnceLock::new();
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
@@ -136,11 +136,9 @@ pub async fn init(username: Option<&str>, password: Option<&str>) -> Result<()> 
         .await
         .expect("error making client");
 
-    let tracklist = TrackListValue::new(None);
     let (quit_sender, _) = tokio::sync::broadcast::channel::<bool>(1);
 
     let state = PlayerState {
-        tracklist,
         status: gstreamer::State::Null,
         target_status: gstreamer::State::Null,
         quit_sender,
@@ -198,7 +196,7 @@ pub async fn set_player_state(state: gst::State) -> Result<()> {
 
     Ok(())
 }
-async fn broadcast_track_list<'a>(list: &TrackListValue) -> Result<()> {
+async fn broadcast_track_list<'a>(list: &Tracklist) -> Result<()> {
     BROADCAST_CHANNELS
         .tx
         .broadcast(Notification::CurrentTrackList { list: list.clone() })
@@ -346,11 +344,12 @@ pub async fn jump_backward() -> Result<()> {
 #[instrument]
 /// Skip to a specific track in the playlist.
 pub async fn skip(new_position: u32, force: bool) -> Result<()> {
-    let mut state = PLAYER_STATE.get().unwrap().write().await;
+    let state = PLAYER_STATE.get().unwrap().write().await;
     let current_track = CURRENT_TRACK.read().await;
+    let tracklist = TRACKLIST.read().await;
     let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
 
-    let total_tracks = state.tracklist.total();
+    let total_tracks = tracklist.total();
 
     // Typical previous skip functionality where if,
     // the track is greater than 1 second into playing,
@@ -379,12 +378,14 @@ pub async fn skip(new_position: u32, force: bool) -> Result<()> {
 
     let client = CLIENT.get().unwrap();
     let mut current_track = CURRENT_TRACK.write().await;
+    let mut tracklist = TRACKLIST.write().await;
+
     if let Some(next_track_to_play) =
-        skip_track(&mut state, &mut current_track, client, new_position).await
+        skip_track(&mut tracklist, &mut current_track, client, new_position).await
     {
         let target_status = state.target_status;
 
-        broadcast_track_list(&state.tracklist).await?;
+        broadcast_track_list(&tracklist).await?;
         drop(state);
 
         BROADCAST_CHANNELS
@@ -433,12 +434,12 @@ async fn attach_track_url(client: &Client, track: &mut Track) {
 }
 
 async fn skip_track(
-    state: &mut PlayerState,
+    tracklist: &mut Tracklist,
     current_track: &mut Option<Track>,
     client: &Client,
     index: u32,
 ) -> Option<String> {
-    for t in state.tracklist.queue.values_mut() {
+    for t in tracklist.queue.values_mut() {
         match t.position.cmp(&index) {
             std::cmp::Ordering::Less => {
                 t.status = TrackStatus::Played;
@@ -470,6 +471,7 @@ pub async fn play_track(track_id: i32) -> Result<()> {
     let mut state = PLAYER_STATE.get().unwrap().write().await;
     let client = CLIENT.get().unwrap();
     let mut current_track = CURRENT_TRACK.write().await;
+    let mut tracklist = TRACKLIST.write().await;
 
     if let Ok(track) = client.track(track_id).await {
         let mut track: Track = track.into();
@@ -479,17 +481,15 @@ pub async fn play_track(track_id: i32) -> Result<()> {
         let mut queue = BTreeMap::new();
         queue.entry(track.position).or_insert_with(|| track.clone());
 
-        let mut tracklist = TrackListValue::new(Some(&queue));
-        tracklist.set_list_type(TrackListType::Track);
-
-        state.tracklist = tracklist;
+        tracklist.queue = queue;
+        tracklist.list_type = TrackListType::Track;
 
         attach_track_url(client, &mut track).await;
         *current_track = Some(track.clone());
 
         state.status = GstState::Playing;
 
-        broadcast_track_list(&state.tracklist).await?;
+        broadcast_track_list(&tracklist).await?;
 
         drop(state);
 
@@ -509,23 +509,18 @@ pub async fn play_album(album_id: &str) -> Result<()> {
     let mut state = PLAYER_STATE.get().unwrap().write().await;
 
     let client = CLIENT.get().unwrap();
+    let mut tracklist = TRACKLIST.write().await;
     let mut current_track = CURRENT_TRACK.write().await;
+
     if let Ok(album) = client.album(album_id).await {
-        let album: Album = album.into();
-        let mut tracklist = TrackListValue::new(Some(&album.tracks));
-        tracklist.set_album(album);
-        tracklist.set_list_type(TrackListType::Album);
-        tracklist.set_track_status(1, TrackStatus::Playing);
+        let mut album: Album = album.into();
 
-        state.tracklist = tracklist.clone();
-
-        if let Some(mut entry) = tracklist.queue.first_entry() {
-            let first_track = entry.get_mut();
-
+        if let Some(first_track) = album.tracks.get_mut(&1) {
+            first_track.status = TrackStatus::Playing;
             attach_track_url(client, first_track).await;
             *current_track = Some(first_track.clone());
             state.status = GstState::Playing;
-            broadcast_track_list(&state.tracklist).await?;
+            broadcast_track_list(&tracklist).await?;
 
             drop(state);
 
@@ -539,6 +534,11 @@ pub async fn play_album(album_id: &str) -> Result<()> {
                 }
             };
         }
+
+        tracklist.queue = album.tracks.clone();
+        tracklist.playlist = None;
+        tracklist.album = Some(album);
+        tracklist.list_type = TrackListType::Album;
     };
 
     Ok(())
@@ -551,26 +551,18 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
 
     let mut state = PLAYER_STATE.get().unwrap().write().await;
     let client = CLIENT.get().unwrap();
+    let mut tracklist = TRACKLIST.write().await;
     let mut current_track = CURRENT_TRACK.write().await;
 
     if let Ok(playlist) = client.playlist(playlist_id).await {
-        let playlist: Playlist = playlist.into();
-        let mut tracklist = TrackListValue::new(Some(&playlist.tracks));
+        let mut playlist: Playlist = playlist.into();
 
-        tracklist.set_playlist(playlist);
-        tracklist.set_list_type(TrackListType::Playlist);
-        tracklist.set_track_status(1, TrackStatus::Playing);
-
-        state.tracklist = tracklist.clone();
-
-        if let Some(mut entry) = tracklist.queue.first_entry() {
-            let first_track = entry.get_mut();
-
+        if let Some(first_track) = playlist.tracks.get_mut(&1) {
+            first_track.status = TrackStatus::Playing;
             attach_track_url(client, first_track).await;
             *current_track = Some(first_track.clone());
-
             state.status = GstState::Playing;
-            broadcast_track_list(&state.tracklist).await?;
+            broadcast_track_list(&tracklist).await?;
 
             drop(state);
 
@@ -578,6 +570,11 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
 
             play().await?;
         };
+
+        tracklist.queue = playlist.tracks.clone();
+        tracklist.album = None;
+        tracklist.playlist = Some(playlist);
+        tracklist.list_type = TrackListType::Playlist;
     }
 
     Ok(())
@@ -612,20 +609,23 @@ pub async fn play_uri(uri: &str) -> Result<()> {
 /// In response to the about-to-finish signal,
 /// prepare the next track by downloading the stream url.
 async fn prep_next_track() -> Result<()> {
-    let mut state = PLAYER_STATE.get().unwrap().write().await;
     let client = CLIENT.get().unwrap();
+    let mut tracklist = TRACKLIST.write().await;
 
-    let total_tracks = state.tracklist.total();
+    let total_tracks = tracklist.total();
     let mut current_track = CURRENT_TRACK.write().await;
     let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
 
     if total_tracks == current_position {
         debug!("no more tracks left");
-    } else if let Some(next_track_url) =
-        skip_track(&mut state, &mut current_track, client, current_position + 1).await
+    } else if let Some(next_track_url) = skip_track(
+        &mut tracklist,
+        &mut current_track,
+        client,
+        current_position + 1,
+    )
+    .await
     {
-        drop(state);
-
         PLAYBIN.set_property("uri", next_track_url);
     }
 
@@ -640,21 +640,14 @@ pub fn notify_receiver() -> BroadcastReceiver {
 
 #[instrument]
 /// Returns the current track list loaded in the player.
-pub async fn current_tracklist() -> TrackListValue {
-    PLAYER_STATE.get().unwrap().read().await.tracklist.clone()
+pub async fn current_tracklist() -> Tracklist {
+    TRACKLIST.read().await.clone()
 }
 
 #[instrument]
 /// Returns the current track loaded in the player.
 pub async fn current_track() -> Option<Track> {
-    PLAYER_STATE
-        .get()
-        .unwrap()
-        .read()
-        .await
-        .tracklist
-        .current_track()
-        .cloned()
+    TRACKLIST.read().await.current_track().cloned()
 }
 
 #[instrument]
@@ -906,7 +899,7 @@ pub async fn quit() -> Result<()> {
 #[instrument]
 pub async fn player_loop() -> Result<()> {
     let mut messages = PLAYBIN.bus().unwrap().stream();
-    let mut about_to_finish = ABOUT_TO_FINISH.rx.stream();
+    let mut about_to_finish = TRACK_ABOUT_TO_FINISH.rx.stream();
 
     let mut quitter = PLAYER_STATE
         .get()
@@ -963,7 +956,8 @@ async fn handle_message(msg: &Message) -> Result<()> {
         }
         MessageView::StreamStart(_) => {
             if is_playing() {
-                broadcast_track_list(&PLAYER_STATE.get().unwrap().read().await.tracklist).await?;
+                let tracklist = TRACKLIST.read().await;
+                broadcast_track_list(&tracklist).await?;
             }
         }
         MessageView::AsyncDone(msg) => {
