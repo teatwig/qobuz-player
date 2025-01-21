@@ -25,7 +25,6 @@ use tokio::{select, sync::RwLock};
 use tracing::{debug, instrument};
 
 pub mod error;
-pub mod mpris;
 pub mod notification;
 pub mod qobuz;
 pub mod queue;

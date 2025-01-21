@@ -1,14 +1,13 @@
 use chrono::{DateTime, Duration, Local};
 use futures::executor::block_on;
 use gstreamer::{ClockTime, State as GstState};
-use std::collections::HashMap;
-use tracing::debug;
-use zbus::{fdo::Result, interface, zvariant, Connection, ConnectionBuilder, SignalContext};
-
-use crate::{
+use qobuz_player_controls::{
     notification::Notification,
     service::{Album, Track},
 };
+use std::collections::HashMap;
+use tracing::debug;
+use zbus::{fdo::Result, interface, zvariant, Connection, ConnectionBuilder, SignalContext};
 
 #[derive(Debug)]
 struct Mpris {}
@@ -52,7 +51,7 @@ pub async fn init() -> Connection {
 }
 
 pub async fn receive_notifications(conn: &Connection) {
-    let mut receiver = crate::notify_receiver();
+    let mut receiver = qobuz_player_controls::notify_receiver();
     let object_server = conn.object_server();
 
     loop {
@@ -194,7 +193,7 @@ pub async fn receive_notifications(conn: &Connection) {
 #[interface(name = "org.mpris.MediaPlayer2")]
 impl Mpris {
     async fn quit(&self) -> Result<()> {
-        if let Err(error) = crate::quit().await {
+        if let Err(error) = qobuz_player_controls::quit().await {
             debug!(?error);
         }
 
@@ -247,37 +246,37 @@ struct MprisPlayer {
 #[interface(name = "org.mpris.MediaPlayer2.Player")]
 impl MprisPlayer {
     async fn open_uri(&self, uri: &str) {
-        if let Err(error) = crate::play_uri(uri).await {
+        if let Err(error) = qobuz_player_controls::play_uri(uri).await {
             debug!(?error);
         }
     }
     async fn play(&self) {
-        if let Err(error) = crate::play().await {
+        if let Err(error) = qobuz_player_controls::play().await {
             debug!(?error);
         }
     }
     async fn pause(&self) {
-        if let Err(error) = crate::pause().await {
+        if let Err(error) = qobuz_player_controls::pause().await {
             debug!(?error);
         }
     }
     async fn stop(&self) {
-        if let Err(error) = crate::stop().await {
+        if let Err(error) = qobuz_player_controls::stop().await {
             debug!(?error);
         }
     }
     async fn play_pause(&self) {
-        if let Err(error) = crate::play_pause().await {
+        if let Err(error) = qobuz_player_controls::play_pause().await {
             debug!(?error);
         }
     }
     async fn next(&self) {
-        if let Err(error) = crate::next().await {
+        if let Err(error) = qobuz_player_controls::next().await {
             debug!(?error);
         }
     }
     async fn previous(&self) {
-        if let Err(error) = crate::previous().await {
+        if let Err(error) = qobuz_player_controls::previous().await {
             debug!(?error);
         }
     }
@@ -306,10 +305,13 @@ impl MprisPlayer {
     #[zbus(property, name = "Metadata")]
     async fn metadata(&self) -> HashMap<&str, zvariant::Value> {
         debug!("signal metadata refresh");
-        if let Some(current_track) = crate::current_track().await {
+        if let Some(current_track) = qobuz_player_controls::current_track().await {
             track_to_meta(
                 current_track,
-                crate::current_tracklist().await.get_album().cloned(),
+                qobuz_player_controls::current_tracklist()
+                    .await
+                    .get_album()
+                    .cloned(),
             )
         } else {
             HashMap::default()
@@ -377,14 +379,18 @@ impl MprisTrackList {
     ) -> Vec<HashMap<&str, zvariant::Value>> {
         debug!("get tracks metadata");
 
-        crate::current_tracklist()
+        qobuz_player_controls::current_tracklist()
             .await
             .all_tracks()
             .into_iter()
             .filter_map(|i| {
                 if tracks.contains(&i.position.to_string()) {
-                    let album =
-                        block_on(async { crate::current_tracklist().await.get_album().cloned() });
+                    let album = block_on(async {
+                        qobuz_player_controls::current_tracklist()
+                            .await
+                            .get_album()
+                            .cloned()
+                    });
                     Some(track_to_meta(i.clone(), album))
                 } else {
                     None
@@ -395,7 +401,7 @@ impl MprisTrackList {
 
     async fn go_to(&self, position: String) {
         if let Ok(p) = position.parse::<u32>() {
-            if let Err(error) = crate::skip(p, true).await {
+            if let Err(error) = qobuz_player_controls::skip(p, true).await {
                 debug!(?error);
             }
         }
@@ -410,7 +416,7 @@ impl MprisTrackList {
 
     #[zbus(property, name = "Tracks")]
     async fn tracks(&self) -> Vec<String> {
-        crate::current_tracklist()
+        qobuz_player_controls::current_tracklist()
             .await
             .unplayed_tracks()
             .iter()

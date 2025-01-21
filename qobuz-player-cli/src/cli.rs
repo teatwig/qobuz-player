@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
 use qobuz_api::client::api::OutputFormat;
-use qobuz_player_controls::mpris;
 use qobuz_player_controls::sql::db;
 use snafu::prelude::*;
 use tokio::task::JoinHandle;
@@ -148,10 +147,10 @@ async fn setup_player(
 
     #[cfg(target_os = "linux")]
     {
-        let conn = mpris::init().await;
+        let conn = qobuz_player_mpris::init().await;
 
         handles.push(tokio::spawn(async move {
-            mpris::receive_notifications(&conn).await;
+            qobuz_player_mpris::receive_notifications(&conn).await;
         }));
     }
 

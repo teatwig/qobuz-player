@@ -2831,6 +2831,7 @@ dependencies = [
  "md5",
  "qobuz-api",
  "qobuz-player-controls",
+ "qobuz-player-mpris",
  "qobuz-player-tui",
  "qobuz-player-web",
  "snafu",
@@ -2851,6 +2852,27 @@ dependencies = [
  "futures",
  "gstreamer",
  "qobuz-api",
+ "rand",
+ "serde",
+ "snafu",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "zbus",
+]
+
+[[package]]
+name = "qobuz-player-mpris"
+version = "0.1.0"
+dependencies = [
+ "async-broadcast",
+ "cached",
+ "chrono",
+ "dirs",
+ "flume",
+ "futures",
+ "gstreamer",
+ "qobuz-player-controls",
  "rand",
  "serde",
  "snafu",
