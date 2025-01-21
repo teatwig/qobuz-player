@@ -12,7 +12,6 @@ use playerstate::PlayerState;
 use qobuz_api::client::{self, api::Client, UrlType};
 use service::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
 use std::{
-    borrow::BorrowMut,
     collections::BTreeMap,
     str::FromStr,
     sync::{
@@ -124,6 +123,8 @@ static ABOUT_TO_FINISH: LazyLock<AboutToFinish> = LazyLock::new(|| {
 static IS_BUFFERING: AtomicBool = AtomicBool::new(false);
 static IS_LIVE: AtomicBool = AtomicBool::new(false);
 static PLAYER_STATE: OnceLock<Arc<RwLock<PlayerState>>> = OnceLock::new();
+static CURRENT_TRACK: LazyLock<RwLock<Option<Track>>> = LazyLock::new(|| RwLock::new(None));
+static CLIENT: OnceLock<Client> = OnceLock::new();
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
@@ -139,8 +140,6 @@ pub async fn init(username: Option<&str>, password: Option<&str>) -> Result<()> 
     let (quit_sender, _) = tokio::sync::broadcast::channel::<bool>(1);
 
     let state = PlayerState {
-        current_track: None,
-        service: client,
         tracklist,
         status: gstreamer::State::Null,
         target_status: gstreamer::State::Null,
@@ -151,6 +150,7 @@ pub async fn init(username: Option<&str>, password: Option<&str>) -> Result<()> 
     let version = gstreamer::version();
     debug!(?version);
 
+    CLIENT.set(client).expect("error setting client");
     PLAYER_STATE.set(state).expect("error setting player state");
 
     Ok(())
@@ -347,7 +347,9 @@ pub async fn jump_backward() -> Result<()> {
 /// Skip to a specific track in the playlist.
 pub async fn skip(new_position: u32, force: bool) -> Result<()> {
     let mut state = PLAYER_STATE.get().unwrap().write().await;
-    let current_position = current_track_position(&state);
+    let current_track = CURRENT_TRACK.read().await;
+    let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
+
     let total_tracks = state.tracklist.total();
 
     // Typical previous skip functionality where if,
@@ -375,7 +377,11 @@ pub async fn skip(new_position: u32, force: bool) -> Result<()> {
 
     ready().await?;
 
-    if let Some(next_track_to_play) = skip_track(state.borrow_mut(), new_position).await {
+    let client = CLIENT.get().unwrap();
+    let mut current_track = CURRENT_TRACK.write().await;
+    if let Some(next_track_to_play) =
+        skip_track(&mut state, &mut current_track, client, new_position).await
+    {
         let target_status = state.target_status;
 
         broadcast_track_list(&state.tracklist).await?;
@@ -399,8 +405,9 @@ pub async fn skip(new_position: u32, force: bool) -> Result<()> {
 
 pub async fn next() -> Result<()> {
     let state = PLAYER_STATE.get().unwrap().read().await;
+    let current_track = CURRENT_TRACK.read().await;
+    let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
 
-    let current_position = current_track_position(&state);
     drop(state);
     skip(current_position + 1, true).await?;
 
@@ -409,8 +416,9 @@ pub async fn next() -> Result<()> {
 
 pub async fn previous() -> Result<()> {
     let state = PLAYER_STATE.get().unwrap().read().await;
+    let current_track = CURRENT_TRACK.read().await;
+    let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
 
-    let current_position = current_track_position(&state);
     drop(state);
     skip(current_position - 1, false).await?;
 
@@ -424,25 +432,22 @@ async fn attach_track_url(client: &Client, track: &mut Track) {
     }
 }
 
-fn current_track_position(state: &PlayerState) -> u32 {
-    if let Some(track) = &state.current_track {
-        track.position
-    } else {
-        0
-    }
-}
-
-async fn skip_track(state: &mut PlayerState, index: u32) -> Option<String> {
+async fn skip_track(
+    state: &mut PlayerState,
+    current_track: &mut Option<Track>,
+    client: &Client,
+    index: u32,
+) -> Option<String> {
     for t in state.tracklist.queue.values_mut() {
         match t.position.cmp(&index) {
             std::cmp::Ordering::Less => {
                 t.status = TrackStatus::Played;
             }
             std::cmp::Ordering::Equal => {
-                if let Ok(url) = state.service.track_url(t.id as i32, None).await {
+                if let Ok(url) = client.track_url(t.id as i32, None).await {
                     t.status = TrackStatus::Playing;
                     t.track_url = Some(url.url.clone());
-                    state.current_track = Some(t.clone());
+                    *current_track = Some(t.clone());
                     return Some(url.url);
                 } else {
                     t.status = TrackStatus::Unplayable;
@@ -463,7 +468,10 @@ pub async fn play_track(track_id: i32) -> Result<()> {
     ready().await?;
 
     let mut state = PLAYER_STATE.get().unwrap().write().await;
-    if let Ok(track) = state.service.track(track_id).await {
+    let client = CLIENT.get().unwrap();
+    let mut current_track = CURRENT_TRACK.write().await;
+
+    if let Ok(track) = client.track(track_id).await {
         let mut track: Track = track.into();
         track.status = TrackStatus::Playing;
         track.number = 1;
@@ -476,8 +484,8 @@ pub async fn play_track(track_id: i32) -> Result<()> {
 
         state.tracklist = tracklist;
 
-        attach_track_url(&state.service, &mut track).await;
-        state.current_track = Some(track.clone());
+        attach_track_url(client, &mut track).await;
+        *current_track = Some(track.clone());
 
         state.status = GstState::Playing;
 
@@ -500,7 +508,9 @@ pub async fn play_album(album_id: &str) -> Result<()> {
 
     let mut state = PLAYER_STATE.get().unwrap().write().await;
 
-    if let Ok(album) = state.service.album(album_id).await {
+    let client = CLIENT.get().unwrap();
+    let mut current_track = CURRENT_TRACK.write().await;
+    if let Ok(album) = client.album(album_id).await {
         let album: Album = album.into();
         let mut tracklist = TrackListValue::new(Some(&album.tracks));
         tracklist.set_album(album);
@@ -512,8 +522,8 @@ pub async fn play_album(album_id: &str) -> Result<()> {
         if let Some(mut entry) = tracklist.queue.first_entry() {
             let first_track = entry.get_mut();
 
-            attach_track_url(&state.service, first_track).await;
-            state.current_track = Some(first_track.clone());
+            attach_track_url(client, first_track).await;
+            *current_track = Some(first_track.clone());
             state.status = GstState::Playing;
             broadcast_track_list(&state.tracklist).await?;
 
@@ -540,8 +550,10 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
     ready().await?;
 
     let mut state = PLAYER_STATE.get().unwrap().write().await;
+    let client = CLIENT.get().unwrap();
+    let mut current_track = CURRENT_TRACK.write().await;
 
-    if let Ok(playlist) = state.service.playlist(playlist_id).await {
+    if let Ok(playlist) = client.playlist(playlist_id).await {
         let playlist: Playlist = playlist.into();
         let mut tracklist = TrackListValue::new(Some(&playlist.tracks));
 
@@ -554,8 +566,8 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
         if let Some(mut entry) = tracklist.queue.first_entry() {
             let first_track = entry.get_mut();
 
-            attach_track_url(&state.service, first_track).await;
-            state.current_track = Some(first_track.clone());
+            attach_track_url(client, first_track).await;
+            *current_track = Some(first_track.clone());
 
             state.status = GstState::Playing;
             broadcast_track_list(&state.tracklist).await?;
@@ -601,13 +613,16 @@ pub async fn play_uri(uri: &str) -> Result<()> {
 /// prepare the next track by downloading the stream url.
 async fn prep_next_track() -> Result<()> {
     let mut state = PLAYER_STATE.get().unwrap().write().await;
+    let client = CLIENT.get().unwrap();
 
     let total_tracks = state.tracklist.total();
-    let current_position = current_track_position(&state);
+    let mut current_track = CURRENT_TRACK.write().await;
+    let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
 
     if total_tracks == current_position {
         debug!("no more tracks left");
-    } else if let Some(next_track_url) = skip_track(state.borrow_mut(), current_position + 1).await
+    } else if let Some(next_track_url) =
+        skip_track(&mut state, &mut current_track, client, current_position + 1).await
     {
         drop(state);
 
@@ -645,12 +660,9 @@ pub async fn current_track() -> Option<Track> {
 #[instrument]
 /// Search the service.
 pub async fn search(query: &str) -> SearchResults {
-    PLAYER_STATE
+    CLIENT
         .get()
         .unwrap()
-        .read()
-        .await
-        .service
         .search_all(query, 20)
         .await
         .ok()
@@ -662,12 +674,9 @@ pub async fn search(query: &str) -> SearchResults {
 #[cached(size = 1, time = 600)]
 /// Get favorites
 pub async fn favorites() -> Favorites {
-    PLAYER_STATE
+    CLIENT
         .get()
         .unwrap()
-        .read()
-        .await
-        .service
         .favorites(1000)
         .await
         .ok()
@@ -678,12 +687,9 @@ pub async fn favorites() -> Favorites {
 #[instrument]
 /// Get artist
 pub async fn artist(artist_id: i32) -> Artist {
-    PLAYER_STATE
+    CLIENT
         .get()
         .unwrap()
-        .read()
-        .await
-        .service
         .artist(artist_id, None)
         .await
         .ok()
@@ -694,12 +700,9 @@ pub async fn artist(artist_id: i32) -> Artist {
 #[instrument]
 /// Get similar artists
 pub async fn similar_artists(artist_id: i32) -> Vec<Artist> {
-    PLAYER_STATE
+    CLIENT
         .get()
         .unwrap()
-        .read()
-        .await
-        .service
         .similar_artists(artist_id, None)
         .await
         .ok()
@@ -711,12 +714,9 @@ pub async fn similar_artists(artist_id: i32) -> Vec<Artist> {
 #[instrument]
 /// Get album
 pub async fn album(id: &str) -> Album {
-    PLAYER_STATE
+    CLIENT
         .get()
         .unwrap()
-        .read()
-        .await
-        .service
         .album(id)
         .await
         .ok()
@@ -727,12 +727,9 @@ pub async fn album(id: &str) -> Album {
 #[instrument]
 /// Get suggested albums
 pub async fn suggested_albums(album_id: &str) -> Vec<Album> {
-    PLAYER_STATE
+    CLIENT
         .get()
         .unwrap()
-        .read()
-        .await
-        .service
         .suggested_albums(album_id)
         .await
         .ok()
@@ -744,12 +741,9 @@ pub async fn suggested_albums(album_id: &str) -> Vec<Album> {
 #[instrument]
 /// Get playlist
 pub async fn playlist(id: i64) -> Playlist {
-    PLAYER_STATE
+    CLIENT
         .get()
         .unwrap()
-        .read()
-        .await
-        .service
         .playlist(id)
         .await
         .ok()
@@ -761,12 +755,9 @@ pub async fn playlist(id: i64) -> Playlist {
 #[cached(size = 10, time = 600)]
 /// Fetch the albums for a specific artist.
 pub async fn artist_albums(artist_id: i32) -> Vec<Album> {
-    PLAYER_STATE
+    CLIENT
         .get()
         .unwrap()
-        .read()
-        .await
-        .service
         .artist_releases(artist_id, None)
         .await
         .ok()
@@ -778,91 +769,46 @@ pub async fn artist_albums(artist_id: i32) -> Vec<Album> {
 #[instrument]
 /// Add album to favorites
 pub async fn add_favorite_album(id: &str) {
-    _ = PLAYER_STATE
-        .get()
-        .unwrap()
-        .read()
-        .await
-        .service
-        .add_favorite_album(id)
-        .await;
+    _ = CLIENT.get().unwrap().add_favorite_album(id).await;
 }
 
 #[instrument]
 /// Remove album from favorites
 pub async fn remove_favorite_album(id: &str) {
-    _ = PLAYER_STATE
-        .get()
-        .unwrap()
-        .read()
-        .await
-        .service
-        .remove_favorite_album(id)
-        .await;
+    _ = CLIENT.get().unwrap().remove_favorite_album(id).await;
 }
 
 #[instrument]
 /// Add artist to favorites
 pub async fn add_favorite_artist(id: &str) {
-    _ = PLAYER_STATE
-        .get()
-        .unwrap()
-        .read()
-        .await
-        .service
-        .add_favorite_artist(id)
-        .await;
+    _ = CLIENT.get().unwrap().add_favorite_artist(id).await;
 }
 
 #[instrument]
 /// Remove artist from favorites
 pub async fn remove_favorite_artist(id: &str) {
-    _ = PLAYER_STATE
-        .get()
-        .unwrap()
-        .read()
-        .await
-        .service
-        .remove_favorite_artist(id)
-        .await;
+    _ = CLIENT.get().unwrap().remove_favorite_artist(id).await;
 }
 
 #[instrument]
 /// Add playlist to favorites
 pub async fn add_favorite_playlist(id: &str) {
-    _ = PLAYER_STATE
-        .get()
-        .unwrap()
-        .read()
-        .await
-        .service
-        .add_favorite_playlist(id)
-        .await;
+    _ = CLIENT.get().unwrap().add_favorite_playlist(id).await;
 }
 
 #[instrument]
 /// Remove playlist from favorites
 pub async fn remove_favorite_playlist(id: &str) {
-    _ = PLAYER_STATE
-        .get()
-        .unwrap()
-        .read()
-        .await
-        .service
-        .remove_favorite_playlist(id)
-        .await;
+    _ = CLIENT.get().unwrap().remove_favorite_playlist(id).await;
 }
 
 #[instrument]
 #[cached(size = 10, time = 600)]
 /// Fetch the tracks for a specific playlist.
 pub async fn playlist_tracks(playlist_id: i64) -> Vec<Track> {
-    PLAYER_STATE
+    CLIENT
         .get()
         .unwrap()
-        .read()
-        .await
-        .service
         .playlist(playlist_id)
         .await
         .ok()
@@ -877,12 +823,9 @@ pub async fn playlist_tracks(playlist_id: i64) -> Vec<Track> {
 #[cached(size = 1, time = 600)]
 /// Fetch the current user's list of playlists.
 pub async fn user_playlists() -> Vec<Playlist> {
-    PLAYER_STATE
+    CLIENT
         .get()
         .unwrap()
-        .read()
-        .await
-        .service
         .user_playlists()
         .await
         .ok()
