@@ -1,11 +1,10 @@
 pub mod controls;
 
 use crate::service::{Album, Playlist, Track, TrackStatus};
-use serde::{Deserialize, Serialize, Serializer};
-use std::{collections::BTreeMap, fmt::Display};
+use std::collections::BTreeMap;
 use tracing::{debug, instrument};
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum TrackListType {
     Album,
     Playlist,
@@ -14,39 +13,8 @@ pub enum TrackListType {
     Unknown,
 }
 
-impl Display for TrackListType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TrackListType::Album => f.write_fmt(format_args!("album")),
-            TrackListType::Playlist => f.write_fmt(format_args!("playlist")),
-            TrackListType::Track => f.write_fmt(format_args!("track")),
-            TrackListType::Unknown => f.write_fmt(format_args!("unknown")),
-        }
-    }
-}
-
-impl From<&str> for TrackListType {
-    fn from(tracklist_type: &str) -> Self {
-        match tracklist_type {
-            "album" => TrackListType::Album,
-            "playlist" => TrackListType::Playlist,
-            "track" => TrackListType::Track,
-            _ => TrackListType::Unknown,
-        }
-    }
-}
-
-fn serialize_btree<S>(queue: &BTreeMap<u32, Track>, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let vec_values: Vec<_> = queue.values().collect();
-    vec_values.serialize(s)
-}
-
-#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct TrackListValue {
-    #[serde(serialize_with = "serialize_btree")]
     pub queue: BTreeMap<u32, Track>,
     pub album: Option<Album>,
     pub playlist: Option<Playlist>,
@@ -72,14 +40,6 @@ impl TrackListValue {
         } else {
             self.queue.len() as u32
         }
-    }
-
-    #[instrument(skip(self))]
-    pub fn clear(&mut self) {
-        self.list_type = TrackListType::Unknown;
-        self.album = None;
-        self.playlist = None;
-        self.queue.clear();
     }
 
     #[instrument(skip(self, album), fields(album_id = album.id))]
@@ -125,11 +85,6 @@ impl TrackListValue {
     }
 
     #[instrument(skip(self))]
-    pub fn find_track_by_index(&self, index: u32) -> Option<&Track> {
-        self.queue.get(&index)
-    }
-
-    #[instrument(skip(self))]
     pub fn set_track_status(&mut self, position: u32, status: TrackStatus) {
         if let Some(track) = self.queue.get_mut(&position) {
             track.status = status;
@@ -167,19 +122,6 @@ impl TrackListValue {
                 }
             })
             .collect::<Vec<&Track>>()
-    }
-
-    #[instrument(skip(self))]
-    pub fn track_index(&self, track_id: u32) -> Option<u32> {
-        let mut index: Option<u32> = None;
-
-        self.queue.iter().for_each(|(i, t)| {
-            if t.id == track_id {
-                index = Some(*i);
-            }
-        });
-
-        index
     }
 
     pub fn current_track(&self) -> Option<&Track> {

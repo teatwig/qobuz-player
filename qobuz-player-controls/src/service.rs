@@ -1,8 +1,7 @@
 use qobuz_api::client::Image;
-use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub enum TrackStatus {
     Played,
     Playing,
@@ -11,8 +10,7 @@ pub enum TrackStatus {
     Unplayable,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Track {
     pub id: u32,
     pub number: u32,
@@ -25,7 +23,6 @@ pub struct Track {
     pub sampling_rate: f32,
     pub bit_depth: u32,
     pub status: TrackStatus,
-    #[serde(skip)]
     pub track_url: Option<String>,
     pub available: bool,
     pub cover_art: Option<String>,
@@ -33,8 +30,7 @@ pub struct Track {
     pub media_number: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Album {
     pub id: String,
     pub title: String,
@@ -50,7 +46,7 @@ pub struct Album {
     pub duration_seconds: u32,
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone)]
 pub struct SearchResults {
     pub query: String,
     pub albums: Vec<Album>,
@@ -59,14 +55,14 @@ pub struct SearchResults {
     pub playlists: Vec<Playlist>,
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone)]
 pub struct Favorites {
     pub albums: Vec<Album>,
     pub tracks: Vec<Track>,
     pub artists: Vec<Artist>,
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct Artist {
     pub id: u32,
     pub name: String,
@@ -74,8 +70,7 @@ pub struct Artist {
     pub albums: Option<Vec<Album>>,
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Playlist {
     pub title: String,
     pub duration_seconds: u32,

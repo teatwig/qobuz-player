@@ -25,17 +25,10 @@ pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/album/{id}", get(index))
         .route("/album/{id}/tracks", get(album_tracks_partial))
-        .route("/album/{id}/suggestions", get(suggestions))
         .route("/album/{id}/set-favorite", put(set_favorite))
         .route("/album/{id}/unset-favorite", put(unset_favorite))
         .route("/album/{id}/play", put(play))
         .route("/album/{id}/play/{track_position}", put(play_track))
-}
-
-async fn suggestions(Path(id): Path<String>) -> impl IntoResponse {
-    let suggestions = qobuz_player_controls::suggested_albums(&id).await;
-
-    serde_json::to_string(&suggestions).unwrap_or("Error".into())
 }
 
 async fn play_track(Path((id, track_position)): Path<(String, u32)>) -> impl IntoResponse {

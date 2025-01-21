@@ -110,12 +110,10 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
                     };
                     _ = tx.send(event);
                 }
-                Notification::CurrentTrackList { list } => {
-                    let serialized = serde_json::to_string(&list).unwrap_or("".into());
-
+                Notification::CurrentTrackList { list: _ } => {
                     let event = ServerSentEvent {
                         event_name: "tracklist".into(),
-                        event_data: serialized,
+                        event_data: Default::default(),
                     };
                     _ = tx.send(event);
                 }

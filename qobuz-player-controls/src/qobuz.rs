@@ -1,23 +1,22 @@
 use crate::{
-    service::{Album, Artist, Favorites, Playlist, SearchResults, Track},
+    service::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
     sql::db,
 };
 use qobuz_api::client::{
+    album::Album as QobuzAlbum,
     album_suggestion::AlbumSuggestion,
     api::{self, Client as QobuzClient},
+    artist::Artist as QobuzArtist,
     favorites::Favorites as QobuzFavorites,
-    release::{Release, Track as QobuzTrack},
+    playlist::Playlist as QobuzPlaylist,
+    release::{Release, Track as QobuzReleaseTrack},
     search_results::SearchAllResults,
+    track::Track as QobuzTrack,
 };
 use std::{collections::BTreeMap, str::FromStr};
 use tracing::{debug, info};
 
 pub type Result<T, E = qobuz_api::Error> = std::result::Result<T, E>;
-
-pub mod album;
-pub mod artist;
-pub mod playlist;
-pub mod track;
 
 pub async fn make_client(username: Option<&str>, password: Option<&str>) -> Result<QobuzClient> {
     let mut client = api::new(None, None, None).await?;
@@ -153,8 +152,8 @@ impl From<QobuzFavorites> for Favorites {
     }
 }
 
-impl From<QobuzTrack> for Track {
-    fn from(s: QobuzTrack) -> Self {
+impl From<QobuzReleaseTrack> for Track {
+    fn from(s: QobuzReleaseTrack) -> Self {
         Self {
             id: s.id,
             number: s.physical_support.track_number as u32,
@@ -269,5 +268,178 @@ impl From<AlbumSuggestion> for Album {
             cover_art_small: s.image.small,
             duration_seconds: s.duration.map_or(0, |duration| duration as u32),
         }
+    }
+}
+
+impl From<QobuzAlbum> for Album {
+    fn from(value: QobuzAlbum) -> Self {
+        let year = chrono::NaiveDate::from_str(&value.release_date_original)
+            .expect("failed to parse date")
+            .format("%Y");
+
+        let tracks = if let Some(tracks) = value.tracks {
+            let mut position = 1_u32;
+
+            tracks
+                .items
+                .into_iter()
+                .filter_map(|t| {
+                    if t.streamable {
+                        let mut track: Track = t.into();
+
+                        let next_position = position;
+                        track.position = next_position;
+
+                        position += 1;
+
+                        Some((next_position, track))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<BTreeMap<u32, Track>>()
+        } else {
+            BTreeMap::new()
+        };
+
+        Self {
+            id: value.id,
+            title: value.title,
+            artist: value.artist.into(),
+            total_tracks: value.tracks_count as u32,
+            release_year: year
+                .to_string()
+                .parse::<u32>()
+                .expect("error converting year"),
+            hires_available: value.hires_streamable,
+            explicit: value.parental_warning,
+            available: value.streamable,
+            tracks,
+            cover_art: value.image.large,
+            cover_art_small: value.image.small,
+            duration_seconds: value.duration.map_or(0, |duration| duration as u32),
+        }
+    }
+}
+
+impl From<&QobuzAlbum> for Album {
+    fn from(value: &QobuzAlbum) -> Self {
+        value.clone().into()
+    }
+}
+
+impl From<QobuzArtist> for Artist {
+    fn from(a: QobuzArtist) -> Self {
+        Self {
+            id: a.id as u32,
+            name: a.name,
+            image: a.image,
+            albums: a.albums.map(|a| {
+                a.items
+                    .into_iter()
+                    .map(|a| a.into())
+                    .collect::<Vec<Album>>()
+            }),
+        }
+    }
+}
+
+impl From<QobuzPlaylist> for Playlist {
+    fn from(value: QobuzPlaylist) -> Self {
+        let tracks = if let Some(tracks) = value.tracks {
+            let mut position = 1_u32;
+
+            tracks
+                .items
+                .into_iter()
+                .filter_map(|t| {
+                    if t.streamable {
+                        let mut track: Track = t.into();
+
+                        let next_position = position;
+                        track.position = next_position;
+
+                        position += 1;
+
+                        Some((next_position, track))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<BTreeMap<u32, Track>>()
+        } else {
+            BTreeMap::new()
+        };
+
+        let cover_art = if let Some(image) = value.image_rectangle.first() {
+            Some(image.clone())
+        } else if let Some(images) = value.images300 {
+            images.first().cloned()
+        } else {
+            None
+        };
+
+        Self {
+            id: value.id as u32,
+            title: value.name,
+            duration_seconds: value.duration as u32,
+            tracks_count: value.tracks_count as u32,
+            cover_art,
+            tracks,
+        }
+    }
+}
+
+impl From<QobuzTrack> for Track {
+    fn from(value: QobuzTrack) -> Self {
+        let album = value.album.as_ref().map(|a| {
+            let album: Album = a.into();
+
+            album
+        });
+
+        let artist = if let Some(p) = &value.performer {
+            Some(Artist {
+                id: p.id as u32,
+                name: p.name.clone(),
+                albums: None,
+                image: None,
+            })
+        } else {
+            value.album.as_ref().map(|a| a.clone().artist.into())
+        };
+
+        let cover_art = value.album.as_ref().map(|a| a.image.large.clone());
+
+        let status = if value.streamable {
+            TrackStatus::Unplayed
+        } else {
+            TrackStatus::Unplayable
+        };
+
+        Self {
+            id: value.id as u32,
+            number: value.track_number as u32,
+            title: value.title,
+            album,
+            artist,
+            duration_seconds: value.duration as u32,
+            explicit: value.parental_warning,
+            hires_available: value.hires_streamable,
+            sampling_rate: value.maximum_sampling_rate.unwrap_or(0.0) as f32,
+            bit_depth: value.maximum_bit_depth as u32,
+            status,
+            track_url: None,
+            available: value.streamable,
+            position: value.position.unwrap_or(value.track_number as usize) as u32,
+            cover_art,
+            media_number: value.media_number as u32,
+        }
+    }
+}
+
+impl From<&QobuzTrack> for Track {
+    fn from(value: &QobuzTrack) -> Self {
+        value.clone().into()
     }
 }
