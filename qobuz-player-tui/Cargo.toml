@@ -11,7 +11,6 @@ qobuz-player-controls= { version = "*", path = "../qobuz-player-controls" }
 
 cursive = { workspace = true, features = ["crossterm-backend"] } 
 futures = { workspace = true }
-once_cell = { workspace = true }
 tokio-stream = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }

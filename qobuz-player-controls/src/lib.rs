@@ -8,15 +8,16 @@ use gst::{
 };
 use gstreamer as gst;
 use notification::{BroadcastReceiver, BroadcastSender, Notification};
-use once_cell::sync::{Lazy, OnceCell};
-use qobuz_api::client::{self, UrlType};
-use queue::{controls::PlayerState, TrackListValue};
-use service::{Album, Artist, Favorites, Playlist, SearchResults, Track};
+use qobuz_api::client::{self, api::Client, UrlType};
+use queue::{controls::PlayerState, TrackListType, TrackListValue};
+use service::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
 use std::{
+    borrow::BorrowMut,
+    collections::BTreeMap,
     str::FromStr,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, LazyLock, OnceLock,
     },
     time::Duration,
 };
@@ -33,9 +34,9 @@ pub mod sql;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-static VERSION: Lazy<(u32, u32, u32, u32)> = Lazy::new(gstreamer::version);
+static VERSION: LazyLock<(u32, u32, u32, u32)> = LazyLock::new(gstreamer::version);
 
-static PLAYBIN: Lazy<Element> = Lazy::new(|| {
+static PLAYBIN: LazyLock<Element> = LazyLock::new(|| {
     gst::init().expect("error initializing gstreamer");
 
     let playbin = gst::ElementFactory::make("playbin3")
@@ -102,7 +103,7 @@ struct Broadcast {
     rx: BroadcastReceiver,
 }
 
-static BROADCAST_CHANNELS: Lazy<Broadcast> = Lazy::new(|| {
+static BROADCAST_CHANNELS: LazyLock<Broadcast> = LazyLock::new(|| {
     let (mut tx, rx) = async_broadcast::broadcast(20);
     tx.set_overflow(true);
 
@@ -114,14 +115,14 @@ struct AboutToFinish {
     rx: Receiver<bool>,
 }
 
-static ABOUT_TO_FINISH: Lazy<AboutToFinish> = Lazy::new(|| {
+static ABOUT_TO_FINISH: LazyLock<AboutToFinish> = LazyLock::new(|| {
     let (tx, rx) = flume::bounded::<bool>(1);
 
     AboutToFinish { tx, rx }
 });
 static IS_BUFFERING: AtomicBool = AtomicBool::new(false);
 static IS_LIVE: AtomicBool = AtomicBool::new(false);
-static QUEUE: OnceCell<Arc<RwLock<PlayerState>>> = OnceCell::new();
+static PLAYER_STATE: OnceLock<Arc<RwLock<PlayerState>>> = OnceLock::new();
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
@@ -129,26 +130,45 @@ static USER_AGENTS: &[&str] = &[
 
 #[instrument]
 pub async fn init(username: Option<&str>, password: Option<&str>) -> Result<()> {
-    let state = Arc::new(RwLock::new(PlayerState::new(username, password).await));
+    let client = qobuz::make_client(username, password)
+        .await
+        .expect("error making client");
+
+    let tracklist = TrackListValue::new(None);
+    let (quit_sender, _) = tokio::sync::broadcast::channel::<bool>(1);
+
+    let state = PlayerState {
+        current_track: None,
+        service: client,
+        tracklist,
+        status: gstreamer::State::Null,
+        target_status: gstreamer::State::Null,
+        quit_sender,
+    };
+
+    let state = Arc::new(RwLock::new(state));
     let version = gstreamer::version();
     debug!(?version);
 
-    QUEUE.set(state).expect("error setting player state");
+    PLAYER_STATE.set(state).expect("error setting player state");
 
     Ok(())
 }
+
 #[instrument]
 /// Ready the player.
-pub async fn ready() -> Result<()> {
+async fn ready() -> Result<()> {
     set_player_state(gst::State::Ready).await?;
     Ok(())
 }
+
 #[instrument]
 /// Stop the player.
 pub async fn stop() -> Result<()> {
     set_player_state(gst::State::Null).await?;
     Ok(())
 }
+
 #[instrument]
 /// Sets the player to a specific state.
 pub async fn set_player_state(state: gst::State) -> Result<()> {
@@ -184,6 +204,7 @@ async fn broadcast_track_list<'a>(list: &TrackListValue) -> Result<()> {
         .await?;
     Ok(())
 }
+
 #[instrument]
 /// Toggle play and pause.
 pub async fn play_pause() -> Result<()> {
@@ -199,9 +220,9 @@ pub async fn play_pause() -> Result<()> {
 #[instrument]
 /// Play the player.
 pub async fn play() -> Result<()> {
-    if let Some(queue) = QUEUE.get() {
+    if let Some(queue) = PLAYER_STATE.get() {
         let mut state = queue.write().await;
-        state.set_target_status(GstState::Playing);
+        state.target_status = GstState::Playing;
     }
 
     set_player_state(gst::State::Playing).await?;
@@ -211,9 +232,9 @@ pub async fn play() -> Result<()> {
 #[instrument]
 /// Pause the player.
 pub async fn pause() -> Result<()> {
-    if let Some(queue) = QUEUE.get() {
+    if let Some(queue) = PLAYER_STATE.get() {
         let mut state = queue.write().await;
-        state.set_target_status(GstState::Paused);
+        state.target_status = GstState::Paused;
     }
 
     set_player_state(gst::State::Paused).await?;
@@ -251,7 +272,7 @@ pub fn position() -> Option<ClockTime> {
 }
 
 #[instrument]
-/// Current track duraiton.
+/// Current track duration.
 pub fn duration() -> Option<ClockTime> {
     PLAYBIN.query_duration::<ClockTime>()
 }
@@ -324,9 +345,9 @@ pub async fn jump_backward() -> Result<()> {
 #[instrument]
 /// Skip to a specific track in the playlist.
 pub async fn skip(new_position: u32, force: bool) -> Result<()> {
-    let mut state = QUEUE.get().unwrap().write().await;
-    let current_position = state.current_track_position();
-    let total_tracks = state.track_list().total();
+    let mut state = PLAYER_STATE.get().unwrap().write().await;
+    let current_position = current_track_position(&state);
+    let total_tracks = state.tracklist.total();
 
     // Typical previous skip functionality where if,
     // the track is greater than 1 second into playing,
@@ -353,13 +374,12 @@ pub async fn skip(new_position: u32, force: bool) -> Result<()> {
 
     ready().await?;
 
-    if let Some(next_track_to_play) = state.skip_track(new_position).await {
-        let list = state.track_list();
-        let target_status = state.target_status();
+    if let Some(next_track_to_play) = skip_track(state.borrow_mut(), new_position).await {
+        let target_status = state.target_status;
 
+        broadcast_track_list(&state.tracklist).await?;
         drop(state);
 
-        broadcast_track_list(&list).await?;
         BROADCAST_CHANNELS
             .tx
             .broadcast(Notification::Position {
@@ -377,9 +397,9 @@ pub async fn skip(new_position: u32, force: bool) -> Result<()> {
 }
 
 pub async fn next() -> Result<()> {
-    let state = QUEUE.get().unwrap().read().await;
+    let state = PLAYER_STATE.get().unwrap().read().await;
 
-    let current_position = state.current_track_position();
+    let current_position = current_track_position(&state);
     drop(state);
     skip(current_position + 1, true).await?;
 
@@ -387,13 +407,53 @@ pub async fn next() -> Result<()> {
 }
 
 pub async fn previous() -> Result<()> {
-    let state = QUEUE.get().unwrap().read().await;
+    let state = PLAYER_STATE.get().unwrap().read().await;
 
-    let current_position = state.current_track_position();
+    let current_position = current_track_position(&state);
     drop(state);
     skip(current_position - 1, false).await?;
 
     Ok(())
+}
+
+async fn attach_track_url(client: &Client, track: &mut Track) {
+    if let Ok(track_url) = client.track_url(track.id as i32, None).await {
+        debug!("attaching url information to track");
+        track.track_url = Some(track_url.url);
+    }
+}
+
+fn current_track_position(state: &PlayerState) -> u32 {
+    if let Some(track) = &state.current_track {
+        track.position
+    } else {
+        0
+    }
+}
+
+async fn skip_track(state: &mut PlayerState, index: u32) -> Option<String> {
+    for t in state.tracklist.queue.values_mut() {
+        match t.position.cmp(&index) {
+            std::cmp::Ordering::Less => {
+                t.status = TrackStatus::Played;
+            }
+            std::cmp::Ordering::Equal => {
+                if let Ok(url) = state.service.track_url(t.id as i32, None).await {
+                    t.status = TrackStatus::Playing;
+                    t.track_url = Some(url.url.clone());
+                    state.current_track = Some(t.clone());
+                    return Some(url.url);
+                } else {
+                    t.status = TrackStatus::Unplayable;
+                }
+            }
+            std::cmp::Ordering::Greater => {
+                t.status = TrackStatus::Unplayed;
+            }
+        }
+    }
+
+    None
 }
 
 #[instrument]
@@ -401,15 +461,30 @@ pub async fn previous() -> Result<()> {
 pub async fn play_track(track_id: i32) -> Result<()> {
     ready().await?;
 
-    let mut state = QUEUE.get().unwrap().write().await;
+    let mut state = PLAYER_STATE.get().unwrap().write().await;
+    if let Ok(track) = state.service.track(track_id).await {
+        let mut track: Track = track.into();
+        track.status = TrackStatus::Playing;
+        track.number = 1;
 
-    if let Some(track_url) = state.play_track(track_id).await {
-        let list = state.track_list();
-        broadcast_track_list(&list).await?;
+        let mut queue = BTreeMap::new();
+        queue.entry(track.position).or_insert_with(|| track.clone());
+
+        let mut tracklist = TrackListValue::new(Some(&queue));
+        tracklist.set_list_type(TrackListType::Track);
+
+        state.tracklist = tracklist;
+
+        attach_track_url(&state.service, &mut track).await;
+        state.current_track = Some(track.clone());
+
+        state.status = GstState::Playing;
+
+        broadcast_track_list(&state.tracklist).await?;
 
         drop(state);
 
-        PLAYBIN.set_property("uri", Some(track_url.as_str()));
+        PLAYBIN.set_property("uri", track.track_url.clone());
 
         play().await?;
     }
@@ -422,24 +497,38 @@ pub async fn play_track(track_id: i32) -> Result<()> {
 pub async fn play_album(album_id: &str) -> Result<()> {
     ready().await?;
 
-    let mut state = QUEUE.get().unwrap().write().await;
+    let mut state = PLAYER_STATE.get().unwrap().write().await;
 
-    if let Some(track_url) = state.play_album(album_id).await {
-        let list = state.track_list();
-        broadcast_track_list(&list).await?;
+    if let Ok(album) = state.service.album(album_id).await {
+        let album: Album = album.into();
+        let mut tracklist = TrackListValue::new(Some(&album.tracks));
+        tracklist.set_album(album);
+        tracklist.set_list_type(TrackListType::Album);
+        tracklist.set_track_status(1, TrackStatus::Playing);
 
-        drop(state);
+        state.tracklist = tracklist.clone();
 
-        PLAYBIN.set_property("uri", Some(track_url));
+        if let Some(mut entry) = tracklist.queue.first_entry() {
+            let first_track = entry.get_mut();
 
-        match play().await {
-            Ok(_) => (),
-            Err(err) => {
-                tracing::error!("Error playing album: Not able to play: {}", err);
-                return Err(err);
-            }
-        };
-    }
+            attach_track_url(&state.service, first_track).await;
+            state.current_track = Some(first_track.clone());
+            state.status = GstState::Playing;
+            broadcast_track_list(&state.tracklist).await?;
+
+            drop(state);
+
+            PLAYBIN.set_property("uri", first_track.track_url.clone());
+
+            match play().await {
+                Ok(_) => (),
+                Err(err) => {
+                    tracing::error!("Error playing album: Not able to play: {}", err);
+                    return Err(err);
+                }
+            };
+        }
+    };
 
     Ok(())
 }
@@ -449,16 +538,33 @@ pub async fn play_album(album_id: &str) -> Result<()> {
 pub async fn play_playlist(playlist_id: i64) -> Result<()> {
     ready().await?;
 
-    let mut state = QUEUE.get().unwrap().write().await;
-    if let Some(track_url) = state.play_playlist(playlist_id).await {
-        let list = state.track_list();
-        broadcast_track_list(&list).await?;
+    let mut state = PLAYER_STATE.get().unwrap().write().await;
 
-        drop(state);
+    if let Ok(playlist) = state.service.playlist(playlist_id).await {
+        let playlist: Playlist = playlist.into();
+        let mut tracklist = TrackListValue::new(Some(&playlist.tracks));
 
-        PLAYBIN.set_property("uri", Some(track_url.as_str()));
+        tracklist.set_playlist(playlist);
+        tracklist.set_list_type(TrackListType::Playlist);
+        tracklist.set_track_status(1, TrackStatus::Playing);
 
-        play().await?;
+        state.tracklist = tracklist.clone();
+
+        if let Some(mut entry) = tracklist.queue.first_entry() {
+            let first_track = entry.get_mut();
+
+            attach_track_url(&state.service, first_track).await;
+            state.current_track = Some(first_track.clone());
+
+            state.status = GstState::Playing;
+            broadcast_track_list(&state.tracklist).await?;
+
+            drop(state);
+
+            PLAYBIN.set_property("uri", first_track.track_url.clone());
+
+            play().await?;
+        };
     }
 
     Ok(())
@@ -493,14 +599,15 @@ pub async fn play_uri(uri: &str) -> Result<()> {
 /// In response to the about-to-finish signal,
 /// prepare the next track by downloading the stream url.
 async fn prep_next_track() -> Result<()> {
-    let mut state = QUEUE.get().unwrap().write().await;
+    let mut state = PLAYER_STATE.get().unwrap().write().await;
 
-    let total_tracks = state.track_list().total();
-    let current_position = state.current_track_position();
+    let total_tracks = state.tracklist.total();
+    let current_position = current_track_position(&state);
 
     if total_tracks == current_position {
         debug!("no more tracks left");
-    } else if let Some(next_track_url) = state.skip_track(current_position + 1).await {
+    } else if let Some(next_track_url) = skip_track(state.borrow_mut(), current_position + 1).await
+    {
         drop(state);
 
         PLAYBIN.set_property("uri", next_track_url);
@@ -518,25 +625,35 @@ pub fn notify_receiver() -> BroadcastReceiver {
 #[instrument]
 /// Returns the current track list loaded in the player.
 pub async fn current_tracklist() -> TrackListValue {
-    QUEUE.get().unwrap().read().await.track_list()
+    PLAYER_STATE.get().unwrap().read().await.tracklist.clone()
 }
 
 #[instrument]
 /// Returns the current track loaded in the player.
 pub async fn current_track() -> Option<Track> {
-    QUEUE.get().unwrap().read().await.current_track().cloned()
+    PLAYER_STATE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .tracklist
+        .current_track()
+        .cloned()
 }
 
 #[instrument]
 /// Search the service.
 pub async fn search(query: &str) -> SearchResults {
-    QUEUE
+    PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
-        .search_all(query)
+        .service
+        .search_all(query, 20)
         .await
+        .ok()
+        .map(|x| x.into())
         .unwrap_or_default()
 }
 
@@ -544,76 +661,98 @@ pub async fn search(query: &str) -> SearchResults {
 #[cached(size = 1, time = 600)]
 /// Get favorites
 pub async fn favorites() -> Favorites {
-    QUEUE
+    PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
-        .favorites()
+        .service
+        .favorites(1000)
         .await
+        .ok()
+        .map(|x| x.into())
         .unwrap_or_default()
 }
 
 #[instrument]
 /// Get artist
 pub async fn artist(artist_id: i32) -> Artist {
-    QUEUE
+    PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
-        .artist(artist_id)
+        .service
+        .artist(artist_id, None)
         .await
+        .ok()
+        .map(|x| x.into())
         .unwrap_or_default()
 }
 
 #[instrument]
 /// Get similar artists
 pub async fn similar_artists(artist_id: i32) -> Vec<Artist> {
-    QUEUE
+    PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
-        .get_similar_artists(artist_id)
+        .service
+        .similar_artists(artist_id, None)
         .await
+        .ok()
+        .map_or(vec![], |result| {
+            result.items.into_iter().map(|x| x.into()).collect()
+        })
 }
 
 #[instrument]
 /// Get album
 pub async fn album(id: &str) -> Album {
-    QUEUE
+    PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
-        .get_album(id)
+        .service
+        .album(id)
         .await
+        .ok()
+        .map(|x| x.into())
         .unwrap()
 }
 
 #[instrument]
 /// Get suggested albums
 pub async fn suggested_albums(album_id: &str) -> Vec<Album> {
-    QUEUE
+    PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
-        .get_suggested_albums(album_id)
+        .service
+        .suggested_albums(album_id)
         .await
+        .ok()
+        .map_or(vec![], |result| {
+            result.albums.items.into_iter().map(|x| x.into()).collect()
+        })
 }
 
 #[instrument]
 /// Get playlist
 pub async fn playlist(id: i64) -> Playlist {
-    QUEUE
+    PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
-        .get_playlist(id)
+        .service
+        .playlist(id)
         .await
+        .ok()
+        .map(|x| x.into())
         .unwrap_or_default()
 }
 
@@ -621,23 +760,29 @@ pub async fn playlist(id: i64) -> Playlist {
 #[cached(size = 10, time = 600)]
 /// Fetch the albums for a specific artist.
 pub async fn artist_albums(artist_id: i32) -> Vec<Album> {
-    QUEUE
+    PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
-        .fetch_artist_albums(artist_id)
+        .service
+        .artist_releases(artist_id, None)
         .await
+        .ok()
+        .map_or(vec![], |result| {
+            result.into_iter().map(|release| release.into()).collect()
+        })
 }
 
 #[instrument]
 /// Add album to favorites
 pub async fn add_favorite_album(id: &str) {
-    _ = QUEUE
+    _ = PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
+        .service
         .add_favorite_album(id)
         .await;
 }
@@ -645,11 +790,12 @@ pub async fn add_favorite_album(id: &str) {
 #[instrument]
 /// Remove album from favorites
 pub async fn remove_favorite_album(id: &str) {
-    _ = QUEUE
+    _ = PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
+        .service
         .remove_favorite_album(id)
         .await;
 }
@@ -657,11 +803,12 @@ pub async fn remove_favorite_album(id: &str) {
 #[instrument]
 /// Add artist to favorites
 pub async fn add_favorite_artist(id: &str) {
-    _ = QUEUE
+    _ = PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
+        .service
         .add_favorite_artist(id)
         .await;
 }
@@ -669,11 +816,12 @@ pub async fn add_favorite_artist(id: &str) {
 #[instrument]
 /// Remove artist from favorites
 pub async fn remove_favorite_artist(id: &str) {
-    _ = QUEUE
+    _ = PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
+        .service
         .remove_favorite_artist(id)
         .await;
 }
@@ -681,11 +829,12 @@ pub async fn remove_favorite_artist(id: &str) {
 #[instrument]
 /// Add playlist to favorites
 pub async fn add_favorite_playlist(id: &str) {
-    _ = QUEUE
+    _ = PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
+        .service
         .add_favorite_playlist(id)
         .await;
 }
@@ -693,11 +842,12 @@ pub async fn add_favorite_playlist(id: &str) {
 #[instrument]
 /// Remove playlist from favorites
 pub async fn remove_favorite_playlist(id: &str) {
-    _ = QUEUE
+    _ = PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
+        .service
         .remove_favorite_playlist(id)
         .await;
 }
@@ -706,26 +856,42 @@ pub async fn remove_favorite_playlist(id: &str) {
 #[cached(size = 10, time = 600)]
 /// Fetch the tracks for a specific playlist.
 pub async fn playlist_tracks(playlist_id: i64) -> Vec<Track> {
-    QUEUE
+    PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
-        .fetch_playlist_tracks(playlist_id)
+        .service
+        .playlist(playlist_id)
         .await
+        .ok()
+        .map_or(vec![], |result| {
+            result.tracks.map_or(vec![], |tracks| {
+                tracks.items.into_iter().map(|track| track.into()).collect()
+            })
+        })
 }
 
 #[instrument]
 #[cached(size = 1, time = 600)]
 /// Fetch the current user's list of playlists.
 pub async fn user_playlists() -> Vec<Playlist> {
-    QUEUE
+    PLAYER_STATE
         .get()
         .unwrap()
         .read()
         .await
-        .fetch_user_playlists()
+        .service
+        .user_playlists()
         .await
+        .ok()
+        .map_or(vec![], |x| {
+            x.playlists
+                .items
+                .into_iter()
+                .map(|playlist| playlist.into())
+                .collect()
+        })
 }
 
 /// Inserts the most recent position into the state at a set interval.
@@ -758,7 +924,14 @@ pub async fn clock_loop() {
 pub async fn quit() -> Result<()> {
     debug!("stopping player");
 
-    QUEUE.get().unwrap().read().await.quit();
+    PLAYER_STATE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .quit_sender
+        .send(true)
+        .unwrap();
 
     if is_playing() {
         debug!("pausing player");
@@ -791,7 +964,13 @@ pub async fn player_loop() -> Result<()> {
     let mut messages = PLAYBIN.bus().unwrap().stream();
     let mut about_to_finish = ABOUT_TO_FINISH.rx.stream();
 
-    let mut quitter = QUEUE.get().unwrap().read().await.quitter();
+    let mut quitter = PLAYER_STATE
+        .get()
+        .unwrap()
+        .read()
+        .await
+        .quit_sender
+        .subscribe();
 
     let clock_handle = tokio::spawn(async { clock_loop().await });
 
@@ -832,16 +1011,15 @@ async fn handle_message(msg: &Message) -> Result<()> {
     match msg.view() {
         MessageView::Eos(_) => {
             debug!("END OF STREAM");
-            let mut q = QUEUE.get().unwrap().write().await;
-            q.set_target_status(GstState::Paused);
-            drop(q);
+            let mut state = PLAYER_STATE.get().unwrap().write().await;
+            state.target_status = GstState::Paused;
+            drop(state);
 
             skip(1, true).await?;
         }
         MessageView::StreamStart(_) => {
             if is_playing() {
-                let list = QUEUE.get().unwrap().read().await.track_list();
-                broadcast_track_list(&list).await?;
+                broadcast_track_list(&PLAYER_STATE.get().unwrap().read().await.tracklist).await?;
             }
         }
         MessageView::AsyncDone(msg) => {
@@ -850,7 +1028,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
                 .tx
                 .broadcast(Notification::Loading {
                     is_loading: false,
-                    target_state: QUEUE.get().unwrap().read().await.target_status(),
+                    target_state: PLAYER_STATE.get().unwrap().read().await.target_status,
                 })
                 .await?;
 
@@ -872,7 +1050,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
             }
             let percent = buffering.percent();
 
-            let target_status = QUEUE.get().unwrap().read().await.target_status();
+            let target_status = PLAYER_STATE.get().unwrap().read().await.target_status;
 
             if percent < 100 && !is_paused() && !IS_BUFFERING.load(Ordering::Relaxed) {
                 pause().await?;
@@ -901,12 +1079,12 @@ async fn handle_message(msg: &Message) -> Result<()> {
                 .get::<GstState>()
                 .unwrap();
 
-            let mut q = QUEUE.get().unwrap().write().await;
+            let mut state = PLAYER_STATE.get().unwrap().write().await;
 
-            if q.status() != current_state && q.target_status() == current_state {
+            if state.status != current_state && state.target_status == current_state {
                 debug!("player state changed {:?}", current_state);
-                q.set_status(current_state);
-                drop(q);
+                state.status = current_state;
+                drop(state);
 
                 BROADCAST_CHANNELS
                     .tx
