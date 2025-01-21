@@ -1,6 +1,6 @@
 use gstreamer::{ClockTime, State};
 
-use crate::{error, queue::TrackListValue};
+use crate::{error, tracklist::TrackListValue};
 
 pub type BroadcastReceiver = async_broadcast::Receiver<Notification>;
 pub type BroadcastSender = async_broadcast::Sender<Notification>;

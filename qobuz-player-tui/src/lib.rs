@@ -25,8 +25,8 @@ use futures::executor::block_on;
 use gstreamer::{ClockTime, State as GstState};
 use qobuz_player_controls::{
     notification::Notification,
-    queue::TrackListType,
     service::{Album, Artist, SearchResults, Track, TrackStatus},
+    tracklist::TrackListType,
 };
 use tokio::select;
 use tokio_stream::StreamExt;

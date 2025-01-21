@@ -8,8 +8,8 @@ use gst::{
 };
 use gstreamer as gst;
 use notification::{BroadcastReceiver, BroadcastSender, Notification};
+use playerstate::PlayerState;
 use qobuz_api::client::{self, api::Client, UrlType};
-use queue::{controls::PlayerState, TrackListType, TrackListValue};
 use service::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
 use std::{
     borrow::BorrowMut,
@@ -23,13 +23,15 @@ use std::{
 };
 use tokio::{select, sync::RwLock};
 use tracing::{debug, instrument};
+use tracklist::{TrackListType, TrackListValue};
 
+pub mod database;
 pub mod error;
 pub mod notification;
+pub mod playerstate;
 pub mod qobuz;
-pub mod queue;
 pub mod service;
-pub mod sql;
+pub mod tracklist;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 

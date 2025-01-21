@@ -3,7 +3,28 @@ use sqlx::{sqlite::SqliteConnectOptions, Pool, Sqlite, SqlitePool};
 use std::{path::PathBuf, sync::OnceLock};
 use tracing::debug;
 
-use crate::{acquire, get_one, query};
+macro_rules! acquire {
+    () => {
+        POOL.get().unwrap().acquire().await
+    };
+}
+
+macro_rules! query {
+    ($query:expr, $conn:ident, $value:ident) => {
+        sqlx::query!($query, $value)
+            .execute(&mut *$conn)
+            .await
+            .expect("database failure")
+    };
+}
+
+macro_rules! get_one {
+    ($query:expr, $return_type:ident, $conn:ident) => {
+        sqlx::query_as!($return_type, $query)
+            .fetch_one(&mut *$conn)
+            .await
+    };
+}
 
 static POOL: OnceLock<Pool<Sqlite>> = OnceLock::new();
 
@@ -144,8 +165,4 @@ pub async fn get_config() -> Option<ApiConfig> {
     } else {
         None
     }
-}
-
-pub async fn close() {
-    POOL.get().unwrap().close().await;
 }

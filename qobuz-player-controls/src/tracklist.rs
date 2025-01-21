@@ -1,5 +1,3 @@
-pub mod controls;
-
 use crate::service::{Album, Playlist, Track, TrackStatus};
 use std::collections::BTreeMap;
 use tracing::{debug, instrument};

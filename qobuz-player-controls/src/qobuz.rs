@@ -1,6 +1,6 @@
 use crate::{
+    database,
     service::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
-    sql::db,
 };
 use qobuz_api::client::{
     album::Album as QobuzAlbum,
@@ -32,7 +32,7 @@ async fn setup_client(
 ) -> Result<QobuzClient> {
     debug!("setting up the api client");
 
-    if let Some(config) = db::get_config().await {
+    if let Some(config) = database::get_config().await {
         let mut refresh_config = false;
 
         if let Some(app_id) = config.app_id {
@@ -55,11 +55,11 @@ async fn setup_client(
             client.refresh().await?;
 
             if let Some(id) = client.get_app_id() {
-                db::set_app_id(id).await;
+                database::set_app_id(id).await;
             }
 
             if let Some(secret) = client.get_active_secret() {
-                db::set_active_secret(secret).await;
+                database::set_active_secret(secret).await;
             }
         }
 
@@ -82,11 +82,11 @@ async fn setup_client(
                 client.test_secrets().await?;
 
                 if let Some(token) = client.get_token() {
-                    db::set_user_token(token).await;
+                    database::set_user_token(token).await;
                 }
 
                 if let Some(secret) = client.get_active_secret() {
-                    db::set_active_secret(secret).await;
+                    database::set_active_secret(secret).await;
                 }
             }
         }

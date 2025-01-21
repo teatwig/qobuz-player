@@ -4,7 +4,7 @@ use axum::{
     Router,
 };
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::queue::{TrackListType, TrackListValue};
+use qobuz_player_controls::tracklist::{TrackListType, TrackListValue};
 use std::sync::Arc;
 
 use crate::{

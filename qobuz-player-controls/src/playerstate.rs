@@ -2,9 +2,7 @@ use gstreamer::State as GstState;
 use qobuz_api::client::api::Client;
 use tokio::sync::broadcast::Sender as BroadcastSender;
 
-use crate::service::Track;
-
-use super::TrackListValue;
+use crate::{service::Track, tracklist::TrackListValue};
 
 #[derive(Debug, Clone)]
 pub struct PlayerState {

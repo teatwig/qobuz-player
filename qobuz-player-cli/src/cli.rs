@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
 use qobuz_api::client::api::OutputFormat;
-use qobuz_player_controls::sql::db;
+use qobuz_player_controls::database;
 use snafu::prelude::*;
 use tokio::task::JoinHandle;
 
@@ -181,7 +181,7 @@ pub async fn run() -> Result<(), Error> {
     let cli = Cli::parse();
 
     // INIT DB
-    db::init().await;
+    database::init().await;
 
     // CLI COMMANDS
     match cli.command {
@@ -231,7 +231,7 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your username / email")
                     .interact_text()
                 {
-                    db::set_username(username).await;
+                    database::set_username(username).await;
 
                     println!("Username saved.");
                 }
@@ -246,7 +246,7 @@ pub async fn run() -> Result<(), Error> {
 
                     debug!("saving password to database: {}", md5_pw);
 
-                    db::set_password(md5_pw).await;
+                    database::set_password(md5_pw).await;
 
                     println!("Password saved.");
                 }
