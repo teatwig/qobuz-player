@@ -245,7 +245,7 @@ pub fn now_playing(
         |track| {
             (
                 track.title.clone(),
-                track.number,
+                track.position,
                 track.artist.as_ref().map(|artist| artist.name.clone()),
                 track
                     .artist
