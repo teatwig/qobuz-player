@@ -1,6 +1,6 @@
 use crate::service::{Album, Playlist, Track, TrackStatus};
 use std::collections::BTreeMap;
-use tracing::{debug, instrument};
+use tracing::instrument;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum TrackListType {
@@ -12,17 +12,17 @@ pub enum TrackListType {
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct TrackListValue {
+pub struct Tracklist {
     pub queue: BTreeMap<u32, Track>,
     pub album: Option<Album>,
     pub playlist: Option<Playlist>,
     pub list_type: TrackListType,
 }
 
-impl TrackListValue {
+impl Tracklist {
     #[instrument]
-    pub fn new(queue: Option<&BTreeMap<u32, Track>>) -> TrackListValue {
-        TrackListValue {
+    pub fn new(queue: Option<&BTreeMap<u32, Track>>) -> Tracklist {
+        Tracklist {
             queue: queue.unwrap_or(&BTreeMap::new()).clone(),
             album: None,
             playlist: None,
@@ -40,14 +40,6 @@ impl TrackListValue {
         }
     }
 
-    #[instrument(skip(self, album), fields(album_id = album.id))]
-    pub fn set_album(&mut self, album: Album) {
-        debug!("setting tracklist album");
-        self.album = Some(album);
-        debug!("setting tracklist list type");
-        self.list_type = TrackListType::Album;
-    }
-
     #[instrument(skip(self))]
     pub fn get_album(&self) -> Option<&Album> {
         if let Some(c) = self.current_track() {
@@ -59,12 +51,6 @@ impl TrackListValue {
         } else {
             self.album.as_ref()
         }
-    }
-
-    #[instrument(skip(self))]
-    pub fn set_playlist(&mut self, playlist: Playlist) {
-        self.playlist = Some(playlist);
-        self.list_type = TrackListType::Playlist;
     }
 
     #[instrument(skip(self))]
