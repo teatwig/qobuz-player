@@ -9,16 +9,7 @@ repository.workspace = true
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 
 gstreamer = { workspace = true, features = ["serde", "v1_16"] }
-cached = { workspace = true, features = ["async", "serde", "serde_json"] } 
-flume = { workspace = true }
 futures = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
-rand = { workspace = true }
 tracing = { workspace = true }
-async-broadcast = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
-snafu = { workspace = true }
-sqlx = { workspace = true, features = ["runtime-tokio-rustls", "sqlite", "migrate", "macros"] }
-dirs = { workspace = true }
 chrono = { workspace = true }
 zbus = { workspace = true, features = ["tokio"] }

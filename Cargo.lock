@@ -2853,31 +2853,20 @@ dependencies = [
  "gstreamer",
  "qobuz-api",
  "rand",
- "serde",
  "snafu",
  "sqlx",
  "tokio",
  "tracing",
- "zbus",
 ]
 
 [[package]]
 name = "qobuz-player-mpris"
 version = "0.1.0"
 dependencies = [
- "async-broadcast",
- "cached",
  "chrono",
- "dirs",
- "flume",
  "futures",
  "gstreamer",
  "qobuz-player-controls",
- "rand",
- "serde",
- "snafu",
- "sqlx",
- "tokio",
  "tracing",
  "zbus",
 ]
@@ -2908,10 +2897,8 @@ dependencies = [
  "qobuz-player-controls",
  "rust-embed",
  "serde",
- "serde_json",
  "tokio",
  "tokio-stream",
- "tracing",
 ]
 
 [[package]]
