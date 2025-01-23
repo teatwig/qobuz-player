@@ -145,15 +145,13 @@ pub async fn init(username: Option<&str>, password: Option<&str>) -> Result<()> 
 #[instrument]
 /// Ready the player.
 async fn ready() -> Result<()> {
-    set_player_state(gstreamer::State::Ready).await?;
-    Ok(())
+    set_player_state(gstreamer::State::Ready).await
 }
 
 #[instrument]
 /// Stop the player.
 pub async fn stop() -> Result<()> {
-    set_player_state(gstreamer::State::Null).await?;
-    Ok(())
+    set_player_state(gstreamer::State::Null).await
 }
 
 async fn set_target_state(state: gstreamer::State) {
@@ -334,7 +332,7 @@ pub async fn skip(new_position: u32, force: bool) -> Result<()> {
     let mut tracklist = TRACKLIST.write().await;
     let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
 
-    if current_position == 1 {
+    if !force && current_position == 1 {
         seek(ClockTime::default(), None).await?;
         return Ok(());
     }
@@ -362,7 +360,7 @@ pub async fn skip(new_position: u32, force: bool) -> Result<()> {
     ready().await?;
 
     let client = CLIENT.get().unwrap();
-    let target_status = TARGET_STATUS.read().await;
+    // let target_status = TARGET_STATUS.read().await;
 
     if let Some(next_track_to_play) =
         skip_track(&mut tracklist, &mut current_track, client, new_position).await
@@ -379,7 +377,7 @@ pub async fn skip(new_position: u32, force: bool) -> Result<()> {
         debug!("skipping to next track");
 
         PLAYBIN.set_property("uri", next_track_to_play);
-        set_player_state(*target_status).await?;
+        // set_player_state(*target_status).await?;
     }
 
     Ok(())
@@ -420,23 +418,23 @@ async fn skip_track(
     client: &Client,
     index: u32,
 ) -> Option<String> {
-    for queue in tracklist.queue.values_mut() {
-        match queue.position.cmp(&index) {
+    for track in tracklist.queue.values_mut() {
+        match track.position.cmp(&index) {
             std::cmp::Ordering::Less => {
-                queue.status = TrackStatus::Played;
+                track.status = TrackStatus::Played;
             }
             std::cmp::Ordering::Equal => {
-                if let Ok(url) = client.track_url(queue.id as i32, None).await {
-                    queue.status = TrackStatus::Playing;
-                    queue.track_url = Some(url.url.clone());
-                    *current_track = Some(queue.clone());
+                if let Ok(url) = client.track_url(track.id as i32, None).await {
+                    track.status = TrackStatus::Playing;
+                    track.track_url = Some(url.url.clone());
+                    *current_track = Some(track.clone());
                     return Some(url.url);
                 } else {
-                    queue.status = TrackStatus::Unplayable;
+                    track.status = TrackStatus::Unplayable;
                 }
             }
             std::cmp::Ordering::Greater => {
-                queue.status = TrackStatus::Unplayed;
+                track.status = TrackStatus::Unplayed;
             }
         }
     }
@@ -576,6 +574,8 @@ pub async fn play_uri(uri: &str) -> Result<()> {
 /// In response to the about-to-finish signal,
 /// prepare the next track by downloading the stream url.
 async fn prep_next_track() -> Result<()> {
+    tracing::info!("Prepping for next track");
+
     let client = CLIENT.get().unwrap();
     let mut tracklist = TRACKLIST.write().await;
 
@@ -583,8 +583,14 @@ async fn prep_next_track() -> Result<()> {
     let mut current_track = CURRENT_TRACK.write().await;
     let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
 
+    tracing::info!(
+        "Total tracks: {}, current position: {}",
+        total_tracks,
+        current_position
+    );
+
     if total_tracks == current_position {
-        debug!("no more tracks left");
+        tracing::info!("No more tracks left");
     } else if let Some(next_track_url) = skip_track(
         &mut tracklist,
         &mut current_track,
@@ -798,12 +804,12 @@ pub async fn user_playlists() -> Vec<Playlist> {
         })
 }
 
-/// Inserts the most recent position into the state at a set interval.
 #[instrument]
+/// Inserts the most recent position into the state at a set interval.
 async fn clock_loop() {
     debug!("starting clock loop");
 
-    let mut interval = tokio::time::interval(Duration::from_millis(1000));
+    let mut interval = tokio::time::interval(Duration::from_millis(250));
     let mut last_position = ClockTime::default();
 
     loop {
@@ -872,7 +878,7 @@ pub async fn player_loop() -> Result<()> {
         select! {
             Some(almost_done) = about_to_finish.next() => {
                 if almost_done {
-                    tokio::spawn(async { prep_next_track().await });
+                     prep_next_track().await.unwrap();
                 }
             }
             Some(msg) = messages.next() => {
