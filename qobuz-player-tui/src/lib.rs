@@ -29,7 +29,6 @@ use qobuz_player_controls::{
     tracklist::TrackListType,
 };
 use tokio::select;
-use tokio_stream::StreamExt;
 use tracing::debug;
 
 type CursiveSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
@@ -813,11 +812,11 @@ fn get_state_icon(state: GstState) -> String {
 }
 
 pub async fn receive_notifications() {
-    let mut receiver = qobuz_player_controls::notify_receiver();
+    let receiver = qobuz_player_controls::notify_receiver();
 
     loop {
         select! {
-            Some(notification) = receiver.next() => {
+            Ok(notification) = receiver.recv_async() => {
                 match notification {
                     Notification::Quit => {
                         debug!("exiting tui notification thread");

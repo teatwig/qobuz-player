@@ -99,10 +99,10 @@ struct Broadcast {
 }
 
 static BROADCAST_CHANNELS: LazyLock<Broadcast> = LazyLock::new(|| {
-    let (mut tx, rx) = async_broadcast::broadcast(20);
-    tx.set_overflow(true);
+    let (tx, rx) = flume::bounded(20);
+    // tx.set_overflow(true);
 
-    Broadcast { rx, tx }
+    Broadcast { tx, rx }
 });
 
 struct TrackAboutToFinish {
@@ -111,7 +111,7 @@ struct TrackAboutToFinish {
 }
 
 static TRACK_ABOUT_TO_FINISH: LazyLock<TrackAboutToFinish> = LazyLock::new(|| {
-    let (tx, rx) = flume::bounded::<bool>(1);
+    let (tx, rx) = flume::bounded(1);
 
     TrackAboutToFinish { tx, rx }
 });
@@ -175,11 +175,11 @@ async fn set_player_state(state: gstreamer::State) -> Result<()> {
 
             BROADCAST_CHANNELS
                 .tx
-                .broadcast(Notification::Loading {
+                .send_async(Notification::Loading {
                     is_loading: true,
                     target_state: state,
                 })
-                .await?;
+                .await?
         }
         StateChangeSuccess::NoPreroll => {
             tracing::debug!("*** stream is live ***");
@@ -192,7 +192,7 @@ async fn set_player_state(state: gstreamer::State) -> Result<()> {
 async fn broadcast_track_list<'a>(list: &Tracklist) -> Result<()> {
     BROADCAST_CHANNELS
         .tx
-        .broadcast(Notification::CurrentTrackList { list: list.clone() })
+        .send_async(Notification::CurrentTrackList { list: list.clone() })
         .await?;
     Ok(())
 }
@@ -276,7 +276,7 @@ pub fn set_volume(value: f64) {
     tokio::task::spawn(async move {
         _ = BROADCAST_CHANNELS
             .tx
-            .broadcast(Notification::Volume { volume: value })
+            .send_async(Notification::Volume { volume: value })
             .await;
     });
 }
@@ -371,7 +371,7 @@ pub async fn skip(new_position: u32, force: bool) -> Result<()> {
 
         BROADCAST_CHANNELS
             .tx
-            .broadcast(Notification::Position {
+            .send_async(Notification::Position {
                 clock: ClockTime::default(),
             })
             .await?;
@@ -816,7 +816,7 @@ async fn clock_loop() {
 
                     BROADCAST_CHANNELS
                         .tx
-                        .broadcast(Notification::Position { clock: position })
+                        .send_async(Notification::Position { clock: position })
                         .await
                         .expect("failed to send notification");
                 }
@@ -847,7 +847,7 @@ pub async fn quit() -> Result<()> {
 
     BROADCAST_CHANNELS
         .tx
-        .broadcast(Notification::Quit)
+        .send_async(Notification::Quit)
         .await
         .expect("error sending broadcast");
 
@@ -904,7 +904,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
             let target_status = TARGET_STATUS.read().await;
             BROADCAST_CHANNELS
                 .tx
-                .broadcast(Notification::Loading {
+                .send_async(Notification::Loading {
                     is_loading: false,
                     target_state: *target_status,
                 })
@@ -918,7 +918,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
 
             BROADCAST_CHANNELS
                 .tx
-                .broadcast(Notification::Position { clock: position })
+                .send_async(Notification::Position { clock: position })
                 .await?;
         }
         MessageView::Buffering(buffering) => {
@@ -942,7 +942,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
                 let target_status = TARGET_STATUS.read().await;
                 BROADCAST_CHANNELS
                     .tx
-                    .broadcast(Notification::Buffering {
+                    .send_async(Notification::Buffering {
                         is_buffering: percent < 99,
                         target_state: *target_status,
                         percent: percent as u32,
@@ -964,7 +964,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
 
                 BROADCAST_CHANNELS
                     .tx
-                    .broadcast(Notification::Status {
+                    .send_async(Notification::Status {
                         status: current_player_state,
                     })
                     .await?;
@@ -978,7 +978,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
         MessageView::Error(err) => {
             BROADCAST_CHANNELS
                 .tx
-                .broadcast(Notification::Error { error: err.into() })
+                .send_async(Notification::Error { error: err.into() })
                 .await?;
 
             ready().await?;

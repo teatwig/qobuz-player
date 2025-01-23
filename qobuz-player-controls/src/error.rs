@@ -65,12 +65,6 @@ impl From<flume::SendError<Notification>> for Error {
     }
 }
 
-impl From<async_broadcast::SendError<Notification>> for Error {
-    fn from(_value: async_broadcast::SendError<Notification>) -> Self {
-        Self::Notification
-    }
-}
-
 impl From<&gstreamer::message::Error> for Error {
     fn from(value: &gstreamer::message::Error) -> Self {
         let error = format!(

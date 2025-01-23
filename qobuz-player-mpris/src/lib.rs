@@ -51,11 +51,11 @@ pub async fn init() -> Connection {
 }
 
 pub async fn receive_notifications(conn: &Connection) {
-    let mut receiver = qobuz_player_controls::notify_receiver();
+    let receiver = qobuz_player_controls::notify_receiver();
     let object_server = conn.object_server();
 
     loop {
-        if let Ok(notification) = receiver.recv().await {
+        if let Ok(notification) = receiver.recv_async().await {
             match notification {
                 Notification::Quit => {
                     return;

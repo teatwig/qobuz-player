@@ -18,7 +18,6 @@ repository = "https://github.com/sofusa/qobuz-player"
 name = "qobuz-player"
 
 [workspace.dependencies]
-async-broadcast = "0.7"
 axum = "0.8"
 base64 = "0.22"
 cached = "0.50"
