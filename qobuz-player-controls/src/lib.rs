@@ -1,16 +1,14 @@
 use cached::proc_macro::cached;
 use error::Error;
-use flume::{Receiver, Sender};
 use futures::prelude::*;
 use gstreamer::{
     prelude::*, ClockTime, Element, Message, MessageView, SeekFlags, State as GstState,
     StateChangeSuccess, Structure,
 };
-use notification::{BroadcastReceiver, BroadcastSender, Notification};
-use qobuz_api::client::{self, api::Client, UrlType};
+use notification::Notification;
+use qobuz_api::client::api::Client;
 use service::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
 use std::{
-    collections::BTreeMap,
     str::FromStr,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -18,7 +16,13 @@ use std::{
     },
     time::Duration,
 };
-use tokio::{select, sync::RwLock};
+use tokio::{
+    select,
+    sync::{
+        broadcast::{self, Receiver, Sender},
+        RwLock,
+    },
+};
 use tracing::{debug, instrument};
 use tracklist::{TrackListType, Tracklist};
 
@@ -94,14 +98,12 @@ static PLAYBIN: LazyLock<Element> = LazyLock::new(|| {
 });
 
 struct Broadcast {
-    tx: BroadcastSender,
-    rx: BroadcastReceiver,
+    tx: Sender<Notification>,
+    rx: Receiver<Notification>,
 }
 
 static BROADCAST_CHANNELS: LazyLock<Broadcast> = LazyLock::new(|| {
-    let (tx, rx) = flume::bounded(20);
-    // tx.set_overflow(true);
-
+    let (tx, rx) = broadcast::channel(20);
     Broadcast { tx, rx }
 });
 
@@ -111,14 +113,13 @@ struct TrackAboutToFinish {
 }
 
 static TRACK_ABOUT_TO_FINISH: LazyLock<TrackAboutToFinish> = LazyLock::new(|| {
-    let (tx, rx) = flume::bounded(1);
-
+    let (tx, rx) = broadcast::channel(1);
     TrackAboutToFinish { tx, rx }
 });
+
 static IS_BUFFERING: AtomicBool = AtomicBool::new(false);
 static SHOULD_QUIT: AtomicBool = AtomicBool::new(false);
 static IS_LIVE: AtomicBool = AtomicBool::new(false);
-static CURRENT_TRACK: LazyLock<RwLock<Option<Track>>> = LazyLock::new(|| RwLock::new(None));
 static TARGET_STATUS: LazyLock<RwLock<gstreamer::State>> =
     LazyLock::new(|| RwLock::new(gstreamer::State::Null));
 static TRACKLIST: LazyLock<RwLock<Tracklist>> = LazyLock::new(|| RwLock::new(Tracklist::new(None)));
@@ -171,13 +172,10 @@ async fn set_player_state(state: gstreamer::State) -> Result<()> {
         StateChangeSuccess::Async => {
             tracing::debug!("*** async state change ***");
 
-            BROADCAST_CHANNELS
-                .tx
-                .send_async(Notification::Loading {
-                    is_loading: true,
-                    target_state: state,
-                })
-                .await?
+            BROADCAST_CHANNELS.tx.send(Notification::Loading {
+                is_loading: true,
+                target_state: state,
+            })?;
         }
         StateChangeSuccess::NoPreroll => {
             tracing::debug!("*** stream is live ***");
@@ -190,8 +188,7 @@ async fn set_player_state(state: gstreamer::State) -> Result<()> {
 async fn broadcast_track_list<'a>(list: &Tracklist) -> Result<()> {
     BROADCAST_CHANNELS
         .tx
-        .send_async(Notification::CurrentTrackList { list: list.clone() })
-        .await?;
+        .send(Notification::CurrentTrackList { list: list.clone() })?;
     Ok(())
 }
 
@@ -210,7 +207,6 @@ pub async fn play_pause() -> Result<()> {
 #[instrument]
 /// Play the player.
 pub async fn play() -> Result<()> {
-    tracing::info!("Play");
     set_target_state(gstreamer::State::Playing).await;
     set_player_state(gstreamer::State::Playing).await?;
     Ok(())
@@ -274,8 +270,8 @@ pub fn set_volume(value: f64) {
     tokio::task::spawn(async move {
         _ = BROADCAST_CHANNELS
             .tx
-            .send_async(Notification::Volume { volume: value })
-            .await;
+            .send(Notification::Volume { volume: value })
+            .unwrap();
     });
 }
 
@@ -327,12 +323,11 @@ pub async fn jump_backward() -> Result<()> {
 
 #[instrument]
 /// Skip to a specific track in the playlist.
-pub async fn skip(new_position: u32, force: bool) -> Result<()> {
-    let mut current_track = CURRENT_TRACK.write().await;
+pub async fn skip_to_position(new_position: u32, force: bool) -> Result<()> {
     let mut tracklist = TRACKLIST.write().await;
-    let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
+    let current_position = tracklist.current_track().map_or(0, |ct| ct.position);
 
-    if !force && current_position == 1 {
+    if !force && new_position < current_position && current_position == 1 {
         seek(ClockTime::default(), None).await?;
         return Ok(());
     }
@@ -360,49 +355,37 @@ pub async fn skip(new_position: u32, force: bool) -> Result<()> {
     ready().await?;
 
     let client = CLIENT.get().unwrap();
-    // let target_status = TARGET_STATUS.read().await;
 
-    if let Some(next_track_to_play) =
-        skip_track(&mut tracklist, &mut current_track, client, new_position).await
-    {
-        broadcast_track_list(&tracklist).await?;
-
-        BROADCAST_CHANNELS
-            .tx
-            .send_async(Notification::Position {
-                clock: ClockTime::default(),
-            })
-            .await?;
-
-        debug!("skipping to next track");
-
+    if let Some(next_track_to_play) = skip_track(&mut tracklist, client, new_position).await {
         PLAYBIN.set_property("uri", next_track_to_play);
-        // set_player_state(*target_status).await?;
+        play().await?;
+    } else if let Some(mut first_track) = tracklist.queue.first_entry() {
+        first_track.get_mut().status = TrackStatus::Playing;
     }
+
+    broadcast_track_list(&tracklist).await?;
 
     Ok(())
 }
 
 #[instrument]
 pub async fn next() -> Result<()> {
-    let current_track = CURRENT_TRACK.read().await;
-    let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
+    let current_position = {
+        let lock = TRACKLIST.read().await;
+        lock.current_track().map_or(0, |ct| ct.position)
+    };
 
-    drop(current_track);
-    skip(current_position + 1, true).await?;
-
-    Ok(())
+    skip_to_position(current_position + 1, true).await
 }
 
 #[instrument]
 pub async fn previous() -> Result<()> {
-    let current_track = CURRENT_TRACK.read().await;
-    let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
+    let current_position = {
+        let lock = TRACKLIST.read().await;
+        lock.current_track().map_or(0, |ct| ct.position)
+    };
 
-    drop(current_track);
-    skip(current_position - 1, false).await?;
-
-    Ok(())
+    skip_to_position(current_position - 1, false).await
 }
 
 async fn attach_track_url(client: &Client, track: &mut Track) {
@@ -414,12 +397,11 @@ async fn attach_track_url(client: &Client, track: &mut Track) {
 
 async fn skip_track(
     tracklist: &mut Tracklist,
-    current_track: &mut Option<Track>,
     client: &Client,
-    index: u32,
+    new_position: u32,
 ) -> Option<String> {
     for track in tracklist.queue.values_mut() {
-        match track.position.cmp(&index) {
+        match track.position.cmp(&new_position) {
             std::cmp::Ordering::Less => {
                 track.status = TrackStatus::Played;
             }
@@ -427,7 +409,6 @@ async fn skip_track(
                 if let Ok(url) = client.track_url(track.id as i32, None).await {
                     track.status = TrackStatus::Playing;
                     track.track_url = Some(url.url.clone());
-                    *current_track = Some(track.clone());
                     return Some(url.url);
                 } else {
                     track.status = TrackStatus::Unplayable;
@@ -438,41 +419,7 @@ async fn skip_track(
             }
         }
     }
-
     None
-}
-
-#[instrument]
-/// Plays a single track.
-pub async fn play_track(track_id: i32) -> Result<()> {
-    ready().await?;
-
-    let client = CLIENT.get().unwrap();
-    let mut current_track = CURRENT_TRACK.write().await;
-    let mut tracklist = TRACKLIST.write().await;
-
-    if let Ok(track) = client.track(track_id).await {
-        let mut track: Track = track.into();
-        track.status = TrackStatus::Playing;
-        track.number = 1;
-
-        let mut queue = BTreeMap::new();
-        queue.entry(track.position).or_insert_with(|| track.clone());
-
-        tracklist.queue = queue;
-        tracklist.list_type = TrackListType::Track;
-
-        attach_track_url(client, &mut track).await;
-        *current_track = Some(track.clone());
-
-        broadcast_track_list(&tracklist).await?;
-
-        PLAYBIN.set_property("uri", track.track_url.clone());
-
-        play().await?;
-    }
-
-    Ok(())
 }
 
 #[instrument]
@@ -482,7 +429,6 @@ pub async fn play_album(album_id: &str) -> Result<()> {
 
     let client = CLIENT.get().unwrap();
     let mut tracklist = TRACKLIST.write().await;
-    let mut current_track = CURRENT_TRACK.write().await;
 
     if let Ok(album) = client.album(album_id).await {
         let mut album: Album = album.into();
@@ -490,7 +436,6 @@ pub async fn play_album(album_id: &str) -> Result<()> {
         if let Some(first_track) = album.tracks.get_mut(&1) {
             first_track.status = TrackStatus::Playing;
             attach_track_url(client, first_track).await;
-            *current_track = Some(first_track.clone());
             broadcast_track_list(&tracklist).await?;
 
             PLAYBIN.set_property("uri", first_track.track_url.clone());
@@ -520,7 +465,6 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
 
     let client = CLIENT.get().unwrap();
     let mut tracklist = TRACKLIST.write().await;
-    let mut current_track = CURRENT_TRACK.write().await;
 
     if let Ok(playlist) = client.playlist(playlist_id).await {
         let mut playlist: Playlist = playlist.into();
@@ -528,7 +472,6 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
         if let Some(first_track) = playlist.tracks.get_mut(&1) {
             first_track.status = TrackStatus::Playing;
             attach_track_url(client, first_track).await;
-            *current_track = Some(first_track.clone());
             broadcast_track_list(&tracklist).await?;
 
             PLAYBIN.set_property("uri", first_track.track_url.clone());
@@ -546,31 +489,6 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
 }
 
 #[instrument]
-/// Play an item from Qobuz web uri
-pub async fn play_uri(uri: &str) -> Result<()> {
-    match client::parse_url(uri) {
-        Ok(url) => match url {
-            UrlType::Album { id } => {
-                play_album(&id).await?;
-            }
-            UrlType::Playlist { id } => {
-                play_playlist(id).await?;
-            }
-            UrlType::Track { id } => {
-                play_track(id).await?;
-            }
-        },
-        Err(err) => {
-            return Err(Error::FailedToPlay {
-                message: format!("Failed to play item. {err}"),
-            })
-        }
-    }
-
-    Ok(())
-}
-
-#[instrument]
 /// In response to the about-to-finish signal,
 /// prepare the next track by downloading the stream url.
 async fn prep_next_track() -> Result<()> {
@@ -580,8 +498,7 @@ async fn prep_next_track() -> Result<()> {
     let mut tracklist = TRACKLIST.write().await;
 
     let total_tracks = tracklist.total();
-    let mut current_track = CURRENT_TRACK.write().await;
-    let current_position = current_track.as_ref().map_or(0, |ct| ct.position);
+    let current_position = tracklist.current_track().map_or(0, |ct| ct.position);
 
     tracing::info!(
         "Total tracks: {}, current position: {}",
@@ -591,13 +508,8 @@ async fn prep_next_track() -> Result<()> {
 
     if total_tracks == current_position {
         tracing::info!("No more tracks left");
-    } else if let Some(next_track_url) = skip_track(
-        &mut tracklist,
-        &mut current_track,
-        client,
-        current_position + 1,
-    )
-    .await
+    } else if let Some(next_track_url) =
+        skip_track(&mut tracklist, client, current_position + 1).await
     {
         PLAYBIN.set_property("uri", next_track_url);
     }
@@ -607,8 +519,8 @@ async fn prep_next_track() -> Result<()> {
 
 #[instrument]
 /// Get a notification channel receiver
-pub fn notify_receiver() -> BroadcastReceiver {
-    BROADCAST_CHANNELS.rx.clone()
+pub fn notify_receiver() -> Receiver<Notification> {
+    BROADCAST_CHANNELS.rx.resubscribe()
 }
 
 #[instrument]
@@ -814,7 +726,6 @@ async fn clock_loop() {
 
     loop {
         interval.tick().await;
-
         if current_state() == GstState::Playing {
             if let Some(position) = position() {
                 if position.seconds() != last_position.seconds() {
@@ -822,8 +733,7 @@ async fn clock_loop() {
 
                     BROADCAST_CHANNELS
                         .tx
-                        .send_async(Notification::Position { clock: position })
-                        .await
+                        .send(Notification::Position { clock: position })
                         .expect("failed to send notification");
                 }
             }
@@ -853,19 +763,18 @@ pub async fn quit() -> Result<()> {
 
     BROADCAST_CHANNELS
         .tx
-        .send_async(Notification::Quit)
-        .await
+        .send(Notification::Quit)
         .expect("error sending broadcast");
 
     Ok(())
 }
 
+#[instrument]
 /// Handles messages from GStreamer, receives player actions from external controls
 /// receives the about-to-finish event and takes necessary action.
-#[instrument]
 pub async fn player_loop() -> Result<()> {
     let mut messages = PLAYBIN.bus().unwrap().stream();
-    let mut about_to_finish = TRACK_ABOUT_TO_FINISH.rx.stream();
+    let mut about_to_finish = TRACK_ABOUT_TO_FINISH.rx.resubscribe();
 
     let clock_loop = tokio::spawn(async { clock_loop().await });
 
@@ -876,7 +785,7 @@ pub async fn player_loop() -> Result<()> {
         }
 
         select! {
-            Some(almost_done) = about_to_finish.next() => {
+             Ok(almost_done) = about_to_finish.recv()=> {
                 if almost_done {
                      prep_next_track().await.unwrap();
                 }
@@ -895,9 +804,13 @@ pub async fn player_loop() -> Result<()> {
 async fn handle_message(msg: &Message) -> Result<()> {
     match msg.view() {
         MessageView::Eos(_) => {
-            debug!("END OF STREAM");
+            tracing::debug!("END OF STREAM");
+            let mut tracklist = TRACKLIST.write().await;
+            if let Some(mut first_track) = tracklist.queue.first_entry() {
+                first_track.get_mut().status = TrackStatus::Playing;
+            };
 
-            skip(1, true).await?;
+            ready().await.unwrap();
         }
         MessageView::StreamStart(_) => {
             if is_playing() {
@@ -906,15 +819,12 @@ async fn handle_message(msg: &Message) -> Result<()> {
             }
         }
         MessageView::AsyncDone(msg) => {
-            debug!("ASYNC DONE");
+            tracing::debug!("ASYNC DONE");
             let target_status = TARGET_STATUS.read().await;
-            BROADCAST_CHANNELS
-                .tx
-                .send_async(Notification::Loading {
-                    is_loading: false,
-                    target_state: *target_status,
-                })
-                .await?;
+            BROADCAST_CHANNELS.tx.send(Notification::Loading {
+                is_loading: false,
+                target_state: *target_status,
+            })?;
 
             let position = if let Some(p) = msg.running_time() {
                 p
@@ -924,8 +834,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
 
             BROADCAST_CHANNELS
                 .tx
-                .send_async(Notification::Position { clock: position })
-                .await?;
+                .send(Notification::Position { clock: position })?;
         }
         MessageView::Buffering(buffering) => {
             if IS_LIVE.load(Ordering::Relaxed) {
@@ -946,14 +855,11 @@ async fn handle_message(msg: &Message) -> Result<()> {
             if percent.rem_euclid(10) == 0 {
                 debug!("buffering {}%", percent);
                 let target_status = TARGET_STATUS.read().await;
-                BROADCAST_CHANNELS
-                    .tx
-                    .send_async(Notification::Buffering {
-                        is_buffering: percent < 99,
-                        target_state: *target_status,
-                        percent: percent as u32,
-                    })
-                    .await?;
+                BROADCAST_CHANNELS.tx.send(Notification::Buffering {
+                    is_buffering: percent < 99,
+                    target_state: *target_status,
+                    percent: percent as u32,
+                })?;
             }
         }
         MessageView::StateChanged(state_changed) => {
@@ -968,30 +874,26 @@ async fn handle_message(msg: &Message) -> Result<()> {
             if *target_status == current_player_state {
                 debug!("player state changed {:?}", current_player_state);
 
-                BROADCAST_CHANNELS
-                    .tx
-                    .send_async(Notification::Status {
-                        status: current_player_state,
-                    })
-                    .await?;
+                BROADCAST_CHANNELS.tx.send(Notification::Status {
+                    status: current_player_state,
+                })?;
             }
         }
         MessageView::ClockLost(_) => {
-            debug!("clock lost, restarting playback");
+            tracing::warn!("clock lost, restarting playback");
             pause().await?;
             play().await?;
         }
         MessageView::Error(err) => {
             BROADCAST_CHANNELS
                 .tx
-                .send_async(Notification::Error { error: err.into() })
-                .await?;
+                .send(Notification::Error { error: err.into() })?;
 
             ready().await?;
             pause().await?;
             play().await?;
 
-            debug!(
+            tracing::error!(
                 "Error from {:?}: {} ({:?})",
                 err.src().map(|s| s.path_string()),
                 err.error(),

@@ -51,11 +51,11 @@ pub async fn init() -> Connection {
 }
 
 pub async fn receive_notifications(conn: &Connection) {
-    let receiver = qobuz_player_controls::notify_receiver();
+    let mut receiver = qobuz_player_controls::notify_receiver();
     let object_server = conn.object_server();
 
     loop {
-        if let Ok(notification) = receiver.recv_async().await {
+        if let Ok(notification) = receiver.recv().await {
             match notification {
                 Notification::Quit => {
                     return;
@@ -245,11 +245,6 @@ struct MprisPlayer {
 
 #[interface(name = "org.mpris.MediaPlayer2.Player")]
 impl MprisPlayer {
-    async fn open_uri(&self, uri: &str) {
-        if let Err(error) = qobuz_player_controls::play_uri(uri).await {
-            debug!(?error);
-        }
-    }
     async fn play(&self) {
         if let Err(error) = qobuz_player_controls::play().await {
             debug!(?error);
@@ -401,7 +396,7 @@ impl MprisTrackList {
 
     async fn go_to(&self, position: String) {
         if let Ok(p) = position.parse::<u32>() {
-            if let Err(error) = qobuz_player_controls::skip(p, true).await {
+            if let Err(error) = qobuz_player_controls::skip_to_position(p, true).await {
                 debug!(?error);
             }
         }

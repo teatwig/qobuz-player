@@ -1202,7 +1202,6 @@ checksum = "da0e4dd2a88388a1f4ccc7c9ce104604dab68d9f408dc34cd45823d5a9069095"
 dependencies = [
  "futures-core",
  "futures-sink",
- "nanorand",
  "spin",
 ]
 
@@ -2313,15 +2312,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "956787520e75e9bd233246045d19f42fb73242759cc57fba9611d940ae96d4b0"
 
 [[package]]
-name = "nanorand"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a51313c5820b0b02bd422f4b44776fbf47961755c74ce64afc73bfad10226c3"
-dependencies = [
- "getrandom",
-]
-
-[[package]]
 name = "next_tuple"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2847,7 +2837,6 @@ dependencies = [
  "cached",
  "chrono",
  "dirs",
- "flume",
  "futures",
  "gstreamer",
  "qobuz-api",
@@ -2898,6 +2887,7 @@ dependencies = [
  "serde",
  "tokio",
  "tokio-stream",
+ "tracing",
 ]
 
 [[package]]

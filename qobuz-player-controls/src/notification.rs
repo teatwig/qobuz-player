@@ -2,9 +2,6 @@ use gstreamer::{ClockTime, State};
 
 use crate::{error, tracklist::Tracklist};
 
-pub type BroadcastReceiver = flume::Receiver<Notification>;
-pub type BroadcastSender = flume::Sender<Notification>;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Notification {
     Buffering {

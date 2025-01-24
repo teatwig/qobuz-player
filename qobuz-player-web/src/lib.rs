@@ -32,10 +32,10 @@ pub async fn init(address: String) {
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
     axum::serve(listener, router)
         .with_graceful_shutdown(async {
-            let broadcast_receiver = qobuz_player_controls::notify_receiver();
+            let mut broadcast_receiver = qobuz_player_controls::notify_receiver();
 
             loop {
-                if let Ok(message) = broadcast_receiver.recv_async().await {
+                if let Ok(message) = broadcast_receiver.recv().await {
                     if message == Notification::Quit {
                         break;
                     }
@@ -66,22 +66,10 @@ async fn create_router() -> Router {
 }
 
 async fn background_task(tx: Sender<ServerSentEvent>) {
-    let receiver = qobuz_player_controls::notify_receiver();
+    let mut receiver = qobuz_player_controls::notify_receiver();
 
     loop {
-        if let Ok(notification) = receiver.recv_async().await {
-            if let Notification::Status { status } = &notification {
-                let event = ServerSentEvent {
-                    event_name: "status".into(),
-                    event_data: if status == &gstreamer::State::Playing {
-                        "playing".into()
-                    } else {
-                        "paused".into()
-                    },
-                };
-                _ = tx.send(event);
-            }
-
+        if let Ok(notification) = receiver.recv().await {
             match notification {
                 Notification::Buffering {
                     is_buffering: _,

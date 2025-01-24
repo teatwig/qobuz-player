@@ -59,8 +59,8 @@ impl From<qobuz_api::Error> for Error {
     }
 }
 
-impl From<flume::SendError<Notification>> for Error {
-    fn from(_value: flume::SendError<Notification>) -> Self {
+impl From<tokio::sync::broadcast::error::SendError<Notification>> for Error {
+    fn from(_value: tokio::sync::broadcast::error::SendError<Notification>) -> Self {
         Self::Notification
     }
 }
