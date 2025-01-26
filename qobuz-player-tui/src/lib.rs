@@ -1,23 +1,16 @@
-use std::{
-    rc::Rc,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, OnceLock,
-    },
-};
+use std::{rc::Rc, sync::OnceLock};
 
 use cursive::{
     align::HAlign,
     direction::Orientation,
     event::{Event, Key},
     reexports::crossbeam_channel::Sender,
-    theme::{BorderStyle, ColorStyle, Effect, Palette, Style},
+    theme::{BorderStyle, Effect, Palette, Style},
     utils::{markup::StyledString, Counter},
-    view::{Nameable, Position, Resizable, Scrollable, SizeConstraint},
+    view::{Nameable, Resizable, Scrollable, SizeConstraint},
     views::{
-        Button, Dialog, EditView, HideableView, Layer, LinearLayout, MenuPopup, NamedView,
-        OnEventView, PaddedView, Panel, ProgressBar, ResizedView, ScreensView, ScrollView,
-        SelectView, TextView,
+        Button, Dialog, EditView, HideableView, LinearLayout, MenuPopup, NamedView, OnEventView,
+        PaddedView, Panel, ProgressBar, ResizedView, ScreensView, ScrollView, SelectView, TextView,
     },
     CbSink, Cursive, CursiveRunnable, With,
 };
@@ -29,7 +22,6 @@ use qobuz_player_controls::{
     tracklist::TrackListType,
 };
 use tokio::select;
-use tokio_stream::StreamExt;
 use tracing::debug;
 
 type CursiveSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
@@ -37,7 +29,6 @@ type CursiveSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
 static SINK: OnceLock<CursiveSender> = OnceLock::new();
 
 static UNSTREAMABLE: &str = "UNSTREAMABLE";
-static ENTER_URL_OPEN: AtomicBool = AtomicBool::new(false);
 
 pub struct CursiveUI {
     root: CursiveRunnable,
@@ -170,7 +161,9 @@ impl CursiveUI {
 
         track_list.set_on_submit(move |_s, item| {
             let i = item.to_owned();
-            tokio::spawn(async move { qobuz_player_controls::skip(i as u32, true).await });
+            tokio::spawn(
+                async move { qobuz_player_controls::skip_to_position(i as u32, true).await },
+            );
         });
 
         let mut layout = LinearLayout::new(Orientation::Vertical).child(
@@ -355,124 +348,6 @@ impl CursiveUI {
         panel
     }
 
-    fn enter_url<F>(callback: F) -> NamedView<OnEventView<ResizedView<Panel<EditView>>>>
-    where
-        F: Fn(&mut Cursive, &str) + 'static,
-    {
-        let mut input = EditView::new();
-
-        input.set_on_submit(callback);
-
-        let panel = OnEventView::new(Panel::new(input).title("Enter URL").full_width());
-
-        panel.with_name("event_url")
-    }
-
-    pub fn menubar(&mut self) {
-        self.root.set_autohide_menu(false);
-
-        let open = Arc::new(move |s: &mut Cursive| {
-            let mut panel = CursiveUI::enter_url(move |s, url| {
-                let u = url.to_string();
-                tokio::spawn(async move { qobuz_player_controls::play_uri(&u).await });
-                s.pop_layer();
-                ENTER_URL_OPEN.store(false, Ordering::Relaxed);
-            });
-
-            panel
-                .get_mut()
-                .set_on_pre_event(Event::Key(Key::Esc), move |s| {
-                    s.pop_layer();
-                    ENTER_URL_OPEN.store(false, Ordering::Relaxed);
-                });
-
-            let bg = Layer::with_color(
-                PaddedView::lrtb(
-                    2,
-                    2,
-                    2,
-                    2,
-                    panel.resized(SizeConstraint::Full, SizeConstraint::Fixed(3)),
-                )
-                .full_width(),
-                ColorStyle::highlight_inactive(),
-            )
-            .full_width();
-
-            s.screen_mut().add_layer_at(Position::parent((0, 3)), bg);
-
-            ENTER_URL_OPEN.store(true, Ordering::Relaxed);
-        });
-
-        let o = open.clone();
-        self.root
-            .menubar()
-            .add_leaf("Now Playing", move |s| {
-                if ENTER_URL_OPEN.load(Ordering::Relaxed) {
-                    s.pop_layer();
-                    ENTER_URL_OPEN.store(false, Ordering::Relaxed);
-                }
-
-                s.set_screen(0);
-            })
-            .add_delimiter()
-            .add_leaf("My Playlists", move |s| {
-                if ENTER_URL_OPEN.load(Ordering::Relaxed) {
-                    s.pop_layer();
-                    ENTER_URL_OPEN.store(false, Ordering::Relaxed);
-                }
-
-                s.set_screen(1);
-            })
-            .add_delimiter()
-            .add_leaf("Search", move |s| {
-                if ENTER_URL_OPEN.load(Ordering::Relaxed) {
-                    s.pop_layer();
-                    ENTER_URL_OPEN.store(false, Ordering::Relaxed);
-                }
-
-                s.set_screen(2);
-            })
-            .add_delimiter()
-            .add_leaf("Enter URL", move |s| {
-                if !ENTER_URL_OPEN.load(Ordering::Relaxed) {
-                    o(s);
-                }
-            });
-
-        let o = open.clone();
-        self.root.add_global_callback('4', move |s| {
-            o(s);
-        });
-
-        self.root.add_global_callback('1', move |s| {
-            if ENTER_URL_OPEN.load(Ordering::Relaxed) {
-                s.pop_layer();
-                ENTER_URL_OPEN.store(false, Ordering::Relaxed);
-            }
-
-            s.set_screen(0);
-        });
-
-        self.root.add_global_callback('2', move |s| {
-            if ENTER_URL_OPEN.load(Ordering::Relaxed) {
-                s.pop_layer();
-                ENTER_URL_OPEN.store(false, Ordering::Relaxed);
-            }
-
-            s.set_screen(1);
-        });
-
-        self.root.add_global_callback('3', move |s| {
-            if ENTER_URL_OPEN.load(Ordering::Relaxed) {
-                s.pop_layer();
-                ENTER_URL_OPEN.store(false, Ordering::Relaxed);
-            }
-
-            s.set_screen(2);
-        });
-    }
-
     pub async fn run(&mut self) {
         let player = self.player();
         let search = self.search();
@@ -512,7 +387,6 @@ impl CursiveUI {
 
         self.root.set_screen(0);
 
-        self.menubar();
         self.global_events();
         self.root.run();
     }
@@ -563,26 +437,6 @@ fn load_search_results(item: &str, s: &mut Cursive) {
 
                     search_results.set_on_submit(move |s: &mut Cursive, item: &String| {
                         submit_artist(s, item.parse::<i32>().expect("failed to parse string"));
-                    });
-                }
-                "Tracks" => {
-                    for t in &data.tracks {
-                        let id = if t.available {
-                            t.id.to_string()
-                        } else {
-                            UNSTREAMABLE.to_string()
-                        };
-
-                        search_results.add_item(t.list_item(), id)
-                    }
-
-                    search_results.set_on_submit(move |s: &mut Cursive, item: &String| {
-                        if item != UNSTREAMABLE {
-                            submit_track(
-                                s,
-                                (item.parse::<i32>().expect("failed to parse string"), None),
-                            );
-                        }
                     });
                 }
                 "Playlists" => {
@@ -641,10 +495,6 @@ fn submit_playlist(_s: &mut Cursive, item: u32) -> LinearLayout {
         playlist_items.add_item(row, value);
     }
 
-    playlist_items.set_on_submit(move |s, item| {
-        submit_track(s, item.clone());
-    });
-
     let meta = LinearLayout::horizontal()
         .child(Button::new("play", move |_s| {
             tokio::spawn(async move { qobuz_player_controls::play_playlist(item as i64).await });
@@ -693,65 +543,6 @@ fn submit_artist(s: &mut Cursive, item: i32) {
 
         s.screen_mut().add_layer(events);
     }
-}
-
-fn submit_track(s: &mut Cursive, item: (i32, Option<String>)) {
-    if item.0 == -1 {
-        return;
-    }
-
-    if item.1.is_none() {
-        tokio::spawn(async move { qobuz_player_controls::play_track(item.0).await });
-
-        s.call_on_name(
-            "screens",
-            |screens: &mut ScreensView<ResizedView<LinearLayout>>| {
-                screens.set_active_screen(0);
-            },
-        );
-        return;
-    }
-
-    let track = move |s: &mut Cursive| {
-        s.screen_mut().pop_layer();
-
-        tokio::spawn(async move { qobuz_player_controls::play_track(item.0).await });
-
-        s.call_on_name(
-            "screens",
-            |screens: &mut ScreensView<ResizedView<LinearLayout>>| {
-                screens.set_active_screen(0);
-            },
-        );
-    };
-
-    let album = move |s: &mut Cursive| {
-        s.screen_mut().pop_layer();
-
-        if let Some(album_id) = &item.1 {
-            let id = album_id.clone();
-            tokio::spawn(async move { qobuz_player_controls::play_album(&id).await });
-
-            s.call_on_name(
-                "screens",
-                |screens: &mut ScreensView<ResizedView<LinearLayout>>| {
-                    screens.set_active_screen(0);
-                },
-            );
-        }
-    };
-
-    let mut album_or_track = Dialog::text("Track or album?")
-        .button("Track", track)
-        .button("Album", album)
-        .dismiss_button("Cancel")
-        .wrap_with(OnEventView::new);
-
-    album_or_track.set_on_pre_event(Event::Key(Key::Esc), |s| {
-        s.screen_mut().pop_layer();
-    });
-
-    s.screen_mut().add_layer(album_or_track);
 }
 
 fn set_current_track(s: &mut Cursive, track: &Track, lt: &TrackListType) {
@@ -817,7 +608,7 @@ pub async fn receive_notifications() {
 
     loop {
         select! {
-            Some(notification) = receiver.next() => {
+            Ok(notification) = receiver.recv() => {
                 match notification {
                     Notification::Quit => {
                         debug!("exiting tui notification thread");

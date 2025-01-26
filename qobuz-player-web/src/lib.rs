@@ -35,7 +35,7 @@ pub async fn init(address: String) {
             let mut broadcast_receiver = qobuz_player_controls::notify_receiver();
 
             loop {
-                if let Some(message) = broadcast_receiver.next().await {
+                if let Ok(message) = broadcast_receiver.recv().await {
                     if message == Notification::Quit {
                         break;
                     }
@@ -70,18 +70,6 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
 
     loop {
         if let Ok(notification) = receiver.recv().await {
-            if let Notification::Status { status } = &notification {
-                let event = ServerSentEvent {
-                    event_name: "status".into(),
-                    event_data: if status == &gstreamer::State::Playing {
-                        "playing".into()
-                    } else {
-                        "paused".into()
-                    },
-                };
-                _ = tx.send(event);
-            }
-
             match notification {
                 Notification::Buffering {
                     is_buffering: _,

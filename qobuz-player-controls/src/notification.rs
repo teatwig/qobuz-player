@@ -2,9 +2,6 @@ use gstreamer::{ClockTime, State};
 
 use crate::{error, tracklist::Tracklist};
 
-pub type BroadcastReceiver = async_broadcast::Receiver<Notification>;
-pub type BroadcastSender = async_broadcast::Sender<Notification>;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Notification {
     Buffering {

@@ -33,7 +33,7 @@ pub fn routes() -> Router<Arc<AppState>> {
 
 async fn play_track(Path((id, track_position)): Path<(String, u32)>) -> impl IntoResponse {
     _ = qobuz_player_controls::play_album(&id).await;
-    _ = qobuz_player_controls::skip(track_position, true).await;
+    _ = qobuz_player_controls::skip_to_position(track_position, true).await;
 }
 
 async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
