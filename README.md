@@ -4,10 +4,7 @@
 
 Powered by [Qobuz](https://www.qobuz.com). Requires a paid subscription. This does not allow you to listen for free.
 
-The player includes a terminal ui and a webui. 
 The web interface is ideal for a setup with a single board conputer, raspberry pi, connected to the speaker system and controlled with a smartphone or tablet.
-
-![TUI Screenshot](/qobuz-player.png?raw=true)
 
 <img src="/qobuz-player-webui.png?raw=true" width="240">
 
@@ -18,7 +15,6 @@ The web interface is ideal for a setup with a single board conputer, raspberry p
 - MPRIS support (control via [playerctl](https://github.com/altdesktop/playerctl) or other D-Bus client)
 - Gapless playback
 - Web UI 
-- Terminal UI 
 
 ## Requirements
 
@@ -50,30 +46,6 @@ qobuz-player open
 # open player with web ui
 qobuz-player --web open
 ```
-
-## TUI Controls
-
-The TUI has full mouse support.
-
-### Keyboard Shortcuts
-
-| Command             | Key(s)                                 |
-| ------------------- | -------------------------------------- |
-| Now Playing         | <kbd>1</kbd>                           |
-| My Playlists        | <kbd>2</kbd>                           |
-| Search              | <kbd>3</kbd>                           |
-| Enter URL           | <kbd>3</kbd>                           |
-| Cycle elements      | <kbd>tab</kbd>                         |
-| Play/Pause          | <kbd>space</kbd>                       |
-| Next track          | <kbd>N</kbd>                           |
-| Previous track      | <kbd>P</kbd>                           |
-| Jump forward        | <kbd>l</kbd>                           |
-| Jump backward       | <kbd>h</kbd>                           |
-| Quit                | <kbd>ctrl</kbd> + <kbd>c</kbd>         |
-| Move up in list     | <kbd>up arrow</kbd>                    |
-| Move down in list   | <kbd>down arrow</kbd>                  |
-| Select item in list | <kbd>enter</kbd>                       |
-| Dismiss popup       | <kbd>esc</kbd>                         |
 
 ## Web UI
 

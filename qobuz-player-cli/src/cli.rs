@@ -186,7 +186,7 @@ pub async fn run() -> Result<(), Error> {
     // CLI COMMANDS
     match cli.command {
         Commands::Open {} => {
-            let mut handles = setup_player(
+            let handles = setup_player(
                 cli.web,
                 cli.interface,
                 cli.username.as_deref(),
@@ -194,34 +194,17 @@ pub async fn run() -> Result<(), Error> {
             )
             .await?;
 
-            if !(cli.disable_tui) {
-                let mut tui = qobuz_player_tui::CursiveUI::new();
-                handles.push(tokio::spawn(async {
-                    qobuz_player_tui::receive_notifications().await
-                }));
-                tui.run().await;
-                debug!("tui exited, quitting");
-                qobuz_player_controls::quit().await?;
-                for h in handles {
-                    match h.await {
-                        Ok(_) => debug!("task exited"),
-                        Err(error) => debug!("task error {error}"),
-                    };
-                }
-            } else {
-                debug!("waiting for ctrlc");
-                tokio::signal::ctrl_c()
-                    .await
-                    .expect("error waiting for ctrlc");
-                debug!("ctrlc received, quitting");
-                qobuz_player_controls::quit().await?;
-                for h in handles {
-                    match h.await {
-                        Ok(_) => debug!("task exited"),
-                        Err(error) => debug!("task error {error}"),
-                    };
-                }
-            };
+            tokio::signal::ctrl_c()
+                .await
+                .expect("error waiting for ctrlc");
+            debug!("ctrlc received, quitting");
+            qobuz_player_controls::quit().await?;
+            for h in handles {
+                match h.await {
+                    Ok(_) => debug!("task exited"),
+                    Err(error) => debug!("task error {error}"),
+                };
+            }
 
             Ok(())
         }
