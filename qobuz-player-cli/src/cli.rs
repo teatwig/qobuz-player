@@ -10,26 +10,26 @@ use tokio::task::JoinHandle;
 struct Cli {
     /// Provide a username. (overrides any database value)
     #[clap(short, long)]
-    pub username: Option<String>,
+    username: Option<String>,
 
     #[clap(short, long)]
     /// Provide a password. (overrides any database value)
-    pub password: Option<String>,
+    password: Option<String>,
 
-    #[clap(short, long, default_value_t = false)]
-    /// Disable the TUI interface.
-    pub disable_tui: bool,
+    #[clap(short, long, default_value_t = tracing::Level::WARN)]
+    /// Log level
+    verbosity: tracing::Level,
 
-    #[clap(short, long, default_value_t = false)]
+    #[clap(short, long, default_value_t = true)]
     /// Start web server with websocket API and embedded UI.
-    pub web: bool,
+    web: bool,
 
     #[clap(long, default_value = "0.0.0.0:9888")]
     /// Specify a different interface and port for the web server to listen on.
-    pub interface: String,
+    interface: String,
 
     #[clap(subcommand)]
-    pub command: Commands,
+    command: Commands,
 }
 
 #[derive(Subcommand)]
@@ -171,14 +171,14 @@ async fn setup_player(
 }
 
 pub async fn run() -> Result<(), Error> {
+    // PARSE CLI ARGS
+    let cli = Cli::parse();
+
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
+        .with_max_level(cli.verbosity)
         .with_target(false)
         .compact()
         .init();
-
-    // PARSE CLI ARGS
-    let cli = Cli::parse();
 
     // INIT DB
     database::init().await;
