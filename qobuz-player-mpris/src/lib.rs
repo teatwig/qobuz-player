@@ -394,14 +394,6 @@ impl MprisTrackList {
             .collect::<Vec<HashMap<&str, zvariant::Value>>>()
     }
 
-    async fn go_to(&self, position: String) {
-        if let Ok(p) = position.parse::<u32>() {
-            if let Err(error) = qobuz_player_controls::skip_to_position(p, true).await {
-                debug!(?error);
-            }
-        }
-    }
-
     #[zbus(signal, name = "TrackListReplaced")]
     pub async fn track_list_replaced(
         #[zbus(signal_context)] ctxt: &SignalContext<'_>,
