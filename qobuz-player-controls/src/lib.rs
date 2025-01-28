@@ -185,11 +185,10 @@ async fn set_player_state(state: gstreamer::State) -> Result<()> {
 
     Ok(())
 }
-
-async fn broadcast_track_list(list: Tracklist) -> Result<()> {
+async fn broadcast_track_list<'a>(list: &Tracklist) -> Result<()> {
     BROADCAST_CHANNELS
         .tx
-        .send(Notification::CurrentTrackList { list })?;
+        .send(Notification::CurrentTrackList { list: list.clone() })?;
     Ok(())
 }
 
@@ -357,18 +356,8 @@ pub async fn skip_to_position(new_position: u32, force: bool) -> Result<()> {
 
     let client = CLIENT.get().unwrap();
 
-    let next_track = tracklist
-        .queue
-        .iter_mut()
-        .find(|t| t.1.position == new_position)
-        .map(|t| t.1);
-
-    if let Some(next_track_to_play) = next_track {
-        if let Ok(track_url) = client.track_url(next_track_to_play.id as i32, None).await {
-            next_track_to_play.track_url = Some(track_url.url.clone());
-            PLAYBIN.set_property("uri", track_url.url.clone());
-        }
-
+    if let Some(next_track_to_play) = skip_to_track(&mut tracklist, client, new_position).await {
+        PLAYBIN.set_property("uri", next_track_to_play);
         play().await?;
     } else if let Some(mut first_track) = tracklist.queue.first_entry() {
         let first_track = first_track.get_mut();
@@ -379,7 +368,7 @@ pub async fn skip_to_position(new_position: u32, force: bool) -> Result<()> {
         );
     }
 
-    broadcast_track_list(tracklist.clone()).await?;
+    broadcast_track_list(&tracklist).await?;
 
     Ok(())
 }
@@ -411,7 +400,37 @@ async fn attach_track_url(client: &Client, track: &mut Track) {
     }
 }
 
-fn skip_to_track(tracklist: &mut Tracklist, new_position: u32) -> Option<String> {
+async fn skip_to_track(
+    tracklist: &mut Tracklist,
+    client: &Client,
+    new_position: u32,
+) -> Option<String> {
+    for track in tracklist.queue.values_mut() {
+        match track.position.cmp(&new_position) {
+            std::cmp::Ordering::Less => {
+                track.status = TrackStatus::Played;
+            }
+            std::cmp::Ordering::Equal => {
+                if let Ok(url) = client.track_url(track.id as i32, None).await {
+                    track.status = TrackStatus::Playing;
+                    track.track_url = Some(url.url.clone());
+                    return Some(url.url);
+                } else {
+                    track.status = TrackStatus::Unplayable;
+                }
+            }
+            std::cmp::Ordering::Greater => {
+                track.status = TrackStatus::Unplayed;
+            }
+        }
+    }
+    None
+}
+
+fn skip_to_next_track(tracklist: &mut Tracklist) {
+    let current_position = tracklist.current_track().map_or(0, |ct| ct.position);
+    let new_position = current_position + 1;
+
     for track in tracklist.queue.values_mut() {
         match track.position.cmp(&new_position) {
             std::cmp::Ordering::Less => {
@@ -425,12 +444,11 @@ fn skip_to_track(tracklist: &mut Tracklist, new_position: u32) -> Option<String>
             }
         }
     }
-    None
 }
 
 #[instrument]
 /// Plays a full album.
-pub async fn play_album(album_id: &str, starting_position: u32) -> Result<()> {
+pub async fn play_album(album_id: &str) -> Result<()> {
     ready().await?;
 
     let client = CLIENT.get().unwrap();
@@ -442,7 +460,7 @@ pub async fn play_album(album_id: &str, starting_position: u32) -> Result<()> {
         if let Some(first_track) = album.tracks.get_mut(&1) {
             first_track.status = TrackStatus::Playing;
             attach_track_url(client, first_track).await;
-            broadcast_track_list(tracklist.clone()).await?;
+            broadcast_track_list(&tracklist).await?;
 
             PLAYBIN.set_property("uri", first_track.track_url.clone());
 
@@ -461,16 +479,12 @@ pub async fn play_album(album_id: &str, starting_position: u32) -> Result<()> {
         tracklist.list_type = TrackListType::Album;
     };
 
-    if starting_position != 0 {
-        skip_to_position(starting_position, true).await?;
-    }
-
     Ok(())
 }
 
 #[instrument]
 /// Plays all tracks in a playlist.
-pub async fn play_playlist(playlist_id: i64, starting_position: u32) -> Result<()> {
+pub async fn play_playlist(playlist_id: i64) -> Result<()> {
     ready().await?;
 
     let client = CLIENT.get().unwrap();
@@ -482,7 +496,7 @@ pub async fn play_playlist(playlist_id: i64, starting_position: u32) -> Result<(
         if let Some(first_track) = playlist.tracks.get_mut(&1) {
             first_track.status = TrackStatus::Playing;
             attach_track_url(client, first_track).await;
-            broadcast_track_list(tracklist.clone()).await?;
+            broadcast_track_list(&tracklist).await?;
 
             PLAYBIN.set_property("uri", first_track.track_url.clone());
 
@@ -493,10 +507,6 @@ pub async fn play_playlist(playlist_id: i64, starting_position: u32) -> Result<(
         tracklist.album = None;
         tracklist.playlist = Some(playlist);
         tracklist.list_type = TrackListType::Playlist;
-    }
-
-    if starting_position != 1 {
-        skip_to_position(starting_position, true).await?;
     }
 
     Ok(())
@@ -844,7 +854,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
             };
 
             ready().await?;
-            broadcast_track_list(tracklist.clone()).await?;
+            broadcast_track_list(&tracklist).await?;
         }
         MessageView::StreamStart(_) => {
             tracing::debug!("STREAM START");
@@ -852,9 +862,8 @@ async fn handle_message(msg: &Message) -> Result<()> {
                 tracing::debug!("Starting next song");
 
                 let mut tracklist = TRACKLIST.write().await;
-                let current_position = tracklist.current_track().map_or(0, |ct| ct.position);
-                skip_to_track(&mut tracklist, current_position);
-                broadcast_track_list(tracklist.clone()).await?;
+                skip_to_next_track(&mut tracklist);
+                broadcast_track_list(&tracklist).await?;
             }
         }
         MessageView::AsyncDone(msg) => {
