@@ -3,8 +3,9 @@ members = [
   "qobuz-player-cli",
   "qobuz-player-controls",
   "qobuz-player-web",
-  "qobuz-api",
   "qobuz-player-mpris",
+  "qobuz-player-tui",
+  "qobuz-api",
 ]
 resolver = "2"
 
@@ -23,6 +24,8 @@ base64 = "0.22"
 cached = "0.50"
 chrono = "0.4"
 clap = "4"
+ctrlc = "3.0"
+cursive =  "0.21"
 dialoguer = "0.11"
 dirs = "5"
 futures = "0.3"
