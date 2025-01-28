@@ -62,14 +62,16 @@ pub fn queue(current_tracklist: Tracklist) -> impl IntoView {
         <div
             hx-get="/queue/list"
             hx-trigger="sse:tracklist"
-            hx-swap="outerHTML"
+            hx-target="#queue-list"
             class="flex flex-col flex-grow gap-4 max-h-full"
         >
             <div class="p-4 text-center">
                 <p class="text-lg">{entity_title}</p>
             </div>
 
-            <QueueList current_tracklist=current_tracklist />
+            <div id="queue-list">
+                <QueueList current_tracklist=current_tracklist />
+            </div>
         </div>
     }
 }

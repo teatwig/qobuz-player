@@ -412,6 +412,7 @@ async fn skip_to_track(
     client: &Client,
     new_position: u32,
 ) -> Option<String> {
+    let mut next_track_url = None;
     for track in tracklist.queue.values_mut() {
         match track.position.cmp(&new_position) {
             std::cmp::Ordering::Less => {
@@ -421,7 +422,7 @@ async fn skip_to_track(
                 if let Ok(url) = client.track_url(track.id as i32, None).await {
                     track.status = TrackStatus::Playing;
                     track.track_url = Some(url.url.clone());
-                    return Some(url.url);
+                    next_track_url = Some(url.url);
                 } else {
                     track.status = TrackStatus::Unplayable;
                 }
@@ -431,7 +432,8 @@ async fn skip_to_track(
             }
         }
     }
-    None
+
+    next_track_url
 }
 
 fn skip_to_next_track(tracklist: &mut Tracklist) {
