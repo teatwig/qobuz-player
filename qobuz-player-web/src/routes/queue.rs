@@ -30,7 +30,9 @@ pub fn routes() -> Router<Arc<AppState>> {
 }
 
 async fn skip_to(Path(track_number): Path<u32>) -> impl IntoResponse {
-    _ = qobuz_player_controls::skip_to_position(track_number, true).await;
+    qobuz_player_controls::skip_to_position(track_number, true)
+        .await
+        .unwrap();
 }
 
 async fn index() -> impl IntoResponse {

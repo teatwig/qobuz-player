@@ -1,13 +1,12 @@
 use chrono::{DateTime, Duration, Local};
-use futures::executor::block_on;
 use gstreamer::{ClockTime, State as GstState};
 use qobuz_player_controls::{
     notification::Notification,
-    service::{Album, Track},
+    service::{Album, Track, TrackStatus},
 };
 use std::collections::HashMap;
 use tracing::debug;
-use zbus::{fdo::Result, interface, zvariant, Connection, ConnectionBuilder, SignalContext};
+use zbus::{interface, zvariant, Connection, ConnectionBuilder, SignalContext};
 
 #[derive(Debug)]
 struct Mpris {}
@@ -164,9 +163,9 @@ pub async fn receive_notifications(conn: &Connection) {
                             && current.position == player_iface.total_tracks - 1);
 
                         let tracks = list
-                            .cursive_list()
-                            .iter()
-                            .map(|t| t.0)
+                            .queue
+                            .values()
+                            .map(|i| i.title.as_str())
                             .collect::<Vec<&str>>();
 
                         MprisTrackList::track_list_replaced(
@@ -192,14 +191,6 @@ pub async fn receive_notifications(conn: &Connection) {
 
 #[interface(name = "org.mpris.MediaPlayer2")]
 impl Mpris {
-    async fn quit(&self) -> Result<()> {
-        if let Err(error) = qobuz_player_controls::quit().await {
-            debug!(?error);
-        }
-
-        Ok(())
-    }
-
     #[zbus(property, name = "CanQuit")]
     fn can_quit(&self) -> bool {
         true
@@ -245,36 +236,6 @@ struct MprisPlayer {
 
 #[interface(name = "org.mpris.MediaPlayer2.Player")]
 impl MprisPlayer {
-    async fn play(&self) {
-        if let Err(error) = qobuz_player_controls::play().await {
-            debug!(?error);
-        }
-    }
-    async fn pause(&self) {
-        if let Err(error) = qobuz_player_controls::pause().await {
-            debug!(?error);
-        }
-    }
-    async fn stop(&self) {
-        if let Err(error) = qobuz_player_controls::stop().await {
-            debug!(?error);
-        }
-    }
-    async fn play_pause(&self) {
-        if let Err(error) = qobuz_player_controls::play_pause().await {
-            debug!(?error);
-        }
-    }
-    async fn next(&self) {
-        if let Err(error) = qobuz_player_controls::next().await {
-            debug!(?error);
-        }
-    }
-    async fn previous(&self) {
-        if let Err(error) = qobuz_player_controls::previous().await {
-            debug!(?error);
-        }
-    }
     #[zbus(property, name = "PlaybackStatus")]
     async fn playback_status(&self) -> &str {
         match self.status {
@@ -368,40 +329,6 @@ struct MprisTrackList {}
 
 #[interface(name = "org.mpris.MediaPlayer2.TrackList")]
 impl MprisTrackList {
-    async fn get_tracks_metadata(
-        &self,
-        tracks: Vec<String>,
-    ) -> Vec<HashMap<&str, zvariant::Value>> {
-        debug!("get tracks metadata");
-
-        qobuz_player_controls::current_tracklist()
-            .await
-            .all_tracks()
-            .into_iter()
-            .filter_map(|i| {
-                if tracks.contains(&i.position.to_string()) {
-                    let album = block_on(async {
-                        qobuz_player_controls::current_tracklist()
-                            .await
-                            .get_album()
-                            .cloned()
-                    });
-                    Some(track_to_meta(i.clone(), album))
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<HashMap<&str, zvariant::Value>>>()
-    }
-
-    async fn go_to(&self, position: String) {
-        if let Ok(p) = position.parse::<u32>() {
-            if let Err(error) = qobuz_player_controls::skip_to_position(p, true).await {
-                debug!(?error);
-            }
-        }
-    }
-
     #[zbus(signal, name = "TrackListReplaced")]
     pub async fn track_list_replaced(
         #[zbus(signal_context)] ctxt: &SignalContext<'_>,
@@ -413,8 +340,15 @@ impl MprisTrackList {
     async fn tracks(&self) -> Vec<String> {
         qobuz_player_controls::current_tracklist()
             .await
-            .unplayed_tracks()
+            .queue
             .iter()
+            .filter_map(|t| {
+                if t.1.status == TrackStatus::Unplayed {
+                    Some(t.1)
+                } else {
+                    None
+                }
+            })
             .map(|i| i.position.to_string())
             .collect::<Vec<String>>()
     }

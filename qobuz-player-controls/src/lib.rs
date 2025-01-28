@@ -9,6 +9,7 @@ use notification::Notification;
 use qobuz_api::client::api::Client;
 use service::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
 use std::{
+    collections::BTreeMap,
     str::FromStr,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -117,12 +118,18 @@ static TRACK_ABOUT_TO_FINISH: LazyLock<TrackAboutToFinish> = LazyLock::new(|| {
     TrackAboutToFinish { tx, rx }
 });
 
-static IS_BUFFERING: AtomicBool = AtomicBool::new(false);
 static SHOULD_QUIT: AtomicBool = AtomicBool::new(false);
 static IS_LIVE: AtomicBool = AtomicBool::new(false);
 static TARGET_STATUS: LazyLock<RwLock<gstreamer::State>> =
     LazyLock::new(|| RwLock::new(gstreamer::State::Null));
-static TRACKLIST: LazyLock<RwLock<Tracklist>> = LazyLock::new(|| RwLock::new(Tracklist::new(None)));
+static TRACKLIST: LazyLock<RwLock<Tracklist>> = LazyLock::new(|| {
+    RwLock::new(Tracklist {
+        queue: BTreeMap::new(),
+        album: None,
+        playlist: None,
+        list_type: TrackListType::Unknown,
+    })
+});
 static CLIENT: OnceLock<Client> = OnceLock::new();
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
@@ -268,7 +275,7 @@ pub fn set_volume(value: f64) {
     PLAYBIN.set_property("volume", value);
 
     tokio::task::spawn(async move {
-        _ = BROADCAST_CHANNELS
+        BROADCAST_CHANNELS
             .tx
             .send(Notification::Volume { volume: value })
             .unwrap();
@@ -463,14 +470,7 @@ pub async fn play_album(album_id: &str) -> Result<()> {
             broadcast_track_list(&tracklist).await?;
 
             PLAYBIN.set_property("uri", first_track.track_url.clone());
-
-            match play().await {
-                Ok(_) => (),
-                Err(err) => {
-                    tracing::error!("Error playing album: Not able to play: {}", err);
-                    return Err(err);
-                }
-            };
+            play().await?;
         }
 
         tracklist.queue = album.tracks.clone();
@@ -499,7 +499,6 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
             broadcast_track_list(&tracklist).await?;
 
             PLAYBIN.set_property("uri", first_track.track_url.clone());
-
             play().await?;
         };
 
@@ -680,37 +679,57 @@ pub async fn artist_albums(artist_id: i32) -> Vec<Album> {
 #[instrument]
 /// Add album to favorites
 pub async fn add_favorite_album(id: &str) {
-    _ = CLIENT.get().unwrap().add_favorite_album(id).await;
+    CLIENT.get().unwrap().add_favorite_album(id).await.unwrap();
 }
 
 #[instrument]
 /// Remove album from favorites
 pub async fn remove_favorite_album(id: &str) {
-    _ = CLIENT.get().unwrap().remove_favorite_album(id).await;
+    CLIENT
+        .get()
+        .unwrap()
+        .remove_favorite_album(id)
+        .await
+        .unwrap();
 }
 
 #[instrument]
 /// Add artist to favorites
 pub async fn add_favorite_artist(id: &str) {
-    _ = CLIENT.get().unwrap().add_favorite_artist(id).await;
+    CLIENT.get().unwrap().add_favorite_artist(id).await.unwrap();
 }
 
 #[instrument]
 /// Remove artist from favorites
 pub async fn remove_favorite_artist(id: &str) {
-    _ = CLIENT.get().unwrap().remove_favorite_artist(id).await;
+    CLIENT
+        .get()
+        .unwrap()
+        .remove_favorite_artist(id)
+        .await
+        .unwrap();
 }
 
 #[instrument]
 /// Add playlist to favorites
 pub async fn add_favorite_playlist(id: &str) {
-    _ = CLIENT.get().unwrap().add_favorite_playlist(id).await;
+    CLIENT
+        .get()
+        .unwrap()
+        .add_favorite_playlist(id)
+        .await
+        .unwrap();
 }
 
 #[instrument]
 /// Remove playlist from favorites
 pub async fn remove_favorite_playlist(id: &str) {
-    _ = CLIENT.get().unwrap().remove_favorite_playlist(id).await;
+    CLIENT
+        .get()
+        .unwrap()
+        .remove_favorite_playlist(id)
+        .await
+        .unwrap();
 }
 
 #[instrument]
@@ -891,13 +910,12 @@ async fn handle_message(msg: &Message) -> Result<()> {
             }
             let percent = buffering.percent();
 
-            if percent < 100 && !is_paused() && !IS_BUFFERING.load(Ordering::Relaxed) {
+            if percent < 100 && !is_paused() {
+                tracing::info!("Buffering");
                 pause().await?;
-                IS_BUFFERING.store(true, Ordering::Relaxed);
-            } else if percent > 99 && IS_BUFFERING.load(Ordering::Relaxed) && is_paused() {
+            } else if percent >= 100 && is_paused() {
                 tracing::info!("Done buffering");
                 play().await?;
-                IS_BUFFERING.store(false, Ordering::Relaxed);
             }
 
             if percent.rem_euclid(10) == 0 {

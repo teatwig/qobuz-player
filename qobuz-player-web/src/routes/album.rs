@@ -32,8 +32,10 @@ pub fn routes() -> Router<Arc<AppState>> {
 }
 
 async fn play_track(Path((id, track_position)): Path<(String, u32)>) -> impl IntoResponse {
-    _ = qobuz_player_controls::play_album(&id).await;
-    _ = qobuz_player_controls::skip_to_position(track_position, true).await;
+    qobuz_player_controls::play_album(&id).await.unwrap();
+    qobuz_player_controls::skip_to_position(track_position, true)
+        .await
+        .unwrap();
 }
 
 async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
@@ -47,7 +49,7 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn play(Path(id): Path<String>) -> impl IntoResponse {
-    _ = qobuz_player_controls::play_album(&id).await;
+    qobuz_player_controls::play_album(&id).await.unwrap();
 }
 
 async fn index(Path(id): Path<String>) -> impl IntoResponse {

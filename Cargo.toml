@@ -3,7 +3,8 @@ members = [
   "qobuz-player-cli",
   "qobuz-player-controls",
   "qobuz-player-web",
-  "qobuz-api", "qobuz-player-mpris",
+  "qobuz-api",
+  "qobuz-player-mpris",
 ]
 resolver = "2"
 

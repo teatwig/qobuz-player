@@ -122,11 +122,11 @@ async fn pause() -> impl IntoResponse {
 }
 
 async fn previous() -> impl IntoResponse {
-    _ = qobuz_player_controls::previous().await;
+    qobuz_player_controls::previous().await.unwrap();
 }
 
 async fn next() -> impl IntoResponse {
-    _ = qobuz_player_controls::next().await;
+    qobuz_player_controls::next().await.unwrap();
 }
 
 async fn index() -> impl IntoResponse {
