@@ -151,10 +151,8 @@ async fn setup_player(
 
     #[cfg(target_os = "linux")]
     {
-        let conn = qobuz_player_mpris::init().await;
-
         handles.push(tokio::spawn(async move {
-            qobuz_player_mpris::receive_notifications(&conn).await;
+            qobuz_player_mpris::init().await;
         }));
     }
 

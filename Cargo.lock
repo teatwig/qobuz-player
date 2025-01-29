@@ -2841,6 +2841,7 @@ dependencies = [
  "futures",
  "gstreamer",
  "qobuz-player-controls",
+ "tokio",
  "tracing",
  "zbus",
 ]

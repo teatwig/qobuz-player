@@ -11,7 +11,7 @@ use zbus::{interface, zvariant, Connection, ConnectionBuilder, SignalContext};
 #[derive(Debug)]
 struct Mpris {}
 
-pub async fn init() -> Connection {
+pub async fn init() {
     let mpris = Mpris {};
     let mpris_player = MprisPlayer {
         status: GstState::Null,
@@ -37,19 +37,13 @@ pub async fn init() -> Connection {
         .name("org.mpris.MediaPlayer2.qobuz-player")
         .unwrap()
         .build()
-        .await;
+        .await
+        .expect("There was an error with mpris and I must exit.");
 
-    match conn {
-        Ok(c) => c,
-        Err(err) => {
-            println!("There was an error with mpris and I must exit.");
-            println!("Message: {err}");
-            std::process::exit(1);
-        }
-    }
+    receive_notifications(&conn).await;
 }
 
-pub async fn receive_notifications(conn: &Connection) {
+async fn receive_notifications(conn: &Connection) {
     let mut receiver = qobuz_player_controls::notify_receiver();
     let object_server = conn.object_server();
 
@@ -282,7 +276,7 @@ impl MprisPlayer {
         self.position.useconds() as i64
     }
     #[zbus(signal, name = "Seeked")]
-    pub async fn seeked(
+    async fn seeked(
         #[zbus(signal_context)] ctxt: &SignalContext<'_>,
         message: i64,
     ) -> zbus::Result<()>;
@@ -330,7 +324,7 @@ struct MprisTrackList {}
 #[interface(name = "org.mpris.MediaPlayer2.TrackList")]
 impl MprisTrackList {
     #[zbus(signal, name = "TrackListReplaced")]
-    pub async fn track_list_replaced(
+    async fn track_list_replaced(
         #[zbus(signal_context)] ctxt: &SignalContext<'_>,
         tracks: Vec<&str>,
         current: &str,
