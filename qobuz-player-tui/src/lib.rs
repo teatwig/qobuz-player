@@ -640,17 +640,6 @@ pub async fn receive_notifications() {
                         debug!("exiting tui notification thread");
                         return;
                     }
-                    Notification::Loading { is_loading, target_state } => {
-                        SINK.get().unwrap().send(Box::new(move |s| {
-                                if let Some(mut view) = s.find_name::<TextView>("player_status") {
-                                    if is_loading {
-                                        view.set_content(format!(" {}", '\u{2B71}'));
-                                    } else {
-                                        view.set_content(get_state_icon(target_state));
-                                    }
-                                }
-                        })).expect("failed to send update");
-                    }
                     Notification::Status { status } => {
                         SINK.get()
                             .unwrap()
@@ -827,24 +816,6 @@ pub async fn receive_notifications() {
                             }
                             _ => {}
                         }
-                    }
-                    Notification::Buffering {
-                        is_buffering,
-                        target_state,
-                        percent,
-                    } => {
-                        SINK.get()
-                            .unwrap()
-                            .send(Box::new(move |s| {
-                                s.call_on_name("player_status", |view: &mut TextView| {
-                                    if is_buffering {
-                                        view.set_content(format!("{}%", percent));
-                                    } else {
-                                        view.set_content(get_state_icon(target_state));
-                                    }
-                                });
-                            }))
-                            .expect("failed to send update");
                     }
                     Notification::Error { error: _ } => {}
                     Notification::Volume{ volume: _ } => {}

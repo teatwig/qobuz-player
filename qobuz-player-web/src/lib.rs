@@ -71,11 +71,6 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
     loop {
         if let Ok(notification) = receiver.recv().await {
             match notification {
-                Notification::Buffering {
-                    is_buffering: _,
-                    percent: _,
-                    target_state: _,
-                } => {}
                 Notification::Status { status } => {
                     let message_data = match status {
                         gstreamer::State::VoidPending => "pause",
@@ -106,10 +101,6 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
                     _ = tx.send(event);
                 }
                 Notification::Quit => (),
-                Notification::Loading {
-                    is_loading: _,
-                    target_state: _,
-                } => {}
                 Notification::Error { error: _ } => (),
                 Notification::Volume { volume } => {
                     let event = ServerSentEvent {

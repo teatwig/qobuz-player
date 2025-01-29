@@ -53,27 +53,6 @@ async fn receive_notifications(conn: &Connection) {
                 Notification::Quit => {
                     return;
                 }
-                Notification::Loading {
-                    is_loading: _,
-                    target_state: _,
-                } => {}
-                Notification::Buffering {
-                    is_buffering: _,
-                    target_state: _,
-                    percent: _,
-                } => {
-                    let iface_ref = object_server
-                        .interface::<_, MprisPlayer>("/org/mpris/MediaPlayer2")
-                        .await
-                        .expect("failed to get object server");
-
-                    iface_ref
-                        .get_mut()
-                        .await
-                        .playback_status_changed(iface_ref.signal_context())
-                        .await
-                        .expect("failed to signal metadata change");
-                }
                 Notification::Status { status } => {
                     let iface_ref = object_server
                         .interface::<_, MprisPlayer>("/org/mpris/MediaPlayer2")

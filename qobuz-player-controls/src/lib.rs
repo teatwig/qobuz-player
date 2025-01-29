@@ -178,11 +178,6 @@ async fn set_player_state(state: gstreamer::State) -> Result<()> {
         }
         StateChangeSuccess::Async => {
             tracing::debug!("*** async state change ***");
-
-            BROADCAST_CHANNELS.tx.send(Notification::Loading {
-                is_loading: true,
-                target_state: state,
-            })?;
         }
         StateChangeSuccess::NoPreroll => {
             tracing::debug!("*** stream is live ***");
@@ -192,7 +187,8 @@ async fn set_player_state(state: gstreamer::State) -> Result<()> {
 
     Ok(())
 }
-async fn broadcast_track_list<'a>(list: &Tracklist) -> Result<()> {
+
+async fn broadcast_track_list(list: &Tracklist) -> Result<()> {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::CurrentTrackList { list: list.clone() })?;
@@ -889,11 +885,6 @@ async fn handle_message(msg: &Message) -> Result<()> {
         }
         MessageView::AsyncDone(msg) => {
             tracing::debug!("ASYNC DONE");
-            let target_status = TARGET_STATUS.read().await;
-            BROADCAST_CHANNELS.tx.send(Notification::Loading {
-                is_loading: false,
-                target_state: *target_status,
-            })?;
 
             let position = if let Some(p) = msg.running_time() {
                 p
@@ -918,16 +909,6 @@ async fn handle_message(msg: &Message) -> Result<()> {
             } else if percent >= 100 && is_paused() {
                 tracing::info!("Done buffering");
                 play().await?;
-            }
-
-            if percent.rem_euclid(10) == 0 {
-                debug!("buffering {}%", percent);
-                let target_status = TARGET_STATUS.read().await;
-                BROADCAST_CHANNELS.tx.send(Notification::Buffering {
-                    is_buffering: percent < 99,
-                    target_state: *target_status,
-                    percent: percent as u32,
-                })?;
             }
         }
         MessageView::StateChanged(state_changed) => {

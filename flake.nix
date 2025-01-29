@@ -54,7 +54,8 @@
 
           ];
 
-        DATABASE_URL = "sqlite:///tmp/data.db";
+          DATABASE_URL = "sqlite:///tmp/data.db";
+          RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
         };
       });
 }
