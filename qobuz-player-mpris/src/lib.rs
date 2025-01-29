@@ -230,6 +230,36 @@ struct MprisPlayer {
 
 #[interface(name = "org.mpris.MediaPlayer2.Player")]
 impl MprisPlayer {
+    async fn play(&self) {
+        if let Err(error) = qobuz_player_controls::play().await {
+            debug!(?error);
+        }
+    }
+    async fn pause(&self) {
+        if let Err(error) = qobuz_player_controls::pause().await {
+            debug!(?error);
+        }
+    }
+    async fn stop(&self) {
+        if let Err(error) = qobuz_player_controls::stop().await {
+            debug!(?error);
+        }
+    }
+    async fn play_pause(&self) {
+        if let Err(error) = qobuz_player_controls::play_pause().await {
+            debug!(?error);
+        }
+    }
+    async fn next(&self) {
+        if let Err(error) = qobuz_player_controls::next().await {
+            debug!(?error);
+        }
+    }
+    async fn previous(&self) {
+        if let Err(error) = qobuz_player_controls::previous().await {
+            debug!(?error);
+        }
+    }
     #[zbus(property, name = "PlaybackStatus")]
     async fn playback_status(&self) -> &str {
         match self.status {
