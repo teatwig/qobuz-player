@@ -1,13 +1,12 @@
 use crate::{
     database,
-    service::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
+    service::{Album, Artist, Playlist, SearchResults, Track, TrackStatus},
 };
 use qobuz_api::client::{
     album::Album as QobuzAlbum,
     album_suggestion::AlbumSuggestion,
     api::{self, Client as QobuzClient},
     artist::Artist as QobuzArtist,
-    favorites::Favorites as QobuzFavorites,
     playlist::Playlist as QobuzPlaylist,
     release::{Release, Track as QobuzReleaseTrack},
     search_results::SearchAllResults,
@@ -117,31 +116,6 @@ impl From<SearchAllResults> for SearchResults {
                 .into_iter()
                 .map(|p| p.into())
                 .collect::<Vec<Playlist>>(),
-        }
-    }
-}
-
-impl From<QobuzFavorites> for Favorites {
-    fn from(s: QobuzFavorites) -> Self {
-        Self {
-            albums: s
-                .albums
-                .items
-                .into_iter()
-                .map(|a| a.into())
-                .collect::<Vec<Album>>(),
-            tracks: s
-                .tracks
-                .items
-                .into_iter()
-                .map(|t| t.into())
-                .collect::<Vec<Track>>(),
-            artists: s
-                .artists
-                .items
-                .into_iter()
-                .map(|a| a.into())
-                .collect::<Vec<Artist>>(),
         }
     }
 }

@@ -59,6 +59,7 @@ pub struct Favorites {
     pub albums: Vec<Album>,
     pub tracks: Vec<Track>,
     pub artists: Vec<Artist>,
+    pub playlists: Vec<Playlist>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]

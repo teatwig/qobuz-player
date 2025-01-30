@@ -51,11 +51,14 @@ async fn index(Path(id): Path<i64>) -> impl IntoResponse {
     let (playlist, now_playing, favorites) = join!(
         qobuz_player_controls::playlist(id),
         qobuz_player_controls::current_track(),
-        qobuz_player_controls::user_playlists()
+        qobuz_player_controls::favorites()
     );
 
     let now_playing_id = now_playing.map(|track| track.id);
-    let is_favorite = favorites.iter().any(|playlist| playlist.id == id as u32);
+    let is_favorite = favorites
+        .playlists
+        .iter()
+        .any(|playlist| playlist.id == id as u32);
 
     render(html! {
         <Page active_page=Page::None>
