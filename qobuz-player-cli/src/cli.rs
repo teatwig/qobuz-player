@@ -197,11 +197,11 @@ pub async fn run() -> Result<(), Error> {
             .await?;
 
             if !(cli.disable_tui) {
-                let mut tui = qobuz_player_tui::CursiveUI::new();
                 handles.push(tokio::spawn(async {
                     qobuz_player_tui::receive_notifications().await
                 }));
-                tui.run().await;
+                qobuz_player_tui::init().await;
+
                 debug!("tui exited, quitting");
                 qobuz_player_controls::quit().await?;
                 for h in handles {

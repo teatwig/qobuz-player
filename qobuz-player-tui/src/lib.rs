@@ -12,7 +12,7 @@ use cursive::{
         Button, Dialog, EditView, HideableView, LinearLayout, MenuPopup, NamedView, OnEventView,
         PaddedView, Panel, ProgressBar, ResizedView, ScreensView, ScrollView, SelectView, TextView,
     },
-    Cursive, CursiveRunnable, With,
+    Cursive, With,
 };
 use futures::executor::block_on;
 use gstreamer::{ClockTime, State as GstState};
@@ -30,402 +30,377 @@ static SINK: OnceLock<CursiveSender> = OnceLock::new();
 
 static UNSTREAMABLE: &str = "UNSTREAMABLE";
 
-pub struct CursiveUI {
-    root: CursiveRunnable,
-}
+pub async fn init() {
+    let mut siv = cursive::default();
 
-impl CursiveUI {
-    pub fn new() -> Self {
-        let mut siv = cursive::default();
+    SINK.set(siv.cb_sink().clone()).expect("error setting sink");
 
-        SINK.set(siv.cb_sink().clone()).expect("error setting sink");
+    siv.set_theme(cursive::theme::Theme {
+        shadow: false,
+        borders: BorderStyle::Simple,
+        palette: Palette::terminal_default().with(|palette| {
+            use cursive::theme::BaseColor::*;
 
-        siv.set_theme(cursive::theme::Theme {
-            shadow: false,
-            borders: BorderStyle::Simple,
-            palette: Palette::terminal_default().with(|palette| {
-                use cursive::theme::BaseColor::*;
+            {
+                use cursive::theme::Color::TerminalDefault;
+                use cursive::theme::PaletteColor::*;
 
-                {
-                    use cursive::theme::Color::TerminalDefault;
-                    use cursive::theme::PaletteColor::*;
-
-                    palette[Background] = TerminalDefault;
-                    palette[View] = TerminalDefault;
-                    palette[Primary] = White.dark();
-                    palette[Highlight] = Cyan.dark();
-                    palette[HighlightInactive] = Black.dark();
-                    palette[HighlightText] = Black.dark();
-                }
-
-                {
-                    use cursive::theme::Color::TerminalDefault;
-                    use cursive::theme::Effect::*;
-                    use cursive::theme::PaletteStyle::*;
-
-                    palette[Highlight] = Style::from(Cyan.dark())
-                        .combine(Underline)
-                        .combine(Reverse)
-                        .combine(Bold);
-                    palette[HighlightInactive] = Style::from(TerminalDefault).combine(Reverse);
-                    palette[TitlePrimary] = Style::from(Cyan.dark()).combine(Bold);
-                }
-            }),
-        });
-
-        Self { root: siv }
-    }
-
-    fn player(&self) -> LinearLayout {
-        let mut container = LinearLayout::new(Orientation::Vertical);
-        let mut track_info = LinearLayout::new(Orientation::Horizontal);
-
-        let meta = PaddedView::lrtb(
-            1,
-            1,
-            0,
-            0,
-            LinearLayout::new(Orientation::Vertical)
-                .child(
-                    TextView::new("")
-                        .style(Style::highlight().combine(Effect::Bold))
-                        .with_name("current_track_title")
-                        .scrollable()
-                        .show_scrollbars(false)
-                        .scroll_x(true),
-                )
-                .child(TextView::new("").with_name("artist_name"))
-                .child(
-                    TextView::new("")
-                        .with_name("entity_title")
-                        .scrollable()
-                        .show_scrollbars(false)
-                        .scroll_x(true),
-                ),
-        )
-        .resized(SizeConstraint::Full, SizeConstraint::Free);
-
-        let track_num = LinearLayout::new(Orientation::Vertical)
-            .child(
-                TextView::new("000")
-                    .h_align(HAlign::Left)
-                    .with_name("current_track_number"),
-            )
-            .child(TextView::new("of").h_align(HAlign::Center))
-            .child(
-                TextView::new("000")
-                    .h_align(HAlign::Left)
-                    .with_name("total_tracks"),
-            )
-            .fixed_width(3);
-
-        let player_status = LinearLayout::new(Orientation::Vertical)
-            .child(
-                TextView::new(format!(" {}", '\u{23f9}'))
-                    .h_align(HAlign::Center)
-                    .with_name("player_status"),
-            )
-            .child(
-                TextView::new("16 bits")
-                    .h_align(HAlign::Right)
-                    .with_name("bit_depth"),
-            )
-            .child(
-                TextView::new("44.1 kHz")
-                    .h_align(HAlign::Right)
-                    .with_name("sample_rate"),
-            )
-            .fixed_width(8);
-
-        let counter = Counter::new(0);
-        let progress = ProgressBar::new()
-            .with_value(counter)
-            .with_label(|value, (_, max)| {
-                let position =
-                    ClockTime::from_seconds(value as u64).to_string().as_str()[2..7].to_string();
-                let duration =
-                    ClockTime::from_seconds(max as u64).to_string().as_str()[2..7].to_string();
-
-                format!("{position} / {duration}")
-            })
-            .with_name("progress");
-
-        track_info.add_child(track_num);
-        track_info.add_child(meta);
-        track_info.add_child(player_status);
-
-        container.add_child(track_info);
-        container.add_child(progress);
-
-        let mut track_list: SelectView<usize> = SelectView::new();
-
-        track_list.set_on_submit(move |_s, item| {
-            let i = item.to_owned();
-            tokio::spawn(
-                async move { qobuz_player_controls::skip_to_position(i as u32, true).await },
-            );
-        });
-
-        let mut layout = LinearLayout::new(Orientation::Vertical).child(
-            Panel::new(container)
-                .title("player")
-                .with_name("player_panel"),
-        );
-
-        layout.add_child(Panel::new(
-            HideableView::new(
-                track_list
-                    .scrollable()
-                    .scroll_y(true)
-                    .scroll_x(true)
-                    .with_name("current_track_list"),
-            )
-            .visible(true),
-        ));
-
-        layout
-    }
-
-    fn global_events(&mut self) {
-        self.root.clear_global_callbacks(Event::CtrlChar('c'));
-
-        self.root.set_on_pre_event(Event::CtrlChar('c'), move |s| {
-            let dialog = Dialog::text("Do you want to quit?")
-                .button("Yes", move |s: &mut Cursive| {
-                    s.quit();
-                })
-                .dismiss_button("No");
-
-            s.add_layer(dialog);
-        });
-
-        self.root.add_global_callback('1', move |s| {
-            s.set_screen(0);
-        });
-
-        self.root.add_global_callback('2', move |s| {
-            s.set_screen(1);
-        });
-
-        self.root.add_global_callback('3', move |s| {
-            s.set_screen(2);
-        });
-
-        self.root.add_global_callback(' ', move |_| {
-            block_on(async { qobuz_player_controls::play_pause().await.expect("") });
-        });
-
-        self.root.add_global_callback('N', move |_| {
-            block_on(async { qobuz_player_controls::next().await.expect("") });
-        });
-
-        self.root.add_global_callback('P', move |_| {
-            block_on(async { qobuz_player_controls::previous().await.expect("") });
-        });
-
-        self.root.add_global_callback('l', move |_| {
-            block_on(async { qobuz_player_controls::jump_forward().await.expect("") });
-        });
-
-        self.root.add_global_callback('h', move |_| {
-            block_on(async { qobuz_player_controls::jump_backward().await.expect("") });
-        });
-    }
-
-    fn menubar(&mut self) {
-        self.root.set_autohide_menu(false);
-
-        self.root
-            .menubar()
-            .add_leaf("Now Playing [1]", move |s| {
-                s.set_screen(0);
-            })
-            .add_delimiter()
-            .add_leaf("Playlists [2]", move |s| {
-                s.set_screen(1);
-            })
-            .add_delimiter()
-            .add_leaf("Search [3]", move |s| {
-                s.set_screen(2);
-            })
-            .add_delimiter();
-
-        self.root.add_global_callback('1', move |s| {
-            s.set_screen(0);
-        });
-        self.root.add_global_callback('2', move |s| {
-            s.set_screen(1);
-        });
-        self.root.add_global_callback('3', move |s| {
-            s.set_screen(2);
-        });
-    }
-
-    async fn my_playlists(&self) -> NamedView<LinearLayout> {
-        let mut list_layout = LinearLayout::new(Orientation::Vertical);
-
-        let mut user_playlists = SelectView::new().popup();
-        user_playlists.add_item("Select Playlist", 0);
-
-        let my_playlists = qobuz_player_controls::user_playlists().await;
-        my_playlists.iter().for_each(|p| {
-            user_playlists.add_item(p.title.clone(), p.id);
-        });
-
-        user_playlists.set_on_submit(move |s: &mut Cursive, item: &u32| {
-            if item == &0 {
-                s.call_on_name("play_button", |button: &mut Button| {
-                    button.disable();
-                });
-
-                return;
+                palette[Background] = TerminalDefault;
+                palette[View] = TerminalDefault;
+                palette[Primary] = White.dark();
+                palette[Highlight] = Cyan.dark();
+                palette[HighlightInactive] = Black.dark();
+                palette[HighlightText] = Black.dark();
             }
 
-            let layout = submit_playlist(s, *item).wrap_with(Panel::new);
+            {
+                use cursive::theme::Color::TerminalDefault;
+                use cursive::theme::Effect::*;
+                use cursive::theme::PaletteStyle::*;
 
-            s.call_on_name("user_playlist_layout", |l: &mut LinearLayout| {
-                l.remove_child(1);
-                l.add_child(layout);
-            });
+                palette[Highlight] = Style::from(Cyan.dark())
+                    .combine(Underline)
+                    .combine(Reverse)
+                    .combine(Bold);
+                palette[HighlightInactive] = Style::from(TerminalDefault).combine(Reverse);
+                palette[TitlePrimary] = Style::from(Cyan.dark()).combine(Bold);
+            }
+        }),
+    });
 
-            s.call_on_name("play_button", |button: &mut Button| {
-                button.enable();
-            });
-        });
+    let player = player();
+    let search = search();
+    let my_playlists = my_playlists().await;
 
-        list_layout.add_child(
-            Panel::new(
-                user_playlists
-                    .with_name("user_playlists")
-                    .scrollable()
-                    .scroll_y(true)
-                    .resized(SizeConstraint::Full, SizeConstraint::Free),
-            )
-            .title("my playlists"),
-        );
+    siv.screen_mut().add_fullscreen_layer(PaddedView::lrtb(
+        0,
+        0,
+        1,
+        0,
+        player.resized(SizeConstraint::Full, SizeConstraint::Free),
+    ));
 
-        list_layout.with_name("user_playlist_layout")
-    }
+    siv.add_active_screen();
+    siv.screen_mut().add_fullscreen_layer(PaddedView::lrtb(
+        0,
+        0,
+        1,
+        0,
+        my_playlists.resized(SizeConstraint::Full, SizeConstraint::Free),
+    ));
 
-    fn search(&mut self) -> LinearLayout {
-        let mut layout = LinearLayout::new(Orientation::Vertical);
+    siv.add_active_screen();
+    siv.screen_mut().add_fullscreen_layer(PaddedView::lrtb(
+        0,
+        0,
+        1,
+        0,
+        search.resized(SizeConstraint::Full, SizeConstraint::Free),
+    ));
 
-        let on_submit = move |s: &mut Cursive, item: &String| {
-            load_search_results(item, s);
-        };
+    siv.set_screen(0);
 
-        let search_type = SelectView::new()
-            .item_str("Albums")
-            .item_str("Artists")
-            .item_str("Tracks")
-            .item_str("Playlists")
-            .on_submit(on_submit)
-            .popup()
-            .with_name("search_type")
-            .wrap_with(Panel::new);
-
-        let search_form = EditView::new()
-            .on_submit_mut(move |_, item| {
-                let item = item.to_string();
-
-                tokio::spawn(async move {
-                    let results = qobuz_player_controls::search(&item).await;
-
-                    SINK.get()
-                        .unwrap()
-                        .send(Box::new(move |s| {
-                            s.set_user_data(results);
-
-                            if let Some(view) = s.find_name::<SelectView>("search_type") {
-                                if let Some(value) = view.selection() {
-                                    load_search_results(&value, s);
-                                }
-                            }
-                        }))
-                        .expect("failed to send update");
-                });
-            })
-            .wrap_with(Panel::new);
-
-        let search_results: SelectView<String> = SelectView::new();
-
-        layout.add_child(search_form.title("search"));
-        layout.add_child(search_type);
-
-        layout.add_child(
-            Panel::new(
-                search_results
-                    .with_name("search_results")
-                    .scrollable()
-                    .scroll_y(true)
-                    .scroll_x(true)
-                    .resized(SizeConstraint::Free, SizeConstraint::Full),
-            )
-            .title("results"),
-        );
-
-        layout
-    }
-
-    fn results_list(name: &str) -> ResultsPanel {
-        let panel: ResultsPanel = SelectView::new()
-            .with_name(name)
-            .scrollable()
-            .scroll_y(true)
-            .scroll_x(true);
-
-        panel
-    }
-
-    pub async fn run(&mut self) {
-        let player = self.player();
-        let search = self.search();
-        let my_playlists = self.my_playlists().await;
-
-        self.root
-            .screen_mut()
-            .add_fullscreen_layer(PaddedView::lrtb(
-                0,
-                0,
-                1,
-                0,
-                player.resized(SizeConstraint::Full, SizeConstraint::Free),
-            ));
-
-        self.root.add_active_screen();
-        self.root
-            .screen_mut()
-            .add_fullscreen_layer(PaddedView::lrtb(
-                0,
-                0,
-                1,
-                0,
-                my_playlists.resized(SizeConstraint::Full, SizeConstraint::Free),
-            ));
-
-        self.root.add_active_screen();
-        self.root
-            .screen_mut()
-            .add_fullscreen_layer(PaddedView::lrtb(
-                0,
-                0,
-                1,
-                0,
-                search.resized(SizeConstraint::Full, SizeConstraint::Free),
-            ));
-
-        self.root.set_screen(0);
-
-        self.global_events();
-        self.menubar();
-        self.root.run();
-    }
+    global_events(&mut siv);
+    menubar(&mut siv);
+    siv.run();
 }
 
-impl Default for CursiveUI {
-    fn default() -> Self {
-        Self::new()
-    }
+fn player() -> LinearLayout {
+    let mut container = LinearLayout::new(Orientation::Vertical);
+    let mut track_info = LinearLayout::new(Orientation::Horizontal);
+
+    let meta = PaddedView::lrtb(
+        1,
+        1,
+        0,
+        0,
+        LinearLayout::new(Orientation::Vertical)
+            .child(
+                TextView::new("")
+                    .style(Style::highlight().combine(Effect::Bold))
+                    .with_name("current_track_title")
+                    .scrollable()
+                    .show_scrollbars(false)
+                    .scroll_x(true),
+            )
+            .child(TextView::new("").with_name("artist_name"))
+            .child(
+                TextView::new("")
+                    .with_name("entity_title")
+                    .scrollable()
+                    .show_scrollbars(false)
+                    .scroll_x(true),
+            ),
+    )
+    .resized(SizeConstraint::Full, SizeConstraint::Free);
+
+    let track_num = LinearLayout::new(Orientation::Vertical)
+        .child(
+            TextView::new("000")
+                .h_align(HAlign::Left)
+                .with_name("current_track_number"),
+        )
+        .child(TextView::new("of").h_align(HAlign::Center))
+        .child(
+            TextView::new("000")
+                .h_align(HAlign::Left)
+                .with_name("total_tracks"),
+        )
+        .fixed_width(3);
+
+    let player_status = LinearLayout::new(Orientation::Vertical)
+        .child(
+            TextView::new(format!(" {}", '\u{23f9}'))
+                .h_align(HAlign::Center)
+                .with_name("player_status"),
+        )
+        .child(
+            TextView::new("16 bits")
+                .h_align(HAlign::Right)
+                .with_name("bit_depth"),
+        )
+        .child(
+            TextView::new("44.1 kHz")
+                .h_align(HAlign::Right)
+                .with_name("sample_rate"),
+        )
+        .fixed_width(8);
+
+    let counter = Counter::new(0);
+    let progress = ProgressBar::new()
+        .with_value(counter)
+        .with_label(|value, (_, max)| {
+            let position =
+                ClockTime::from_seconds(value as u64).to_string().as_str()[2..7].to_string();
+            let duration =
+                ClockTime::from_seconds(max as u64).to_string().as_str()[2..7].to_string();
+
+            format!("{position} / {duration}")
+        })
+        .with_name("progress");
+
+    track_info.add_child(track_num);
+    track_info.add_child(meta);
+    track_info.add_child(player_status);
+
+    container.add_child(track_info);
+    container.add_child(progress);
+
+    let mut track_list: SelectView<usize> = SelectView::new();
+
+    track_list.set_on_submit(move |_s, item| {
+        let i = item.to_owned();
+        tokio::spawn(async move { qobuz_player_controls::skip_to_position(i as u32, true).await });
+    });
+
+    let mut layout = LinearLayout::new(Orientation::Vertical).child(
+        Panel::new(container)
+            .title("player")
+            .with_name("player_panel"),
+    );
+
+    layout.add_child(Panel::new(
+        HideableView::new(
+            track_list
+                .scrollable()
+                .scroll_y(true)
+                .scroll_x(true)
+                .with_name("current_track_list"),
+        )
+        .visible(true),
+    ));
+
+    layout
+}
+
+fn global_events(s: &mut Cursive) {
+    s.clear_global_callbacks(Event::CtrlChar('c'));
+
+    s.set_on_pre_event(Event::CtrlChar('c'), move |s| {
+        let dialog = Dialog::text("Do you want to quit?")
+            .button("Yes", move |s: &mut Cursive| {
+                s.quit();
+            })
+            .dismiss_button("No");
+
+        s.add_layer(dialog);
+    });
+
+    s.add_global_callback('1', move |s| {
+        s.set_screen(0);
+    });
+
+    s.add_global_callback('2', move |s| {
+        s.set_screen(1);
+    });
+
+    s.add_global_callback('3', move |s| {
+        s.set_screen(2);
+    });
+
+    s.add_global_callback(' ', move |_| {
+        block_on(async { qobuz_player_controls::play_pause().await.expect("") });
+    });
+
+    s.add_global_callback('N', move |_| {
+        block_on(async { qobuz_player_controls::next().await.expect("") });
+    });
+
+    s.add_global_callback('P', move |_| {
+        block_on(async { qobuz_player_controls::previous().await.expect("") });
+    });
+
+    s.add_global_callback('l', move |_| {
+        block_on(async { qobuz_player_controls::jump_forward().await.expect("") });
+    });
+
+    s.add_global_callback('h', move |_| {
+        block_on(async { qobuz_player_controls::jump_backward().await.expect("") });
+    });
+}
+
+fn menubar(s: &mut Cursive) {
+    s.set_autohide_menu(false);
+
+    s.menubar()
+        .add_leaf("Now Playing [1]", move |s| {
+            s.set_screen(0);
+        })
+        .add_delimiter()
+        .add_leaf("Playlists [2]", move |s| {
+            s.set_screen(1);
+        })
+        .add_delimiter()
+        .add_leaf("Search [3]", move |s| {
+            s.set_screen(2);
+        })
+        .add_delimiter();
+
+    s.add_global_callback('1', move |s| {
+        s.set_screen(0);
+    });
+    s.add_global_callback('2', move |s| {
+        s.set_screen(1);
+    });
+    s.add_global_callback('3', move |s| {
+        s.set_screen(2);
+    });
+}
+
+async fn my_playlists() -> NamedView<LinearLayout> {
+    let mut list_layout = LinearLayout::new(Orientation::Vertical);
+
+    let mut user_playlists = SelectView::new().popup();
+    user_playlists.add_item("Select Playlist", 0);
+
+    let my_playlists = qobuz_player_controls::user_playlists().await;
+    my_playlists.iter().for_each(|p| {
+        user_playlists.add_item(p.title.clone(), p.id);
+    });
+
+    user_playlists.set_on_submit(move |s: &mut Cursive, item: &u32| {
+        if item == &0 {
+            s.call_on_name("play_button", |button: &mut Button| {
+                button.disable();
+            });
+
+            return;
+        }
+
+        let layout = submit_playlist(s, *item).wrap_with(Panel::new);
+
+        s.call_on_name("user_playlist_layout", |l: &mut LinearLayout| {
+            l.remove_child(1);
+            l.add_child(layout);
+        });
+
+        s.call_on_name("play_button", |button: &mut Button| {
+            button.enable();
+        });
+    });
+
+    list_layout.add_child(
+        Panel::new(
+            user_playlists
+                .with_name("user_playlists")
+                .scrollable()
+                .scroll_y(true)
+                .resized(SizeConstraint::Full, SizeConstraint::Free),
+        )
+        .title("my playlists"),
+    );
+
+    list_layout.with_name("user_playlist_layout")
+}
+
+fn search() -> LinearLayout {
+    let mut layout = LinearLayout::new(Orientation::Vertical);
+
+    let on_submit = move |s: &mut Cursive, item: &String| {
+        load_search_results(item, s);
+    };
+
+    let search_type = SelectView::new()
+        .item_str("Albums")
+        .item_str("Artists")
+        .item_str("Tracks")
+        .item_str("Playlists")
+        .on_submit(on_submit)
+        .popup()
+        .with_name("search_type")
+        .wrap_with(Panel::new);
+
+    let search_form = EditView::new()
+        .on_submit_mut(move |_, item| {
+            let item = item.to_string();
+
+            tokio::spawn(async move {
+                let results = qobuz_player_controls::search(&item).await;
+
+                SINK.get()
+                    .unwrap()
+                    .send(Box::new(move |s| {
+                        s.set_user_data(results);
+
+                        if let Some(view) = s.find_name::<SelectView>("search_type") {
+                            if let Some(value) = view.selection() {
+                                load_search_results(&value, s);
+                            }
+                        }
+                    }))
+                    .expect("failed to send update");
+            });
+        })
+        .wrap_with(Panel::new);
+
+    let search_results: SelectView<String> = SelectView::new();
+
+    layout.add_child(search_form.title("search"));
+    layout.add_child(search_type);
+
+    layout.add_child(
+        Panel::new(
+            search_results
+                .with_name("search_results")
+                .scrollable()
+                .scroll_y(true)
+                .scroll_x(true)
+                .resized(SizeConstraint::Free, SizeConstraint::Full),
+        )
+        .title("results"),
+    );
+
+    layout
+}
+
+fn results_list(name: &str) -> ResultsPanel {
+    let panel: ResultsPanel = SelectView::new()
+        .with_name(name)
+        .scrollable()
+        .scroll_y(true)
+        .scroll_x(true);
+
+    panel
 }
 
 type ResultsPanel = ScrollView<NamedView<SelectView<(i32, Option<String>)>>>;
@@ -496,7 +471,7 @@ fn submit_playlist(_s: &mut Cursive, item: u32) -> LinearLayout {
     let playlist_tracks =
         block_on(async { qobuz_player_controls::playlist_tracks(item as i64).await });
 
-    let mut list = CursiveUI::results_list("playlist_items");
+    let mut list = results_list("playlist_items");
     let mut playlist_items = list.get_inner_mut().get_mut();
 
     for t in &playlist_tracks {
