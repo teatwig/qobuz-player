@@ -465,7 +465,6 @@ pub async fn play_album(album_id: &str) -> Result<()> {
         if let Some(first_track) = album.tracks.get_mut(&1) {
             first_track.status = TrackStatus::Playing;
             attach_track_url(client, first_track).await;
-            broadcast_track_list(&tracklist).await?;
 
             PLAYBIN.set_property("uri", first_track.track_url.clone());
             play().await?;
@@ -475,6 +474,8 @@ pub async fn play_album(album_id: &str) -> Result<()> {
         tracklist.playlist = None;
         tracklist.album = Some(album);
         tracklist.list_type = TrackListType::Album;
+
+        broadcast_track_list(&tracklist).await?;
     };
 
     Ok(())
@@ -494,7 +495,6 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
         if let Some(first_track) = playlist.tracks.get_mut(&1) {
             first_track.status = TrackStatus::Playing;
             attach_track_url(client, first_track).await;
-            broadcast_track_list(&tracklist).await?;
 
             PLAYBIN.set_property("uri", first_track.track_url.clone());
             play().await?;
@@ -504,6 +504,8 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
         tracklist.album = None;
         tracklist.playlist = Some(playlist);
         tracklist.list_type = TrackListType::Playlist;
+
+        broadcast_track_list(&tracklist).await?;
     }
 
     Ok(())

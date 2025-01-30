@@ -155,16 +155,6 @@ fn player() -> LinearLayout {
                 .h_align(HAlign::Center)
                 .with_name("player_status"),
         )
-        .child(
-            TextView::new("16 bits")
-                .h_align(HAlign::Right)
-                .with_name("bit_depth"),
-        )
-        .child(
-            TextView::new("44.1 kHz")
-                .h_align(HAlign::Right)
-                .with_name("sample_rate"),
-        )
         .fixed_width(8);
 
     let counter = Counter::new(0);
@@ -574,14 +564,6 @@ fn set_current_track(s: &mut Cursive, track: &Track, lt: &TrackListType) {
         s.call_on_name("artist_name", |view: &mut TextView| {
             view.set_content(artist.name.clone());
         });
-    }
-
-    if let (Some(mut bit_depth), Some(mut sample_rate)) = (
-        s.find_name::<TextView>("bit_depth"),
-        s.find_name::<TextView>("sample_rate"),
-    ) {
-        bit_depth.set_content(format!("{} bits", track.bit_depth));
-        sample_rate.set_content(format!("{} kHz", track.sampling_rate));
     }
 }
 
