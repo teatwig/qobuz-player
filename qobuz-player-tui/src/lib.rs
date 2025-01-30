@@ -34,6 +34,7 @@ pub async fn init() {
     let mut siv = cursive::default();
 
     SINK.set(siv.cb_sink().clone()).expect("error setting sink");
+    tokio::spawn(async { receive_notifications().await });
 
     siv.set_theme(cursive::theme::Theme {
         shadow: false,
@@ -343,7 +344,6 @@ fn search() -> LinearLayout {
     let search_type = SelectView::new()
         .item_str("Albums")
         .item_str("Artists")
-        .item_str("Tracks")
         .item_str("Playlists")
         .on_submit(on_submit)
         .popup()
@@ -393,6 +393,7 @@ fn search() -> LinearLayout {
     layout
 }
 
+type ResultsPanel = ScrollView<NamedView<SelectView<(i32, Option<String>)>>>;
 fn results_list(name: &str) -> ResultsPanel {
     let panel: ResultsPanel = SelectView::new()
         .with_name(name)
@@ -402,8 +403,6 @@ fn results_list(name: &str) -> ResultsPanel {
 
     panel
 }
-
-type ResultsPanel = ScrollView<NamedView<SelectView<(i32, Option<String>)>>>;
 
 fn load_search_results(item: &str, s: &mut Cursive) {
     if let Some(mut search_results) = s.find_name::<SelectView>("search_results") {
@@ -604,7 +603,7 @@ fn get_state_icon(state: GstState) -> String {
     }
 }
 
-pub async fn receive_notifications() {
+async fn receive_notifications() {
     let mut receiver = qobuz_player_controls::notify_receiver();
 
     loop {

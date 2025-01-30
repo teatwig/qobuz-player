@@ -50,7 +50,6 @@ pub struct Album {
 pub struct SearchResults {
     pub query: String,
     pub albums: Vec<Album>,
-    pub tracks: Vec<Track>,
     pub artists: Vec<Artist>,
     pub playlists: Vec<Playlist>,
 }

@@ -40,7 +40,6 @@ async fn index(
         None => SearchResults {
             query: query.clone().unwrap_or("".into()),
             albums: vec![],
-            tracks: vec![],
             artists: vec![],
             playlists: vec![],
         },
@@ -65,7 +64,6 @@ async fn search(
         None => SearchResults {
             query: query.clone().unwrap_or("".into()),
             albums: vec![],
-            tracks: vec![],
             artists: vec![],
             playlists: vec![],
         },

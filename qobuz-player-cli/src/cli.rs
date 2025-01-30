@@ -3,7 +3,6 @@ use dialoguer::{Input, Password};
 use qobuz_api::client::api::OutputFormat;
 use qobuz_player_controls::database;
 use snafu::prelude::*;
-use tokio::task::JoinHandle;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -139,39 +138,6 @@ impl From<qobuz_player_controls::error::Error> for Error {
     }
 }
 
-async fn setup_player(
-    web: bool,
-    interface: String,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<Vec<JoinHandle<()>>, Error> {
-    qobuz_player_controls::init(username, password).await?;
-
-    let mut handles: Vec<JoinHandle<()>> = Vec::new();
-
-    #[cfg(target_os = "linux")]
-    {
-        handles.push(tokio::spawn(async move {
-            qobuz_player_mpris::init().await;
-        }));
-    }
-
-    if web {
-        handles.push(tokio::spawn(async move {
-            qobuz_player_web::init(interface).await
-        }));
-    }
-
-    handles.push(tokio::spawn(async {
-        match qobuz_player_controls::player_loop().await {
-            Ok(_) => debug!("player loop exited successfully"),
-            Err(error) => debug!("player loop error {error}"),
-        }
-    }));
-
-    Ok(handles)
-}
-
 pub async fn run() -> Result<(), Error> {
     // PARSE CLI ARGS
     let cli = Cli::parse();
@@ -188,28 +154,31 @@ pub async fn run() -> Result<(), Error> {
     // CLI COMMANDS
     match cli.command {
         Commands::Open {} => {
-            let mut handles = setup_player(
-                cli.web,
-                cli.interface,
-                cli.username.as_deref(),
-                cli.password.as_deref(),
-            )
-            .await?;
+            qobuz_player_controls::init(cli.username.as_deref(), cli.password.as_deref()).await?;
+
+            #[cfg(target_os = "linux")]
+            {
+                tokio::spawn(async move {
+                    qobuz_player_mpris::init().await;
+                });
+            }
+
+            if cli.web {
+                tokio::spawn(async move { qobuz_player_web::init(cli.interface).await });
+            }
+
+            tokio::spawn(async {
+                match qobuz_player_controls::player_loop().await {
+                    Ok(_) => debug!("player loop exited successfully"),
+                    Err(error) => debug!("player loop error {error}"),
+                }
+            });
 
             if !(cli.disable_tui) {
-                handles.push(tokio::spawn(async {
-                    qobuz_player_tui::receive_notifications().await
-                }));
                 qobuz_player_tui::init().await;
 
                 debug!("tui exited, quitting");
                 qobuz_player_controls::quit().await?;
-                for h in handles {
-                    match h.await {
-                        Ok(_) => debug!("task exited"),
-                        Err(error) => debug!("task error {error}"),
-                    };
-                }
             } else {
                 debug!("waiting for ctrlc");
                 tokio::signal::ctrl_c()
@@ -217,12 +186,6 @@ pub async fn run() -> Result<(), Error> {
                     .expect("error waiting for ctrlc");
                 debug!("ctrlc received, quitting");
                 qobuz_player_controls::quit().await?;
-                for h in handles {
-                    match h.await {
-                        Ok(_) => debug!("task exited"),
-                        Err(error) => debug!("task error {error}"),
-                    };
-                }
             };
 
             Ok(())

@@ -105,12 +105,6 @@ impl From<SearchAllResults> for SearchResults {
                 .into_iter()
                 .map(|a| a.into())
                 .collect::<Vec<Album>>(),
-            tracks: s
-                .tracks
-                .items
-                .into_iter()
-                .map(|t| t.into())
-                .collect::<Vec<Track>>(),
             artists: s
                 .artists
                 .items
