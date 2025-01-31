@@ -18,7 +18,7 @@ use futures::executor::block_on;
 use gstreamer::{ClockTime, State as GstState};
 use qobuz_player_controls::{
     notification::Notification,
-    service::{Album, Artist, SearchResults, Track, TrackStatus},
+    service::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
     tracklist::TrackListType,
 };
 use tracing::debug;
@@ -70,9 +70,18 @@ pub async fn init() {
 
     let player = player();
     let search = search();
-    let favorite_albums = favorite_albums().await;
-    let favorite_artists = favorite_artists().await;
-    let favorite_playlists = favorite_playlists().await;
+
+    let favorites = qobuz_player_controls::favorites().await;
+
+    let Favorites {
+        albums,
+        artists,
+        playlists,
+    } = favorites;
+
+    let favorite_albums = favorite_albums(albums);
+    let favorite_artists = favorite_artists(artists);
+    let favorite_playlists = favorite_playlists(playlists);
 
     siv.screen_mut().add_fullscreen_layer(PaddedView::lrtb(
         0,
@@ -313,13 +322,11 @@ fn menubar(s: &mut Cursive) {
     });
 }
 
-async fn favorite_albums() -> LinearLayout {
+fn favorite_albums(favorite_albums: Vec<Album>) -> LinearLayout {
     let mut list_layout = LinearLayout::new(Orientation::Vertical);
 
-    let favorites = qobuz_player_controls::favorites().await;
-
     let mut album_list = SelectView::new();
-    favorites.albums.iter().for_each(|p| {
+    favorite_albums.iter().for_each(|p| {
         album_list.add_item(p.title.clone(), p.id.clone());
     });
 
@@ -342,13 +349,11 @@ async fn favorite_albums() -> LinearLayout {
     list_layout
 }
 
-async fn favorite_artists() -> LinearLayout {
+fn favorite_artists(favorite_artists: Vec<Artist>) -> LinearLayout {
     let mut list_layout = LinearLayout::new(Orientation::Vertical);
 
-    let favorites = qobuz_player_controls::favorites().await;
-
     let mut artist_list = SelectView::new();
-    favorites.artists.iter().for_each(|p| {
+    favorite_artists.iter().for_each(|p| {
         artist_list.add_item(p.name.clone(), p.id);
     });
 
@@ -370,13 +375,11 @@ async fn favorite_artists() -> LinearLayout {
     list_layout
 }
 
-async fn favorite_playlists() -> LinearLayout {
+fn favorite_playlists(favorite_playlists: Vec<Playlist>) -> LinearLayout {
     let mut list_layout = LinearLayout::new(Orientation::Vertical);
 
-    let favorites = qobuz_player_controls::favorites().await;
-
     let mut playlist_list = SelectView::new();
-    favorites.playlists.iter().for_each(|p| {
+    favorite_playlists.iter().for_each(|p| {
         playlist_list.add_item(p.title.clone(), p.id);
     });
 

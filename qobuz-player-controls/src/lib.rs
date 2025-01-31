@@ -753,12 +753,6 @@ async fn user_playlists() -> Vec<Playlist> {
         })
 }
 
-// #[instrument]
-// /// Get favorites
-// async fn favorites_inner() -> Favorites {
-//     CLIENT.get().unwrap().favorites(1000).await.ok()
-// }
-
 #[instrument]
 #[cached(size = 1, time = 600)]
 /// Get favorites
@@ -766,21 +760,16 @@ pub async fn favorites() -> Favorites {
     let (favorites, favorite_playlists) =
         tokio::join!(CLIENT.get().unwrap().favorites(1000), user_playlists());
 
-    let (albums, tracks, artists) = match favorites {
-        Ok(favorites) => {
-            let qobuz_api::client::favorites::Favorites {
-                albums,
-                tracks,
-                artists,
-            } = favorites;
-            (albums.items, tracks.items, artists.items)
-        }
-        Err(_) => (vec![], vec![], vec![]),
-    };
+    let qobuz_api::client::favorites::Favorites {
+        albums,
+        tracks: _,
+        artists,
+    } = favorites.unwrap();
+    let albums = albums.items;
+    let artists = artists.items;
 
     Favorites {
         albums: albums.into_iter().map(|x| x.into()).collect(),
-        tracks: tracks.into_iter().map(|x| x.into()).collect(),
         artists: artists.into_iter().map(|x| x.into()).collect(),
         playlists: favorite_playlists,
     }
