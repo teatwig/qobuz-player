@@ -167,7 +167,7 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
                     <input
                         id="query"
                         name="query"
-                        class="p-2 w-full text-black rounded"
+                        class="p-2 w-full text-black bg-white rounded"
                         autocapitalize="off"
                         autocomplete="off"
                         autocorrect="off"

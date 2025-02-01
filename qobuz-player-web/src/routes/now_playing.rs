@@ -95,6 +95,7 @@ fn play_pause(play: bool) -> impl IntoView {
     html! {
         <button
             id="play-pause-button"
+            class="cursor-pointer"
             hx-swap="none"
             hx-target="this"
             hx-put=format!("api/{}", if play { "pause" } else { "play" })
@@ -315,7 +316,7 @@ pub fn now_playing(
 
                 <div class="flex flex-col gap-4">
                     <div class="flex flex-row gap-2 justify-center h-10">
-                        <button hx-swap="none" hx-put="api/previous">
+                        <button hx-swap="none" hx-put="api/previous" class="cursor-pointer">
                             <Backward />
                         </button>
 
@@ -331,7 +332,7 @@ pub fn now_playing(
                                 html! { <PlayPause play=true /> }.into_any()
                             }}
                         </div>
-                        <button hx-put="api/next" hx-swap="none">
+                        <button hx-put="api/next" hx-swap="none" class="cursor-pointer">
                             <Forward />
                         </button>
                     </div>

@@ -235,10 +235,9 @@ pub fn list_tracks(
                     html! {
                         <ListItem>
                             <button
-
                                 hx-swap="none"
                                 hx-put=format!("{}/play/{}", parent_id, track.position)
-                                class="flex justify-between items-center w-full text-left"
+                                class="flex justify-between items-center w-full text-left cursor-pointer"
                             >
                                 <span class="flex overflow-hidden gap-4 items-center w-full">
                                     <span class="w-5 text-center">
@@ -290,6 +289,9 @@ pub fn list_playlists(mut playlists: Vec<Playlist>, sort: PlaylistSort) -> impl 
             {playlists
                 .into_iter()
                 .map(|playlist| {
+                    let img_src = playlist
+                        .cover_art
+                        .map(|image| format!("background-image: url({});", image));
                     html! {
                         <ListItem>
                             {html! {
@@ -297,11 +299,10 @@ pub fn list_playlists(mut playlists: Vec<Playlist>, sort: PlaylistSort) -> impl 
                                     class="flex gap-4 items-center w-full text-lg text-left"
                                     href=format!("/playlist/{}", playlist.id)
                                 >
-                                    <img
-                                        class="inline text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
-                                        alt=playlist.title.clone()
-                                        src=playlist.cover_art
-                                    />
+                                    <div
+                                        class="bg-gray-800 bg-center bg-no-repeat bg-cover rounded-md aspect-square size-12"
+                                        style=img_src
+                                    ></div>
 
                                     <p class="w-full text-lg truncate">{playlist.title}</p>
                                 </a>
