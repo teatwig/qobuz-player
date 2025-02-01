@@ -11,15 +11,6 @@ pub mod release;
 pub mod search_results;
 pub mod track;
 
-#[derive(Default, Debug)]
-pub struct ApiConfig {
-    pub username: Option<String>,
-    pub password: Option<String>,
-    pub user_token: Option<String>,
-    pub app_id: Option<String>,
-    pub active_secret: Option<String>,
-}
-
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Composer {
     pub id: i64,

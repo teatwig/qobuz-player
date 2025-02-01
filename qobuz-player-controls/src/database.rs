@@ -1,4 +1,3 @@
-use qobuz_api::client::ApiConfig;
 use sqlx::{sqlite::SqliteConnectOptions, Pool, Sqlite, SqlitePool};
 use std::{path::PathBuf, sync::OnceLock};
 use tracing::debug;
@@ -27,6 +26,16 @@ macro_rules! get_one {
 }
 
 static POOL: OnceLock<Pool<Sqlite>> = OnceLock::new();
+
+#[derive(Default, Debug)]
+pub struct ApiConfig {
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub user_token: Option<String>,
+    pub app_id: Option<String>,
+    pub user_id: Option<i64>,
+    pub active_secret: Option<String>,
+}
 
 pub async fn init() {
     let database_url = if let Ok(url) = std::env::var("DATABASE_URL") {
@@ -103,6 +112,20 @@ pub async fn set_user_token(token: &String) {
             "#,
             conn,
             token
+        );
+    }
+}
+
+pub async fn set_user_id(user_id: i64) {
+    if let Ok(mut conn) = acquire!() {
+        query!(
+            r#"
+            UPDATE config
+            SET user_id=?1
+            WHERE ROWID = 1
+            "#,
+            conn,
+            user_id
         );
     }
 }

@@ -488,9 +488,10 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
 
     let client = CLIENT.get().unwrap();
     let mut tracklist = TRACKLIST.write().await;
+    let user_id = client.get_user_id().unwrap();
 
     if let Ok(playlist) = client.playlist(playlist_id).await {
-        let mut playlist: Playlist = playlist.into();
+        let mut playlist: Playlist = qobuz::parse_playlist(playlist, user_id);
 
         if let Some(first_track) = playlist.tracks.get_mut(&1) {
             first_track.status = TrackStatus::Playing;
@@ -570,13 +571,14 @@ pub async fn current_track() -> Option<Track> {
 #[instrument]
 /// Search the service.
 pub async fn search(query: &str) -> SearchResults {
-    CLIENT
-        .get()
-        .unwrap()
+    let client = CLIENT.get().unwrap();
+    let user_id = client.get_user_id().unwrap();
+
+    client
         .search_all(query, 20)
         .await
         .ok()
-        .map(|x| x.into())
+        .map(|x| qobuz::parse_search_results(x, user_id))
         .unwrap_or_default()
 }
 
@@ -637,13 +639,14 @@ pub async fn suggested_albums(album_id: &str) -> Vec<Album> {
 #[instrument]
 /// Get playlist
 pub async fn playlist(id: i64) -> Playlist {
-    CLIENT
-        .get()
-        .unwrap()
+    let client = CLIENT.get().unwrap();
+
+    let user_id = client.get_user_id().unwrap();
+    client
         .playlist(id)
         .await
         .ok()
-        .map(|x| x.into())
+        .map(|x| qobuz::parse_playlist(x, user_id))
         .unwrap_or_default()
 }
 
@@ -719,46 +722,25 @@ pub async fn remove_favorite_playlist(id: &str) {
 }
 
 #[instrument]
-#[cached(size = 10, time = 600)]
-/// Fetch the tracks for a specific playlist.
-pub async fn playlist_tracks(playlist_id: i64) -> Vec<Track> {
-    CLIENT
-        .get()
-        .unwrap()
-        .playlist(playlist_id)
-        .await
-        .ok()
-        .map_or(vec![], |result| {
-            result.tracks.map_or(vec![], |tracks| {
-                tracks.items.into_iter().map(|track| track.into()).collect()
-            })
-        })
-}
-
-#[instrument]
 /// Fetch the current user's list of playlists.
-async fn user_playlists() -> Vec<Playlist> {
-    CLIENT
-        .get()
-        .unwrap()
-        .user_playlists()
-        .await
-        .ok()
-        .map_or(vec![], |x| {
-            x.playlists
-                .items
-                .into_iter()
-                .map(|playlist| playlist.into())
-                .collect()
-        })
+async fn user_playlists(client: &Client) -> Vec<Playlist> {
+    let user_id = client.get_user_id().unwrap();
+    client.user_playlists().await.ok().map_or(vec![], |x| {
+        x.playlists
+            .items
+            .into_iter()
+            .map(|playlist| qobuz::parse_playlist(playlist, user_id))
+            .collect()
+    })
 }
 
 #[instrument]
 #[cached(size = 1, time = 600)]
 /// Get favorites
 pub async fn favorites() -> Favorites {
+    let client = CLIENT.get().unwrap();
     let (favorites, favorite_playlists) =
-        tokio::join!(CLIENT.get().unwrap().favorites(1000), user_playlists());
+        tokio::join!(client.favorites(1000), user_playlists(client));
 
     let qobuz_api::client::favorites::Favorites {
         albums,

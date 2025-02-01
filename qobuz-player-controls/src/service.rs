@@ -71,6 +71,7 @@ pub struct Artist {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Playlist {
+    pub is_owned: bool,
     pub title: String,
     pub duration_seconds: u32,
     pub tracks_count: u32,

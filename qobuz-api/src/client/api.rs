@@ -47,6 +47,7 @@ pub struct Client {
     base_url: String,
     client: reqwest::Client,
     user_token: Option<String>,
+    user_id: Option<i64>,
     bundle_regex: regex::Regex,
     app_id_regex: regex::Regex,
     seed_regex: regex::Regex,
@@ -56,7 +57,7 @@ pub async fn new(
     active_secret: Option<String>,
     app_id: Option<String>,
     user_token: Option<String>,
-) -> Result<Client> {
+) -> Client {
     let mut headers = HeaderMap::new();
     headers.insert(
             "User-Agent",
@@ -72,17 +73,18 @@ pub async fn new(
         .build()
         .unwrap();
 
-    Ok(Client {
+    Client {
         client,
         secrets: HashMap::new(),
         active_secret,
         user_token,
+        user_id: None,
         app_id,
         base_url: "https://www.qobuz.com/api.json/0.2/".to_string(),
         bundle_regex: regex::Regex::new(BUNDLE_REGEX).unwrap(),
         app_id_regex: regex::Regex::new(APP_REGEX).unwrap(),
         seed_regex: regex::Regex::new(SEED_REGEX).unwrap(),
-    })
+    }
 }
 
 #[non_exhaustive]
@@ -205,7 +207,10 @@ impl Client {
                     let mut token = json["user_auth_token"].to_string();
                     token = token[1..token.len() - 1].to_string();
 
+                    let user_id = json["user"]["id"].to_string().parse::<i64>().unwrap();
+
                     self.user_token = Some(token);
+                    self.user_id = Some(user_id);
                     Ok(())
                 }
                 Err(err) => {
@@ -617,6 +622,14 @@ impl Client {
     // Set a user access token for authentication
     pub fn set_token(&mut self, token: String) {
         self.user_token = Some(token);
+    }
+
+    pub fn set_user_id(&mut self, user_id: i64) {
+        self.user_id = Some(user_id);
+    }
+
+    pub fn get_user_id(&self) -> Option<i64> {
+        self.user_id
     }
 
     // Set an app_id for authentication

@@ -122,20 +122,34 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
                         </span>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <button
-                            class="flex gap-2 justify-center items-center py-2 px-4 bg-blue-500 rounded cursor-pointer"
-                            hx-swap="none"
-                            hx-put=format!("{}/play", playlist.id.clone())
-                        >
-                            <span class="size-6">
-                                <Play />
-                            </span>
-                            <span>Play</span>
-                        </button>
+                    {
+                        let is_not_owned = !playlist.is_owned;
+                        html! {
+                            <div class=is_not_owned.then_some({ "grid grid-cols-2 gap-4" })>
+                                <button
+                                    class="flex gap-2 justify-center items-center py-2 px-4 bg-blue-500 rounded cursor-pointer"
+                                    hx-swap="none"
+                                    hx-put=format!("{}/play", playlist.id.clone())
+                                >
+                                    <span class="size-6">
+                                        <Play />
+                                    </span>
+                                    <span>Play</span>
+                                </button>
 
-                        <ToggleFavorite id=playlist.id.to_string() is_favorite=is_favorite />
-                    </div>
+                                {is_not_owned
+                                    .then_some({
+                                        html! {
+                                            <ToggleFavorite
+                                                id=playlist.id.to_string()
+                                                is_favorite=is_favorite
+                                            />
+                                        }
+                                    })}
+
+                            </div>
+                        }
+                    }
                 </div>
             </div>
             <Tracks now_playing_id=now_playing_id tracks=tracks playlist_id=playlist.id />

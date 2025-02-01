@@ -18,7 +18,7 @@ use tracing::{debug, info};
 pub type Result<T, E = qobuz_api::Error> = std::result::Result<T, E>;
 
 pub async fn make_client(username: Option<&str>, password: Option<&str>) -> Result<QobuzClient> {
-    let mut client = api::new(None, None, None).await?;
+    let mut client = api::new(None, None, None).await;
 
     setup_client(&mut client, username, password).await
 }
@@ -62,9 +62,10 @@ async fn setup_client(
             }
         }
 
-        if let Some(token) = config.user_token {
+        if let (Some(token), Some(user_id)) = (config.user_token, config.user_id) {
             info!("using token from cache");
             client.set_token(token);
+            client.set_user_id(user_id);
         } else {
             let (username, password): (Option<String>, Option<String>) =
                 if let (Some(u), Some(p)) = (username, password) {
@@ -84,6 +85,10 @@ async fn setup_client(
                     database::set_user_token(token).await;
                 }
 
+                if let Some(user_id) = client.get_user_id() {
+                    database::set_user_id(user_id).await;
+                }
+
                 if let Some(secret) = client.get_active_secret() {
                     database::set_active_secret(secret).await;
                 }
@@ -94,29 +99,27 @@ async fn setup_client(
     Ok(client.clone())
 }
 
-impl From<SearchAllResults> for SearchResults {
-    fn from(s: SearchAllResults) -> Self {
-        Self {
-            query: s.query,
-            albums: s
-                .albums
-                .items
-                .into_iter()
-                .map(|a| a.into())
-                .collect::<Vec<Album>>(),
-            artists: s
-                .artists
-                .items
-                .into_iter()
-                .map(|a| a.into())
-                .collect::<Vec<Artist>>(),
-            playlists: s
-                .playlists
-                .items
-                .into_iter()
-                .map(|p| p.into())
-                .collect::<Vec<Playlist>>(),
-        }
+pub fn parse_search_results(search_results: SearchAllResults, user_id: i64) -> SearchResults {
+    SearchResults {
+        query: search_results.query,
+        albums: search_results
+            .albums
+            .items
+            .into_iter()
+            .map(|a| a.into())
+            .collect::<Vec<Album>>(),
+        artists: search_results
+            .artists
+            .items
+            .into_iter()
+            .map(|a| a.into())
+            .collect::<Vec<Artist>>(),
+        playlists: search_results
+            .playlists
+            .items
+            .into_iter()
+            .map(|p| parse_playlist(p, user_id))
+            .collect::<Vec<Playlist>>(),
     }
 }
 
@@ -312,49 +315,48 @@ impl From<QobuzArtist> for Artist {
     }
 }
 
-impl From<QobuzPlaylist> for Playlist {
-    fn from(value: QobuzPlaylist) -> Self {
-        let tracks = if let Some(tracks) = value.tracks {
-            let mut position = 1_u32;
+pub fn parse_playlist(playlist: QobuzPlaylist, user_id: i64) -> Playlist {
+    let tracks = if let Some(tracks) = playlist.tracks {
+        let mut position = 1_u32;
 
-            tracks
-                .items
-                .into_iter()
-                .filter_map(|t| {
-                    if t.streamable {
-                        let mut track: Track = t.into();
+        tracks
+            .items
+            .into_iter()
+            .filter_map(|t| {
+                if t.streamable {
+                    let mut track: Track = t.into();
 
-                        let next_position = position;
-                        track.position = next_position;
+                    let next_position = position;
+                    track.position = next_position;
 
-                        position += 1;
+                    position += 1;
 
-                        Some((next_position, track))
-                    } else {
-                        None
-                    }
-                })
-                .collect::<BTreeMap<u32, Track>>()
-        } else {
-            BTreeMap::new()
-        };
+                    Some((next_position, track))
+                } else {
+                    None
+                }
+            })
+            .collect::<BTreeMap<u32, Track>>()
+    } else {
+        BTreeMap::new()
+    };
 
-        let cover_art = if let Some(image) = value.image_rectangle.first() {
-            Some(image.clone())
-        } else if let Some(images) = value.images300 {
-            images.first().cloned()
-        } else {
-            None
-        };
+    let cover_art = if let Some(image) = playlist.image_rectangle.first() {
+        Some(image.clone())
+    } else if let Some(images) = playlist.images300 {
+        images.first().cloned()
+    } else {
+        None
+    };
 
-        Self {
-            id: value.id as u32,
-            title: value.name,
-            duration_seconds: value.duration as u32,
-            tracks_count: value.tracks_count as u32,
-            cover_art,
-            tracks,
-        }
+    Playlist {
+        id: playlist.id as u32,
+        is_owned: user_id == playlist.owner.id,
+        title: playlist.name,
+        duration_seconds: playlist.duration as u32,
+        tracks_count: playlist.tracks_count as u32,
+        cover_art,
+        tracks,
     }
 }
 
