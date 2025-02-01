@@ -242,7 +242,7 @@ pub fn list_tracks(
                                 <span class="flex overflow-hidden gap-4 items-center w-full">
                                     <span class="w-5 text-center">
                                         {now_playing
-                                            .then(|| {
+                                            .then_some({
                                                 html! {
                                                     <span class="text-blue-500 size-4">
                                                         <Play />
@@ -250,7 +250,7 @@ pub fn list_tracks(
                                                 }
                                             })}
                                         {(!now_playing && show_track_number)
-                                            .then(|| {
+                                            .then_some({
                                                 html! {
                                                     <span class="text-gray-400">{track.position}.</span>
                                                 }

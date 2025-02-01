@@ -27,12 +27,18 @@
         "name": "app_id",
         "ordinal": 4,
         "type_info": "Text"
+      },
+      {
+        "name": "user_id",
+        "ordinal": 5,
+        "type_info": "Int64"
       }
     ],
     "parameters": {
       "Right": 0
     },
     "nullable": [
+      true,
       true,
       true,
       true,
