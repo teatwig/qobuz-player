@@ -23,9 +23,8 @@ use std::{collections::HashMap, fmt::Display};
 
 #[derive(Debug, Clone)]
 pub struct Client {
-    secrets: HashMap<String, String>,
     active_secret: Option<String>,
-    app_id: Option<String>,
+    app_id: String,
     base_url: String,
     client: reqwest::Client,
     user_token: Option<String>,
@@ -48,21 +47,23 @@ pub async fn new(username: &str, password: &str) -> Result<Client> {
         .build()
         .unwrap();
 
+    let Secrets { secrets, app_id } = get_secrets(&http_client).await?;
+
     let base_url = "https://www.qobuz.com/api.json/0.2/".to_string();
 
     let mut client = Client {
         client: http_client,
-        secrets: HashMap::new(),
         active_secret: None,
         user_token: None,
         user_id: None,
-        app_id: None,
+        app_id,
         base_url,
     };
 
-    client.refresh().await?;
     client.login(username, password).await?;
-    client.test_secrets().await?;
+
+    let active_secret = client.find_active_secret(secrets).await?;
+    client.active_secret = Some(active_secret);
 
     Ok(client)
 }
@@ -157,39 +158,36 @@ impl Client {
     async fn login(&mut self, username: &str, password: &str) -> Result<()> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::Login);
 
-        if let Some(app_id) = &self.app_id {
-            info!(
-                "logging in with email ({}) and password **HIDDEN** for app_id {}",
-                username, app_id
-            );
+        let app_id = &self.app_id;
+        info!(
+            "logging in with email ({}) and password **HIDDEN** for app_id {}",
+            username, app_id
+        );
 
-            let params = vec![
-                ("email", username),
-                ("password", password),
-                ("app_id", app_id.as_str()),
-            ];
+        let params = vec![
+            ("email", username),
+            ("password", password),
+            ("app_id", app_id.as_str()),
+        ];
 
-            match self.make_get_call(&endpoint, Some(&params)).await {
-                Ok(response) => {
-                    let json: Value = serde_json::from_str(response.as_str()).unwrap();
-                    info!("Successfully logged in");
-                    debug!("{}", json);
-                    let mut token = json["user_auth_token"].to_string();
-                    token = token[1..token.len() - 1].to_string();
+        match self.make_get_call(&endpoint, Some(&params)).await {
+            Ok(response) => {
+                let json: Value = serde_json::from_str(response.as_str()).unwrap();
+                info!("Successfully logged in");
+                debug!("{}", json);
+                let mut token = json["user_auth_token"].to_string();
+                token = token[1..token.len() - 1].to_string();
 
-                    let user_id = json["user"]["id"].to_string().parse::<i64>().unwrap();
+                let user_id = json["user"]["id"].to_string().parse::<i64>().unwrap();
 
-                    self.user_token = Some(token);
-                    self.user_id = Some(user_id);
-                    Ok(())
-                }
-                Err(err) => {
-                    error!("error logging into qobuz: {}", err);
-                    Err(Error::Login)
-                }
+                self.user_token = Some(token);
+                self.user_id = Some(user_id);
+                Ok(())
             }
-        } else {
-            Err(Error::Login)
+            Err(err) => {
+                error!("error logging into qobuz: {}", err);
+                Err(Error::Login)
+            }
         }
     }
 
@@ -479,24 +477,22 @@ impl Client {
     }
 
     pub async fn artist(&self, artist_id: i32, limit: Option<i32>) -> Result<Artist> {
-        if let Some(app_id) = &self.app_id {
-            let endpoint = format!("{}{}", self.base_url, Endpoint::Artist);
-            let limit = limit.unwrap_or(100).to_string();
+        let app_id = &self.app_id;
 
-            let artistid_string = artist_id.to_string();
+        let endpoint = format!("{}{}", self.base_url, Endpoint::Artist);
+        let limit = limit.unwrap_or(100).to_string();
 
-            let params = vec![
-                ("artist_id", artistid_string.as_str()),
-                ("app_id", app_id),
-                ("limit", &limit),
-                ("offset", "0"),
-                ("extra", "albums"),
-            ];
+        let artistid_string = artist_id.to_string();
 
-            get!(self, &endpoint, Some(&params))
-        } else {
-            Err(Error::AppID)
-        }
+        let params = vec![
+            ("artist_id", artistid_string.as_str()),
+            ("app_id", app_id),
+            ("limit", &limit),
+            ("offset", "0"),
+            ("extra", "albums"),
+        ];
+
+        get!(self, &endpoint, Some(&params))
     }
 
     pub async fn similar_artists(&self, artist_id: i32, limit: Option<i32>) -> Result<Artists> {
@@ -558,19 +554,12 @@ impl Client {
         self.user_id
     }
 
-    fn set_active_secret(&mut self, active_secret: String) {
-        self.active_secret = Some(active_secret);
-    }
-
     fn client_headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
 
-        if let Some(app_id) = &self.app_id {
-            debug!("adding app_id to request headers: {}", app_id);
-            headers.insert("X-App-Id", HeaderValue::from_str(app_id).unwrap());
-        } else {
-            error!("no app_id");
-        }
+        let app_id = &self.app_id;
+        debug!("adding app_id to request headers: {}", app_id);
+        headers.insert("X-App-Id", HeaderValue::from_str(app_id).unwrap());
 
         if let Some(token) = &self.user_token {
             debug!("adding token to request headers: {}", token);
@@ -638,43 +627,68 @@ impl Client {
         }
     }
 
-    // ported from https://github.com/vitiko98/qobuz-dl/blob/master/qobuz_dl/bundle.py
-    // Retrieve the app_id and generate the secrets needed to authenticate
-    async fn refresh(&mut self) -> Result<()> {
-        debug!("fetching login page");
-        let play_url = "https://play.qobuz.com";
-        let login_page = self.client.get(format!("{play_url}/login")).send().await?;
+    // Check the retrieved secrets to see which one works.
+    async fn find_active_secret(&mut self, secrets: HashMap<String, String>) -> Result<String> {
+        debug!("testing secrets: {secrets:?}");
 
-        let contents = login_page.text().await.unwrap();
+        for (timezone, secret) in secrets.into_iter() {
+            let response = self.track_url(64868955, Some(&secret)).await;
 
-        let bundle_regex = regex::Regex::new(
-            r#"<script src="(/resources/\d+\.\d+\.\d+-[a-z0-9]\d{3}/bundle\.js)"></script>"#,
-        )
-        .unwrap();
-        let app_id_regex = regex::Regex::new(
-            r#"production:\{api:\{appId:"(?P<app_id>\d{9})",appSecret:"(?P<app_secret>\w{32})""#,
-        )
-        .unwrap();
-        let seed_regex = regex::Regex::new(
-            r#"[a-z]\.initialSeed\("(?P<seed>[\w=]+)",window\.utimezone\.(?P<timezone>[a-z]+)\)"#,
-        )
-        .unwrap();
+            if response.is_ok() {
+                debug!("found good secret: {}\t{}", timezone, secret);
+                let secret_string = secret;
 
-        if let Some(captures) = bundle_regex.captures(contents.as_str()) {
-            let bundle_path = captures.get(1).map_or("", |m| m.as_str());
-            let bundle_url = format!("{play_url}{bundle_path}");
-            if let Ok(bundle_page) = self.client.get(bundle_url).send().await {
-                if let Ok(bundle_contents) = bundle_page.text().await {
-                    if let Some(captures) = app_id_regex.captures(bundle_contents.as_str()) {
-                        let app_id = captures
-                            .name("app_id")
-                            .map_or("".to_string(), |m| m.as_str().to_string());
+                return Ok(secret_string);
+            }
+        }
 
-                        self.app_id = Some(app_id.clone());
+        Err(Error::ActiveSecret)
+    }
+}
 
-                        let seed_data = seed_regex.captures_iter(bundle_contents.as_str());
+struct Secrets {
+    secrets: HashMap<String, String>,
+    app_id: String,
+}
 
-                        seed_data.for_each(|s| {
+// ported from https://github.com/vitiko98/qobuz-dl/blob/master/qobuz_dl/bundle.py
+// Retrieve the app_id and generate the secrets needed to authenticate
+async fn get_secrets(client: &reqwest::Client) -> Result<Secrets> {
+    debug!("fetching login page");
+    let play_url = "https://play.qobuz.com";
+    let login_page = client.get(format!("{play_url}/login")).send().await?;
+
+    let contents = login_page.text().await.unwrap();
+
+    let bundle_regex = regex::Regex::new(
+        r#"<script src="(/resources/\d+\.\d+\.\d+-[a-z0-9]\d{3}/bundle\.js)"></script>"#,
+    )
+    .unwrap();
+    let app_id_regex = regex::Regex::new(
+        r#"production:\{api:\{appId:"(?P<app_id>\d{9})",appSecret:"(?P<app_secret>\w{32})""#,
+    )
+    .unwrap();
+    let seed_regex = regex::Regex::new(
+        r#"[a-z]\.initialSeed\("(?P<seed>[\w=]+)",window\.utimezone\.(?P<timezone>[a-z]+)\)"#,
+    )
+    .unwrap();
+
+    let mut secrets = HashMap::new();
+
+    let app_id = if let Some(captures) = bundle_regex.captures(contents.as_str()) {
+        let bundle_path = captures.get(1).map_or("", |m| m.as_str());
+        let bundle_url = format!("{play_url}{bundle_path}");
+        if let Ok(bundle_page) = client.get(bundle_url).send().await {
+            if let Ok(bundle_contents) = bundle_page.text().await {
+                if let Some(captures) = app_id_regex.captures(bundle_contents.as_str()) {
+                    let found_app_id = captures
+                        .name("app_id")
+                        .map_or("".to_string(), |m| m.as_str().to_string());
+
+                    // app_id = Some(found_app_id);
+                    let seed_data = seed_regex.captures_iter(bundle_contents.as_str());
+
+                    seed_data.for_each(|s| {
                             let seed = s.name("seed").map_or("", |m| m.as_str()).to_string();
                             let mut timezone =
                                 s.name("timezone").map_or("", |m| m.as_str()).to_string();
@@ -702,51 +716,24 @@ impl Client {
                                         .expect("failed to convert base64 to string")
                                         .to_string();
 
-                                    debug!(
-                                        "{}\t{}\t{}",
-                                        app_id,
-                                        timezone.to_lowercase(),
-                                        secret_utf8
-                                    );
-                                    self.secrets.insert(timezone, secret_utf8);
+                                    secrets.insert(timezone, secret_utf8);
                                 });
                         });
-
-                        Ok(())
-                    } else {
-                        Err(Error::AppID)
-                    }
+                    found_app_id
                 } else {
-                    Err(Error::AppID)
+                    return Err(Error::AppID);
                 }
             } else {
-                Err(Error::AppID)
+                return Err(Error::AppID);
             }
         } else {
-            Err(Error::AppID)
+            return Err(Error::AppID);
         }
-    }
+    } else {
+        return Err(Error::AppID);
+    };
 
-    // Check the retrieved secrets to see which one works.
-    async fn test_secrets(&mut self) -> Result<()> {
-        let secrets = self.secrets.clone();
-        debug!("testing secrets: {secrets:?}");
-
-        for (timezone, secret) in secrets.iter() {
-            let response = self.track_url(64868955, Some(secret)).await;
-
-            if response.is_ok() {
-                debug!("found good secret: {}\t{}", timezone, secret);
-                let secret_string = secret.to_string();
-
-                self.set_active_secret(secret_string);
-
-                return Ok(());
-            }
-        }
-
-        Err(Error::ActiveSecret)
-    }
+    Ok(Secrets { secrets, app_id })
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
