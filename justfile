@@ -53,7 +53,7 @@ install-sqlx:
   cargo install sqlx-cli --force
 
 reset-database:
-  touch $(echo $DATABASE_URL | sed -e "s/sqlite:\/\///g") && cargo sqlx database reset --source {{invocation_directory()}}/qobuz-player-controls/migrations -y
+  touch $(echo $DATABASE_URL | sed -e "s/sqlite:\/\///g") && cargo sqlx database reset --source {{invocation_directory()}}/qobuz-player-cli/migrations -y
 
 build-tailwind:
   cd qobuz-player-web && npm install && npm run build

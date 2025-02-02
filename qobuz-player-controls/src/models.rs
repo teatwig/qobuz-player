@@ -1,103 +1,16 @@
-use crate::{
-    database,
-    service::{Album, Artist, Playlist, SearchResults, Track, TrackStatus},
-};
-use qobuz_api::client::{
+use qobuz_player_client::qobuz_models::{
     album::Album as QobuzAlbum,
     album_suggestion::AlbumSuggestion,
-    api::{self, Client as QobuzClient},
     artist::Artist as QobuzArtist,
     playlist::Playlist as QobuzPlaylist,
     release::{Release, Track as QobuzReleaseTrack},
     search_results::SearchAllResults,
     track::Track as QobuzTrack,
+    Image,
 };
-use std::{collections::BTreeMap, str::FromStr};
-use tracing::{debug, info};
+use std::{collections::BTreeMap, fmt::Debug, str::FromStr};
 
-pub type Result<T, E = qobuz_api::Error> = std::result::Result<T, E>;
-
-pub async fn make_client(username: Option<&str>, password: Option<&str>) -> Result<QobuzClient> {
-    let mut client = api::new(None, None, None).await;
-
-    setup_client(&mut client, username, password).await
-}
-
-/// Setup app_id, secret and user credentials for authentication
-async fn setup_client(
-    client: &mut QobuzClient,
-    username: Option<&str>,
-    password: Option<&str>,
-) -> Result<QobuzClient> {
-    debug!("setting up the api client");
-
-    if let Some(config) = database::get_config().await {
-        let mut refresh_config = false;
-
-        if let Some(app_id) = config.app_id {
-            debug!("using app_id from cache");
-            client.set_app_id(app_id);
-        } else {
-            debug!("app_id not found, will have to refresh config");
-            refresh_config = true;
-        }
-
-        if let Some(secret) = config.active_secret {
-            debug!("using active secret from cache");
-            client.set_active_secret(secret);
-        } else {
-            debug!("active_secret not found, will have to refresh config");
-            refresh_config = true;
-        }
-
-        if refresh_config {
-            client.refresh().await?;
-
-            if let Some(id) = client.get_app_id() {
-                database::set_app_id(id).await;
-            }
-
-            if let Some(secret) = client.get_active_secret() {
-                database::set_active_secret(secret).await;
-            }
-        }
-
-        if let (Some(token), Some(user_id)) = (config.user_token, config.user_id) {
-            info!("using token from cache");
-            client.set_token(token);
-            client.set_user_id(user_id);
-        } else {
-            let (username, password): (Option<String>, Option<String>) =
-                if let (Some(u), Some(p)) = (username, password) {
-                    (Some(u.to_string()), Some(p.to_string()))
-                } else if let (Some(u), Some(p)) = (config.username, config.password) {
-                    (Some(u), Some(p))
-                } else {
-                    (None, None)
-                };
-
-            if let (Some(username), Some(password)) = (username, password) {
-                info!("setting auth using username and password from cache");
-                client.login(&username, &password).await?;
-                client.test_secrets().await?;
-
-                if let Some(token) = client.get_token() {
-                    database::set_user_token(token).await;
-                }
-
-                if let Some(user_id) = client.get_user_id() {
-                    database::set_user_id(user_id).await;
-                }
-
-                if let Some(secret) = client.get_active_secret() {
-                    database::set_active_secret(secret).await;
-                }
-            }
-        }
-    }
-
-    Ok(client.clone())
-}
+// pub type Result<T, E = qobuz_player_client::Error> = std::result::Result<T, E>;
 
 pub fn parse_search_results(search_results: SearchAllResults, user_id: i64) -> SearchResults {
     SearchResults {
@@ -140,7 +53,7 @@ impl From<QobuzReleaseTrack> for Track {
             hires_available: s.rights.streamable,
             sampling_rate: s.audio_info.maximum_sampling_rate,
             bit_depth: s.audio_info.maximum_bit_depth,
-            status: crate::service::TrackStatus::Unplayed,
+            status: TrackStatus::Unplayed,
             track_url: None,
             available: s.rights.streamable,
             cover_art: None,
@@ -412,4 +325,83 @@ impl From<&QobuzTrack> for Track {
     fn from(value: &QobuzTrack) -> Self {
         value.clone().into()
     }
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub enum TrackStatus {
+    Played,
+    Playing,
+    #[default]
+    Unplayed,
+    Unplayable,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Track {
+    pub id: u32,
+    pub number: u32,
+    pub title: String,
+    pub album: Option<Album>,
+    pub artist: Option<Artist>,
+    pub duration_seconds: u32,
+    pub explicit: bool,
+    pub hires_available: bool,
+    pub sampling_rate: f32,
+    pub bit_depth: u32,
+    pub status: TrackStatus,
+    pub track_url: Option<String>,
+    pub available: bool,
+    pub cover_art: Option<String>,
+    pub position: u32,
+    pub media_number: u32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Album {
+    pub id: String,
+    pub title: String,
+    pub artist: Artist,
+    pub release_year: u32,
+    pub hires_available: bool,
+    pub explicit: bool,
+    pub total_tracks: u32,
+    pub tracks: BTreeMap<u32, Track>,
+    pub available: bool,
+    pub cover_art: String,
+    pub cover_art_small: String,
+    pub duration_seconds: u32,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct SearchResults {
+    pub query: String,
+    pub albums: Vec<Album>,
+    pub artists: Vec<Artist>,
+    pub playlists: Vec<Playlist>,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct Favorites {
+    pub albums: Vec<Album>,
+    pub artists: Vec<Artist>,
+    pub playlists: Vec<Playlist>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq)]
+pub struct Artist {
+    pub id: u32,
+    pub name: String,
+    pub image: Option<Image>,
+    pub albums: Option<Vec<Album>>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Playlist {
+    pub is_owned: bool,
+    pub title: String,
+    pub duration_seconds: u32,
+    pub tracks_count: u32,
+    pub id: u32,
+    pub cover_art: Option<String>,
+    pub tracks: BTreeMap<u32, Track>,
 }

@@ -1,6 +1,6 @@
 use axum::{extract::Path, response::IntoResponse, routing::get, Router};
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::service::Favorites;
+use qobuz_player_controls::models::Favorites;
 use std::sync::Arc;
 
 use crate::{

@@ -1,4 +1,4 @@
-use crate::client::{artist::OtherArtists, Image};
+use crate::qobuz_models::{artist::OtherArtists, Image};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

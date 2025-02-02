@@ -1,3 +1,4 @@
+use crate::models::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
 use cached::proc_macro::cached;
 use error::Error;
 use futures::prelude::*;
@@ -6,8 +7,7 @@ use gstreamer::{
     StateChangeSuccess, Structure,
 };
 use notification::Notification;
-use qobuz_api::client::api::Client;
-use service::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
+use qobuz_player_client::client::Client;
 use std::{
     collections::BTreeMap,
     str::FromStr,
@@ -27,11 +27,9 @@ use tokio::{
 use tracing::{debug, instrument};
 use tracklist::{TrackListType, Tracklist};
 
-pub mod database;
 pub mod error;
+pub mod models;
 pub mod notification;
-pub mod qobuz;
-pub mod service;
 pub mod tracklist;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -137,8 +135,8 @@ static USER_AGENTS: &[&str] = &[
 ];
 
 #[instrument]
-pub async fn init(username: Option<&str>, password: Option<&str>) -> Result<()> {
-    let client = qobuz::make_client(username, password)
+pub async fn init(username: &str, password: &str) -> Result<()> {
+    let client = qobuz_player_client::client::new(username, password)
         .await
         .expect("error making client");
 
@@ -491,7 +489,7 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
     let user_id = client.get_user_id().unwrap();
 
     if let Ok(playlist) = client.playlist(playlist_id).await {
-        let mut playlist: Playlist = qobuz::parse_playlist(playlist, user_id);
+        let mut playlist: Playlist = models::parse_playlist(playlist, user_id);
 
         if let Some(first_track) = playlist.tracks.get_mut(&1) {
             first_track.status = TrackStatus::Playing;
@@ -569,7 +567,6 @@ pub async fn current_track() -> Option<Track> {
 }
 
 #[instrument]
-/// Search the service.
 pub async fn search(query: &str) -> SearchResults {
     let client = CLIENT.get().unwrap();
     let user_id = client.get_user_id().unwrap();
@@ -578,7 +575,7 @@ pub async fn search(query: &str) -> SearchResults {
         .search_all(query, 20)
         .await
         .ok()
-        .map(|x| qobuz::parse_search_results(x, user_id))
+        .map(|x| models::parse_search_results(x, user_id))
         .unwrap_or_default()
 }
 
@@ -646,7 +643,7 @@ pub async fn playlist(id: i64) -> Playlist {
         .playlist(id)
         .await
         .ok()
-        .map(|x| qobuz::parse_playlist(x, user_id))
+        .map(|x| models::parse_playlist(x, user_id))
         .unwrap_or_default()
 }
 
@@ -729,7 +726,7 @@ async fn user_playlists(client: &Client) -> Vec<Playlist> {
         x.playlists
             .items
             .into_iter()
-            .map(|playlist| qobuz::parse_playlist(playlist, user_id))
+            .map(|playlist| models::parse_playlist(playlist, user_id))
             .collect()
     })
 }
@@ -742,7 +739,7 @@ pub async fn favorites() -> Favorites {
     let (favorites, favorite_playlists) =
         tokio::join!(client.favorites(1000), user_playlists(client));
 
-    let qobuz_api::client::favorites::Favorites {
+    let qobuz_player_client::qobuz_models::favorites::Favorites {
         albums,
         tracks: _,
         artists,

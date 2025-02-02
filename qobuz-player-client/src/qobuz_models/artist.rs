@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::client::{album::Albums, Image};
+use crate::qobuz_models::{album::Albums, Image};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ArtistSearchResults {

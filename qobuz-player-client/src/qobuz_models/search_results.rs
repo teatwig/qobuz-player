@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::client::{album::Albums, artist::Artist, playlist::Playlists, track::Track, Image};
+use crate::qobuz_models::{
+    album::Albums, artist::Artist, playlist::Playlists, track::Track, Image,
+};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
