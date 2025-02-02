@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::service::{Album, Track};
+use qobuz_player_controls::models::{Album, Track};
 use std::sync::Arc;
 use tokio::join;
 

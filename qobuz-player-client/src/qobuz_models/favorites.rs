@@ -1,4 +1,4 @@
-use crate::client::{album::Albums, artist::Artist, track::Track};
+use crate::qobuz_models::{album::Albums, artist::Artist, track::Track};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

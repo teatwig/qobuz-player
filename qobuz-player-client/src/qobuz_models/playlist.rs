@@ -1,4 +1,4 @@
-use crate::client::{track::Tracks, User};
+use crate::qobuz_models::{track::Tracks, User};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,8 +1,8 @@
 use chrono::{DateTime, Duration, Local};
 use gstreamer::{ClockTime, State as GstState};
 use qobuz_player_controls::{
+    models::{Album, Track, TrackStatus},
     notification::Notification,
-    service::{Album, Track, TrackStatus},
 };
 use std::collections::HashMap;
 use tracing::debug;

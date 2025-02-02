@@ -1,4 +1,4 @@
-use crate::service::{Album, Playlist, Track, TrackStatus};
+use crate::models::{Album, Playlist, Track, TrackStatus};
 use std::collections::BTreeMap;
 use tracing::instrument;
 

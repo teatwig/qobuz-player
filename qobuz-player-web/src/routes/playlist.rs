@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use leptos::prelude::*;
-use qobuz_player_controls::service::{Playlist, Track};
+use qobuz_player_controls::models::{Playlist, Track};
 use std::sync::Arc;
 use tokio::join;
 

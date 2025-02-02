@@ -7,7 +7,7 @@ license-file.workspace = true
 repository.workspace = true
 
 [dependencies]
-qobuz-api = { version = "*", path = "../qobuz-api" }
+qobuz-player-client = { version = "*", path = "../qobuz-player-client" }
 qobuz-player-controls= { version = "*", path = "../qobuz-player-controls" }
 qobuz-player-mpris = { version = "*", path = "../qobuz-player-mpris" }
 qobuz-player-web = { version = "*", path = "../qobuz-player-web" }
@@ -17,6 +17,8 @@ clap = { workspace = true, features = ["derive", "env"] }
 dialoguer = { workspace = true, features = ["fuzzy-select"] }
 md5 = { workspace = true }
 snafu = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "sqlite", "migrate", "macros"] }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+dirs = { workspace = true }

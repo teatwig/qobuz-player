@@ -51,8 +51,8 @@ impl From<StateChangeError> for Error {
     }
 }
 
-impl From<qobuz_api::Error> for Error {
-    fn from(value: qobuz_api::Error) -> Self {
+impl From<qobuz_player_client::Error> for Error {
+    fn from(value: qobuz_player_client::Error) -> Self {
         Error::Client {
             message: value.to_string(),
         }

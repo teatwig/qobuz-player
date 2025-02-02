@@ -5,7 +5,7 @@ use axum::{
     Form, Router,
 };
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::service::SearchResults;
+use qobuz_player_controls::models::SearchResults;
 use serde::Deserialize;
 use std::sync::Arc;
 

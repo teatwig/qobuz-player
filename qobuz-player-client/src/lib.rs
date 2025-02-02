@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use snafu::prelude::*;
 
 //extern crate pretty_env_logger;
@@ -6,6 +5,7 @@ use snafu::prelude::*;
 extern crate tracing;
 
 pub mod client;
+pub mod qobuz_models;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -46,10 +46,4 @@ impl From<reqwest::Error> for Error {
             },
         }
     }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Credentials {
-    pub username: Option<String>,
-    pub password: Option<String>,
 }

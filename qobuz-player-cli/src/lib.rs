@@ -4,3 +4,4 @@ extern crate tracing;
 
 #[macro_use]
 pub mod cli;
+mod database;

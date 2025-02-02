@@ -31,10 +31,6 @@ static POOL: OnceLock<Pool<Sqlite>> = OnceLock::new();
 pub struct ApiConfig {
     pub username: Option<String>,
     pub password: Option<String>,
-    pub user_token: Option<String>,
-    pub app_id: Option<String>,
-    pub user_id: Option<i64>,
-    pub active_secret: Option<String>,
 }
 
 pub async fn init() {
@@ -75,117 +71,52 @@ pub async fn init() {
 }
 
 pub async fn set_username(username: String) {
-    if let Ok(mut conn) = acquire!() {
-        query!(
-            r#"
+    let mut conn = acquire!().unwrap();
+    query!(
+        r#"
             UPDATE config
             SET username=?1
             WHERE ROWID = 1
             "#,
-            conn,
-            username
-        );
-    }
+        conn,
+        username
+    );
 }
 
 pub async fn set_password(password: String) {
-    if let Ok(mut conn) = acquire!() {
-        query!(
-            r#"
+    let mut conn = acquire!().unwrap();
+    query!(
+        r#"
             UPDATE config
             SET password=?1
             WHERE ROWID = 1
             "#,
-            conn,
-            password
-        );
-    }
-}
-
-pub async fn set_user_token(token: &String) {
-    if let Ok(mut conn) = acquire!() {
-        query!(
-            r#"
-            UPDATE config
-            SET user_token=?1
-            WHERE ROWID = 1
-            "#,
-            conn,
-            token
-        );
-    }
-}
-
-pub async fn set_user_id(user_id: i64) {
-    if let Ok(mut conn) = acquire!() {
-        query!(
-            r#"
-            UPDATE config
-            SET user_id=?1
-            WHERE ROWID = 1
-            "#,
-            conn,
-            user_id
-        );
-    }
-}
-
-pub async fn set_app_id(id: &String) {
-    if let Ok(mut conn) = acquire!() {
-        query!(
-            r#"
-            UPDATE config
-            SET app_id=?1
-            WHERE ROWID = 1
-            "#,
-            conn,
-            id
-        );
-    }
-}
-
-pub async fn set_active_secret(secret: &String) {
-    if let Ok(mut conn) = acquire!() {
-        query!(
-            r#"
-            UPDATE config
-            SET active_secret=?1
-            WHERE ROWID = 1
-            "#,
-            conn,
-            secret
-        );
-    }
+        conn,
+        password
+    );
 }
 
 pub async fn create_config() {
-    if let Ok(mut conn) = acquire!() {
-        let rowid = 1;
-        query!(
-            r#"
+    let mut conn = acquire!().unwrap();
+    let rowid = 1;
+    query!(
+        r#"
             INSERT OR IGNORE INTO config (ROWID) VALUES (?1);
             "#,
-            conn,
-            rowid
-        );
-    }
+        conn,
+        rowid
+    );
 }
+pub async fn get_config() -> ApiConfig {
+    let mut conn = acquire!().unwrap();
 
-pub async fn get_config() -> Option<ApiConfig> {
-    if let Ok(mut conn) = acquire!() {
-        if let Ok(conf) = get_one!(
-            r#"
+    get_one!(
+        r#"
             SELECT * FROM config
             WHERE ROWID = 1;
             "#,
-            ApiConfig,
-            conn
-        ) {
-            Some(conf)
-        } else {
-            None
-        }
-    } else {
-        None
-    }
+        ApiConfig,
+        conn
+    )
+    .unwrap()
 }

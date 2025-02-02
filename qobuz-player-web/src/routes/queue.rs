@@ -6,7 +6,7 @@ use axum::{
 };
 use leptos::{component, prelude::*, IntoView};
 use qobuz_player_controls::{
-    service::TrackStatus,
+    models::TrackStatus,
     tracklist::{TrackListType, Tracklist},
 };
 use std::sync::Arc;

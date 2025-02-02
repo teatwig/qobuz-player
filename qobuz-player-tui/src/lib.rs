@@ -17,8 +17,8 @@ use cursive::{
 use futures::executor::block_on;
 use gstreamer::{ClockTime, State as GstState};
 use qobuz_player_controls::{
+    models::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
     notification::Notification,
-    service::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
     tracklist::TrackListType,
 };
 use tracing::debug;

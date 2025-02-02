@@ -1,18 +1,18 @@
 use crate::{
-    client::{
+    qobuz_models::{
         album::{Album, AlbumSearchResults},
-        artist::{Artist, ArtistSearchResults},
+        album_suggestion::AlbumSuggestionResults,
+        artist::Artist,
+        artist::{Artists, ArtistsResponse},
         favorites::Favorites,
         playlist::{Playlist, UserPlaylistsResult},
         release::{Release, ReleaseQuery},
         search_results::SearchAllResults,
-        track::Track,
         TrackURL,
     },
     Error, Result,
 };
 use base64::{engine::general_purpose, Engine as _};
-use clap::ValueEnum;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     Method, Response, StatusCode,
@@ -20,24 +20,6 @@ use reqwest::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, fmt::Display};
-
-use super::{
-    album_suggestion::AlbumSuggestionResults,
-    artist::{Artists, ArtistsResponse},
-};
-
-const BUNDLE_REGEX: &str =
-    r#"<script src="(/resources/\d+\.\d+\.\d+-[a-z0-9]\d{3}/bundle\.js)"></script>"#;
-const APP_REGEX: &str =
-    r#"production:\{api:\{appId:"(?P<app_id>\d{9})",appSecret:"(?P<app_secret>\w{32})""#;
-const SEED_REGEX: &str =
-    r#"[a-z]\.initialSeed\("(?P<seed>[\w=]+)",window\.utimezone\.(?P<timezone>[a-z]+)\)"#;
-
-macro_rules! info_regex {
-    () => {
-        r#"name:"\w+/(?P<timezone>{}([a-z]?))",info:"(?P<info>[\w=]+)",extras:"(?P<extras>[\w=]+)""#
-    };
-}
 
 #[derive(Debug, Clone)]
 pub struct Client {
@@ -48,16 +30,9 @@ pub struct Client {
     client: reqwest::Client,
     user_token: Option<String>,
     user_id: Option<i64>,
-    bundle_regex: regex::Regex,
-    app_id_regex: regex::Regex,
-    seed_regex: regex::Regex,
 }
 
-pub async fn new(
-    active_secret: Option<String>,
-    app_id: Option<String>,
-    user_token: Option<String>,
-) -> Client {
+pub async fn new(username: &str, password: &str) -> Result<Client> {
     let mut headers = HeaderMap::new();
     headers.insert(
             "User-Agent",
@@ -67,36 +42,38 @@ pub async fn new(
             .unwrap(),
         );
 
-    let client = reqwest::Client::builder()
+    let http_client = reqwest::Client::builder()
         .cookie_store(true)
         .default_headers(headers)
         .build()
         .unwrap();
 
-    Client {
-        client,
+    let base_url = "https://www.qobuz.com/api.json/0.2/".to_string();
+
+    let mut client = Client {
+        client: http_client,
         secrets: HashMap::new(),
-        active_secret,
-        user_token,
+        active_secret: None,
+        user_token: None,
         user_id: None,
-        app_id,
-        base_url: "https://www.qobuz.com/api.json/0.2/".to_string(),
-        bundle_regex: regex::Regex::new(BUNDLE_REGEX).unwrap(),
-        app_id_regex: regex::Regex::new(APP_REGEX).unwrap(),
-        seed_regex: regex::Regex::new(SEED_REGEX).unwrap(),
-    }
+        app_id: None,
+        base_url,
+    };
+
+    client.refresh().await?;
+    client.login(username, password).await?;
+    client.test_secrets().await?;
+
+    Ok(client)
 }
 
-#[non_exhaustive]
 enum Endpoint {
     Album,
     Artist,
     SimilarArtists,
     ArtistReleases,
     Login,
-    Track,
     UserPlaylist,
-    SearchArtists,
     SearchAlbums,
     TrackURL,
     Playlist,
@@ -130,8 +107,6 @@ impl Display for Endpoint {
             Endpoint::PlaylistUpdatePosition => "playlist/updateTracksPosition",
             Endpoint::Search => "catalog/search",
             Endpoint::SearchAlbums => "album/search",
-            Endpoint::SearchArtists => "artist/search",
-            Endpoint::Track => "track/get",
             Endpoint::TrackURL => "track/getFileUrl",
             Endpoint::UserPlaylist => "playlist/getUserPlaylists",
             Endpoint::Favorites => "favorite/getUserFavorites",
@@ -179,12 +154,7 @@ macro_rules! post {
 }
 
 impl Client {
-    pub fn signed_in(&self) -> bool {
-        self.user_token.is_some()
-    }
-
-    /// Login a user
-    pub async fn login(&mut self, username: &str, password: &str) -> Result<()> {
+    async fn login(&mut self, username: &str, password: &str) -> Result<()> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::Login);
 
         if let Some(app_id) = &self.app_id {
@@ -223,7 +193,6 @@ impl Client {
         }
     }
 
-    /// Retrieve a list of the user's playlists
     pub async fn user_playlists(&self) -> Result<UserPlaylistsResult> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::UserPlaylist);
         let params = vec![("limit", "500"), ("extra", "tracks"), ("offset", "0")];
@@ -231,7 +200,6 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
-    /// Retrieve a playlist
     pub async fn playlist(&self, playlist_id: i64) -> Result<Playlist> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::Playlist);
         let id_string = playlist_id.to_string();
@@ -331,7 +299,6 @@ impl Client {
         post!(self, &endpoint, form_data)
     }
 
-    /// Add new track to playlist
     pub async fn playlist_add_track(
         &self,
         playlist_id: &str,
@@ -349,7 +316,6 @@ impl Client {
         post!(self, &endpoint, form_data)
     }
 
-    /// Add new track to playlist
     pub async fn playlist_delete_track(
         &self,
         playlist_id: String,
@@ -366,8 +332,7 @@ impl Client {
         post!(self, &endpoint, form_data)
     }
 
-    /// Update track position in playlist
-    pub async fn playlist_track_position(
+    pub async fn update_playlist_track_position(
         &self,
         index: usize,
         playlist_id: &str,
@@ -385,16 +350,6 @@ impl Client {
         post!(self, &endpoint, form_data)
     }
 
-    /// Retrieve track information
-    pub async fn track(&self, track_id: i32) -> Result<Track> {
-        let endpoint = format!("{}{}", self.base_url, Endpoint::Track);
-        let track_id_string = track_id.to_string();
-        let params = vec![("track_id", track_id_string.as_str())];
-
-        get!(self, &endpoint, Some(&params))
-    }
-
-    /// Retrieve url information for a track's audio file
     pub async fn track_url(&self, track_id: i32, sec: Option<&str>) -> Result<TrackURL> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::TrackURL);
         let now = format!("{}", chrono::Utc::now().timestamp());
@@ -492,7 +447,6 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
-    // Retrieve information about an album
     pub async fn album(&self, album_id: &str) -> Result<Album> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::Album);
         let params = vec![
@@ -505,7 +459,6 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
-    // Retrieve suggested albums for an album
     pub async fn suggested_albums(&self, album_id: &str) -> Result<AlbumSuggestionResults> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::AlbumSuggest);
         let params = vec![("album_id", album_id)];
@@ -513,7 +466,6 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
-    // Search the database for albums
     pub async fn search_albums(
         &self,
         query: &str,
@@ -526,7 +478,6 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
-    // Retrieve information about an artist
     pub async fn artist(&self, artist_id: i32, limit: Option<i32>) -> Result<Artist> {
         if let Some(app_id) = &self.app_id {
             let endpoint = format!("{}{}", self.base_url, Endpoint::Artist);
@@ -548,7 +499,6 @@ impl Client {
         }
     }
 
-    // Retrieve similar artists to artist
     pub async fn similar_artists(&self, artist_id: i32, limit: Option<i32>) -> Result<Artists> {
         let limit = limit.unwrap_or(10).to_string();
 
@@ -566,7 +516,6 @@ impl Client {
         response.map(|res| res.artists)
     }
 
-    // Retrieve releases for an artist
     pub async fn artist_releases(
         &self,
         artist_id: i32,
@@ -586,7 +535,6 @@ impl Client {
             ("track_size", "1"),
         ];
 
-        // let result: Result<ArtistReleases> = get!(self, &endpoint, Some(&params));
         let result: Result<ReleaseQuery> = match self.make_get_call(&endpoint, Some(&params)).await
         {
             Ok(response) => match serde_json::from_str(response.as_str()) {
@@ -606,52 +554,12 @@ impl Client {
         }
     }
 
-    // Search the database for artists
-    pub async fn search_artists(
-        &self,
-        query: &str,
-        limit: Option<i32>,
-    ) -> Result<ArtistSearchResults> {
-        let endpoint = format!("{}{}", self.base_url, Endpoint::SearchArtists);
-        let limit = limit.unwrap_or(100).to_string();
-        let params = vec![("query", query), ("limit", &limit)];
-
-        get!(self, &endpoint, Some(&params))
-    }
-
-    // Set a user access token for authentication
-    pub fn set_token(&mut self, token: String) {
-        self.user_token = Some(token);
-    }
-
-    pub fn set_user_id(&mut self, user_id: i64) {
-        self.user_id = Some(user_id);
-    }
-
     pub fn get_user_id(&self) -> Option<i64> {
         self.user_id
     }
 
-    // Set an app_id for authentication
-    pub fn set_app_id(&mut self, app_id: String) {
-        self.app_id = Some(app_id);
-    }
-
-    // Set an app secret for authentication
-    pub fn set_active_secret(&mut self, active_secret: String) {
+    fn set_active_secret(&mut self, active_secret: String) {
         self.active_secret = Some(active_secret);
-    }
-
-    pub fn get_token(&self) -> Option<&String> {
-        self.user_token.as_ref()
-    }
-
-    pub fn get_active_secret(&self) -> Option<&String> {
-        self.active_secret.as_ref()
-    }
-
-    pub fn get_app_id(&self) -> Option<&String> {
-        self.app_id.as_ref()
     }
 
     fn client_headers(&self) -> HeaderMap {
@@ -685,7 +593,6 @@ impl Client {
         headers
     }
 
-    // Make a GET call to the API with the provided parameters
     async fn make_get_call(
         &self,
         endpoint: &str,
@@ -705,7 +612,6 @@ impl Client {
         }
     }
 
-    // Make a POST call to the API with form data
     async fn make_post_call(&self, endpoint: &str, params: HashMap<&str, &str>) -> Result<String> {
         let headers = self.client_headers();
 
@@ -721,7 +627,6 @@ impl Client {
         self.handle_response(response).await
     }
 
-    // Handle a response retrieved from the api
     async fn handle_response(&self, response: Response) -> Result<String> {
         if response.status() == StatusCode::OK {
             let res = response.text().await.unwrap();
@@ -735,34 +640,47 @@ impl Client {
 
     // ported from https://github.com/vitiko98/qobuz-dl/blob/master/qobuz_dl/bundle.py
     // Retrieve the app_id and generate the secrets needed to authenticate
-    pub async fn refresh(&mut self) -> Result<()> {
+    async fn refresh(&mut self) -> Result<()> {
         debug!("fetching login page");
         let play_url = "https://play.qobuz.com";
         let login_page = self.client.get(format!("{play_url}/login")).send().await?;
 
         let contents = login_page.text().await.unwrap();
 
-        if let Some(captures) = self.bundle_regex.captures(contents.as_str()) {
+        let bundle_regex = regex::Regex::new(
+            r#"<script src="(/resources/\d+\.\d+\.\d+-[a-z0-9]\d{3}/bundle\.js)"></script>"#,
+        )
+        .unwrap();
+        let app_id_regex = regex::Regex::new(
+            r#"production:\{api:\{appId:"(?P<app_id>\d{9})",appSecret:"(?P<app_secret>\w{32})""#,
+        )
+        .unwrap();
+        let seed_regex = regex::Regex::new(
+            r#"[a-z]\.initialSeed\("(?P<seed>[\w=]+)",window\.utimezone\.(?P<timezone>[a-z]+)\)"#,
+        )
+        .unwrap();
+
+        if let Some(captures) = bundle_regex.captures(contents.as_str()) {
             let bundle_path = captures.get(1).map_or("", |m| m.as_str());
             let bundle_url = format!("{play_url}{bundle_path}");
             if let Ok(bundle_page) = self.client.get(bundle_url).send().await {
                 if let Ok(bundle_contents) = bundle_page.text().await {
-                    if let Some(captures) = self.app_id_regex.captures(bundle_contents.as_str()) {
+                    if let Some(captures) = app_id_regex.captures(bundle_contents.as_str()) {
                         let app_id = captures
                             .name("app_id")
                             .map_or("".to_string(), |m| m.as_str().to_string());
 
                         self.app_id = Some(app_id.clone());
 
-                        let seed_data = self.seed_regex.captures_iter(bundle_contents.as_str());
+                        let seed_data = seed_regex.captures_iter(bundle_contents.as_str());
 
                         seed_data.for_each(|s| {
                             let seed = s.name("seed").map_or("", |m| m.as_str()).to_string();
                             let mut timezone =
                                 s.name("timezone").map_or("", |m| m.as_str()).to_string();
-                            crate::client::capitalize(timezone.as_mut_str());
+                            capitalize(timezone.as_mut_str());
 
-                            let info_regex = format!(info_regex!(), &timezone);
+                            let info_regex = format!(r#"name:"\w+/(?P<timezone>{}([a-z]?))",info:"(?P<info>[\w=]+)",extras:"(?P<extras>[\w=]+)""#, &timezone);
                             regex::Regex::new(info_regex.as_str())
                                 .unwrap()
                                 .captures_iter(bundle_contents.as_str())
@@ -810,7 +728,7 @@ impl Client {
     }
 
     // Check the retrieved secrets to see which one works.
-    pub async fn test_secrets(&mut self) -> Result<()> {
+    async fn test_secrets(&mut self) -> Result<()> {
         let secrets = self.secrets.clone();
         debug!("testing secrets: {secrets:?}");
 
@@ -836,8 +754,8 @@ pub struct SuccessfulResponse {
     status: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, ValueEnum)]
-pub enum OutputFormat {
-    Json,
-    Tsv,
+fn capitalize(s: &mut str) {
+    if let Some(r) = s.get_mut(0..1) {
+        r.make_ascii_uppercase();
+    }
 }

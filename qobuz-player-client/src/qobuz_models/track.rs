@@ -1,4 +1,4 @@
-use crate::client::album::Album;
+use crate::qobuz_models::album::Album;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

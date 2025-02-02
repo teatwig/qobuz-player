@@ -3,7 +3,6 @@ use snafu::prelude::*;
 
 pub mod album;
 pub mod album_suggestion;
-pub mod api;
 pub mod artist;
 pub mod favorites;
 pub mod playlist;
@@ -111,11 +110,5 @@ pub fn parse_url(string_url: &str) -> ParseUrlResult<UrlType> {
         }
     } else {
         Err(UrlTypeError::InvalidUrl)
-    }
-}
-
-pub fn capitalize(s: &mut str) {
-    if let Some(r) = s.get_mut(0..1) {
-        r.make_ascii_uppercase();
     }
 }

@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
-use qobuz_api::client::api::OutputFormat;
-use qobuz_player_controls::database;
 use snafu::prelude::*;
+
+use crate::database;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -47,62 +47,6 @@ enum Commands {
 }
 
 #[derive(Subcommand)]
-pub enum ApiCommands {
-    /// Search for tracks, albums, artists and playlists
-    Search {
-        #[clap(value_parser)]
-        query: String,
-        #[clap(long, short)]
-        limit: Option<i32>,
-        #[clap(short, long = "output", value_enum)]
-        output_format: Option<OutputFormat>,
-    },
-    /// Search for albums in the Qobuz database
-    SearchAlbums {
-        #[clap(value_parser)]
-        query: String,
-        #[clap(long, short)]
-        limit: Option<i32>,
-        #[clap(short, long = "output", value_enum)]
-        output_format: Option<OutputFormat>,
-    },
-    /// Search for artists in the Qobuz database
-    SearchArtists {
-        #[clap(value_parser)]
-        query: String,
-        #[clap(long, short)]
-        limit: Option<i32>,
-        #[clap(short, long = "output", value_enum)]
-        output_format: Option<OutputFormat>,
-    },
-    Album {
-        #[clap(value_parser)]
-        id: String,
-        #[clap(short, long = "output", value_enum)]
-        output_format: Option<OutputFormat>,
-    },
-    Artist {
-        #[clap(value_parser)]
-        id: i32,
-        #[clap(short, long = "output", value_enum)]
-        output_format: Option<OutputFormat>,
-    },
-    Track {
-        #[clap(value_parser)]
-        id: i32,
-        #[clap(short, long = "output", value_enum)]
-        output_format: Option<OutputFormat>,
-    },
-    /// Retrieve information about a specific playlist.
-    Playlist {
-        #[clap(value_parser)]
-        id: i64,
-        #[clap(short, long = "output", value_enum)]
-        output_format: Option<OutputFormat>,
-    },
-}
-
-#[derive(Subcommand)]
 pub enum ConfigCommands {
     /// Save username to database.
     #[clap(value_parser)]
@@ -122,8 +66,8 @@ pub enum Error {
     TerminalError { error: String },
 }
 
-impl From<qobuz_api::Error> for Error {
-    fn from(error: qobuz_api::Error) -> Self {
+impl From<qobuz_player_client::Error> for Error {
+    fn from(error: qobuz_player_client::Error) -> Self {
         Error::ClientError {
             error: error.to_string(),
         }
@@ -154,7 +98,20 @@ pub async fn run() -> Result<(), Error> {
     // CLI COMMANDS
     match cli.command {
         Commands::Open {} => {
-            qobuz_player_controls::init(cli.username.as_deref(), cli.password.as_deref()).await?;
+            let username = {
+                match cli.username {
+                    Some(username) => username,
+                    None => database::get_config().await.username.unwrap(),
+                }
+            };
+            let password = {
+                match cli.password {
+                    Some(password) => password,
+                    None => database::get_config().await.password.unwrap(),
+                }
+            };
+
+            qobuz_player_controls::init(&username, &password).await?;
 
             #[cfg(target_os = "linux")]
             {

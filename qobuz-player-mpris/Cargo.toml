@@ -9,8 +9,6 @@ repository.workspace = true
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 
 gstreamer = { workspace = true, features = ["serde", "v1_16"] }
-futures = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
 zbus = { workspace = true, features = ["tokio"] }
-tokio = { workspace = true, features = ["full"] }

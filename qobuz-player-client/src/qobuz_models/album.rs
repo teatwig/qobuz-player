@@ -1,4 +1,4 @@
-use crate::client::{
+use crate::qobuz_models::{
     artist::{Artist, OtherArtists},
     track::Tracks,
     Composer, Image,

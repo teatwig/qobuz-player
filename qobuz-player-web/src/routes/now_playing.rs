@@ -209,7 +209,7 @@ pub fn now_playing(
     let current_track = current_tracklist
         .queue
         .values()
-        .find(|track| track.status == qobuz_player_controls::service::TrackStatus::Playing);
+        .find(|track| track.status == qobuz_player_controls::models::TrackStatus::Playing);
 
     let album = current_tracklist.get_album();
     let cover_image = album.map(|album| album.cover_art.clone());
