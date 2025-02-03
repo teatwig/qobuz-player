@@ -218,12 +218,18 @@ pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum TrackNumberDisplay {
+    Position,
+    Number,
+}
+
 #[component]
 pub fn list_tracks(
     tracks: Vec<Track>,
     now_playing_id: Option<u32>,
-    show_track_number: bool,
     parent_id: String,
+    track_number_display: TrackNumberDisplay,
 ) -> impl IntoView {
     html! {
         <List>
@@ -249,10 +255,15 @@ pub fn list_tracks(
                                                     </span>
                                                 }
                                             })}
-                                        {(!now_playing && show_track_number)
+                                        {(!now_playing)
                                             .then_some({
                                                 html! {
-                                                    <span class="text-gray-400">{track.position}.</span>
+                                                    <span class="text-gray-400">
+                                                        {match track_number_display {
+                                                            TrackNumberDisplay::Position => track.position,
+                                                            TrackNumberDisplay::Number => track.number,
+                                                        }}
+                                                    </span>
                                                 }
                                             })}
                                     </span>

@@ -10,7 +10,10 @@ use std::sync::Arc;
 use tokio::join;
 
 use crate::{
-    components::{list::ListTracks, parse_duration, ToggleFavorite},
+    components::{
+        list::{ListTracks, TrackNumberDisplay},
+        parse_duration, ToggleFavorite,
+    },
     html,
     icons::Play,
     page::Page,
@@ -89,7 +92,7 @@ fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> 
             hx-get=format!("/playlist/{}/tracks", playlist_id)
         >
             <ListTracks
-                show_track_number=true
+                track_number_display=TrackNumberDisplay::Position
                 now_playing_id=now_playing_id
                 tracks=tracks
                 parent_id=playlist_id.to_string()

@@ -11,7 +11,7 @@ use tokio::join;
 
 use crate::{
     components::{
-        list::{ListAlbumsVertical, ListTracks},
+        list::{ListAlbumsVertical, ListTracks, TrackNumberDisplay},
         parse_duration, ToggleFavorite,
     },
     html,
@@ -101,7 +101,7 @@ fn album_tracks(
             hx-swap="outerHTML"
         >
             <ListTracks
-                show_track_number=true
+                track_number_display=TrackNumberDisplay::Number
                 now_playing_id=now_playing_id
                 tracks=tracks
                 parent_id=album_id.clone()

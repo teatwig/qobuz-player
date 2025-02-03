@@ -91,7 +91,6 @@ pub fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
                 .into_iter()
                 .map(|x| x.1)
                 .map(|track| {
-                    let list_type = current_tracklist.list_type.clone();
                     html! {
                         <ListItem>
                             <button
@@ -109,23 +108,7 @@ pub fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
                                 )
                             >
                                 <span class="w-5 text-center">
-
-                                    {if list_type == TrackListType::Album
-                                        || list_type == TrackListType::Track
-                                    {
-                                        Some(
-                                            html! { <span class="text-gray-400">{track.number}</span> },
-                                        )
-                                    } else if list_type == TrackListType::Playlist {
-                                        Some(
-                                            html! {
-                                                <span class="text-gray-400">{track.position}</span>
-                                            },
-                                        )
-                                    } else {
-                                        None
-                                    }}
-
+                                    <span class="text-gray-400">{track.position}</span>
                                 </span>
 
                                 <div class="flex overflow-hidden flex-grow justify-between items-center">
