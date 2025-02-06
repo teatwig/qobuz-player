@@ -23,12 +23,12 @@ use std::{collections::HashMap, fmt::Display};
 
 #[derive(Debug, Clone)]
 pub struct Client {
-    active_secret: Option<String>,
+    active_secret: String,
     app_id: String,
     base_url: String,
     client: reqwest::Client,
-    user_token: Option<String>,
-    user_id: Option<i64>,
+    user_token: String,
+    user_id: i64,
 }
 
 pub async fn new(username: &str, password: &str) -> Result<Client> {
@@ -51,19 +51,18 @@ pub async fn new(username: &str, password: &str) -> Result<Client> {
 
     let base_url = "https://www.qobuz.com/api.json/0.2/".to_string();
 
-    let mut client = Client {
+    let login = login(username, password, &app_id, &base_url, &http_client).await?;
+    let active_secret =
+        find_active_secret(secrets, &base_url, &http_client, &app_id, &login.user_token).await?;
+
+    let client = Client {
         client: http_client,
-        active_secret: None,
-        user_token: None,
-        user_id: None,
+        active_secret,
+        user_token: login.user_token,
+        user_id: login.user_id,
         app_id,
         base_url,
     };
-
-    client.login(username, password).await?;
-
-    let active_secret = client.find_active_secret(secrets).await?;
-    client.active_secret = Some(active_secret);
 
     Ok(client)
 }
@@ -155,42 +154,6 @@ macro_rules! post {
 }
 
 impl Client {
-    async fn login(&mut self, username: &str, password: &str) -> Result<()> {
-        let endpoint = format!("{}{}", self.base_url, Endpoint::Login);
-
-        let app_id = &self.app_id;
-        info!(
-            "logging in with email ({}) and password **HIDDEN** for app_id {}",
-            username, app_id
-        );
-
-        let params = vec![
-            ("email", username),
-            ("password", password),
-            ("app_id", app_id.as_str()),
-        ];
-
-        match self.make_get_call(&endpoint, Some(&params)).await {
-            Ok(response) => {
-                let json: Value = serde_json::from_str(response.as_str()).unwrap();
-                info!("Successfully logged in");
-                debug!("{}", json);
-                let mut token = json["user_auth_token"].to_string();
-                token = token[1..token.len() - 1].to_string();
-
-                let user_id = json["user"]["id"].to_string().parse::<i64>().unwrap();
-
-                self.user_token = Some(token);
-                self.user_id = Some(user_id);
-                Ok(())
-            }
-            Err(err) => {
-                error!("error logging into qobuz: {}", err);
-                Err(Error::Login)
-            }
-        }
-    }
-
     pub async fn user_playlists(&self) -> Result<UserPlaylistsResult> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::UserPlaylist);
         let params = vec![("limit", "500"), ("extra", "tracks"), ("offset", "0")];
@@ -348,34 +311,16 @@ impl Client {
         post!(self, &endpoint, form_data)
     }
 
-    pub async fn track_url(&self, track_id: i32, sec: Option<&str>) -> Result<TrackURL> {
-        let endpoint = format!("{}{}", self.base_url, Endpoint::TrackURL);
-        let now = format!("{}", chrono::Utc::now().timestamp());
-        let secret = if let Some(secret) = sec {
-            secret
-        } else if let Some(s) = &self.active_secret {
-            s
-        } else {
-            return Err(Error::ActiveSecret);
-        };
-
-        let sig = format!(
-            "trackgetFileUrlformat_id{}intentstreamtrack_id{}{}{}",
-            "27", track_id, now, secret
-        );
-        let hashed_sig = format!("{:x}", md5::compute(sig.as_str()));
-
-        let track_id = track_id.to_string();
-
-        let params = vec![
-            ("request_ts", now.as_str()),
-            ("request_sig", hashed_sig.as_str()),
-            ("track_id", track_id.as_str()),
-            ("format_id", "27"),
-            ("intent", "stream"),
-        ];
-
-        get!(self, &endpoint, Some(&params))
+    pub async fn track_url(&self, track_id: i32) -> Result<TrackURL> {
+        track_url(
+            track_id,
+            &self.active_secret,
+            &self.base_url,
+            &self.client,
+            &self.app_id,
+            &self.user_token,
+        )
+        .await
     }
 
     pub async fn favorites(&self, limit: i32) -> Result<Favorites> {
@@ -550,36 +495,8 @@ impl Client {
         }
     }
 
-    pub fn get_user_id(&self) -> Option<i64> {
+    pub fn get_user_id(&self) -> i64 {
         self.user_id
-    }
-
-    fn client_headers(&self) -> HeaderMap {
-        let mut headers = HeaderMap::new();
-
-        let app_id = &self.app_id;
-        debug!("adding app_id to request headers: {}", app_id);
-        headers.insert("X-App-Id", HeaderValue::from_str(app_id).unwrap());
-
-        if let Some(token) = &self.user_token {
-            debug!("adding token to request headers: {}", token);
-            headers.insert(
-                "X-User-Auth-Token",
-                HeaderValue::from_str(token.as_str()).unwrap(),
-            );
-        }
-
-        headers.insert(
-            "Access-Control-Request-Headers",
-            HeaderValue::from_str("x-app-id,x-user-auth-token").unwrap(),
-        );
-
-        headers.insert(
-            "Accept-Language",
-            HeaderValue::from_str("en,en-US;q=0.8,ko;q=0.6,zh;q=0.4,zh-CN;q=0.2").unwrap(),
-        );
-
-        headers
     }
 
     async fn make_get_call(
@@ -587,22 +504,18 @@ impl Client {
         endpoint: &str,
         params: Option<&[(&str, &str)]>,
     ) -> Result<String> {
-        let headers = self.client_headers();
-
-        debug!("calling {} endpoint, with params {params:?}", endpoint);
-        let request = self.client.request(Method::GET, endpoint).headers(headers);
-
-        if let Some(p) = params {
-            let response = request.query(&p).send().await?;
-            self.handle_response(response).await
-        } else {
-            let response = request.send().await?;
-            self.handle_response(response).await
-        }
+        make_get_call(
+            endpoint,
+            params,
+            &self.client,
+            &self.app_id,
+            Some(&self.user_token),
+        )
+        .await
     }
 
     async fn make_post_call(&self, endpoint: &str, params: HashMap<&str, &str>) -> Result<String> {
-        let headers = self.client_headers();
+        let headers = client_headers(&self.app_id, Some(&self.user_token));
 
         debug!("calling {} endpoint, with params {params:?}", endpoint);
         let response = self
@@ -613,36 +526,174 @@ impl Client {
             .send()
             .await?;
 
-        self.handle_response(response).await
+        handle_response(response).await
+    }
+}
+
+// Check the retrieved secrets to see which one works.
+async fn find_active_secret(
+    secrets: HashMap<String, String>,
+    base_url: &str,
+    client: &reqwest::Client,
+    app_id: &str,
+    user_token: &str,
+) -> Result<String> {
+    debug!("testing secrets: {secrets:?}");
+
+    for (timezone, secret) in secrets.into_iter() {
+        let response = track_url(64868955, &secret, base_url, client, app_id, user_token).await;
+
+        if response.is_ok() {
+            debug!("found good secret: {}\t{}", timezone, secret);
+            let secret_string = secret;
+
+            return Ok(secret_string);
+        }
     }
 
-    async fn handle_response(&self, response: Response) -> Result<String> {
-        if response.status() == StatusCode::OK {
-            let res = response.text().await.unwrap();
-            Ok(res)
-        } else {
-            Err(Error::Api {
-                message: response.status().to_string(),
+    Err(Error::ActiveSecret)
+}
+
+async fn track_url(
+    track_id: i32,
+    secret: &str,
+    base_url: &str,
+    client: &reqwest::Client,
+    app_id: &str,
+    user_token: &str,
+) -> Result<TrackURL> {
+    let endpoint = format!("{}{}", base_url, Endpoint::TrackURL);
+    let now = format!("{}", chrono::Utc::now().timestamp());
+
+    let sig = format!(
+        "trackgetFileUrlformat_id{}intentstreamtrack_id{}{}{}",
+        "27", track_id, now, secret
+    );
+    let hashed_sig = format!("{:x}", md5::compute(sig.as_str()));
+
+    let track_id = track_id.to_string();
+
+    let params = vec![
+        ("request_ts", now.as_str()),
+        ("request_sig", hashed_sig.as_str()),
+        ("track_id", track_id.as_str()),
+        ("format_id", "27"),
+        ("intent", "stream"),
+    ];
+
+    match make_get_call(&endpoint, Some(&params), client, app_id, Some(user_token)).await {
+        Ok(response) => match serde_json::from_str(response.as_str()) {
+            Ok(item) => Ok(item),
+            Err(error) => Err(Error::DeserializeJSON {
+                message: error.to_string(),
+            }),
+        },
+        Err(error) => Err(Error::Api {
+            message: error.to_string(),
+        }),
+    }
+}
+
+async fn handle_response(response: Response) -> Result<String> {
+    if response.status() == StatusCode::OK {
+        let res = response.text().await.unwrap();
+        Ok(res)
+    } else {
+        Err(Error::Api {
+            message: response.status().to_string(),
+        })
+    }
+}
+
+async fn make_get_call(
+    endpoint: &str,
+    params: Option<&[(&str, &str)]>,
+    client: &reqwest::Client,
+    app_id: &str,
+    user_token: Option<&str>,
+) -> Result<String> {
+    let headers = client_headers(app_id, user_token);
+
+    debug!("calling {} endpoint, with params {params:?}", endpoint);
+    let request = client.request(Method::GET, endpoint).headers(headers);
+
+    if let Some(p) = params {
+        let response = request.query(&p).send().await?;
+        handle_response(response).await
+    } else {
+        let response = request.send().await?;
+        handle_response(response).await
+    }
+}
+
+fn client_headers(app_id: &str, user_token: Option<&str>) -> HeaderMap {
+    let mut headers = HeaderMap::new();
+
+    debug!("adding app_id to request headers: {}", app_id);
+    headers.insert("X-App-Id", HeaderValue::from_str(app_id).unwrap());
+
+    if let Some(token) = user_token {
+        debug!("adding token to request headers: {}", token);
+        headers.insert("X-User-Auth-Token", HeaderValue::from_str(token).unwrap());
+    }
+
+    headers.insert(
+        "Access-Control-Request-Headers",
+        HeaderValue::from_str("x-app-id,x-user-auth-token").unwrap(),
+    );
+
+    headers.insert(
+        "Accept-Language",
+        HeaderValue::from_str("en,en-US;q=0.8,ko;q=0.6,zh;q=0.4,zh-CN;q=0.2").unwrap(),
+    );
+
+    headers
+}
+
+struct LoginResult {
+    user_token: String,
+    user_id: i64,
+}
+
+async fn login(
+    username: &str,
+    password: &str,
+    app_id: &str,
+    base_url: &str,
+    client: &reqwest::Client,
+) -> Result<LoginResult> {
+    let endpoint = format!("{}{}", base_url, Endpoint::Login);
+
+    info!(
+        "logging in with email ({}) and password **HIDDEN** for app_id {}",
+        username, app_id
+    );
+
+    let params = vec![
+        ("email", username),
+        ("password", password),
+        ("app_id", app_id),
+    ];
+
+    match make_get_call(&endpoint, Some(&params), client, app_id, None).await {
+        Ok(response) => {
+            let json: Value = serde_json::from_str(response.as_str()).unwrap();
+            info!("Successfully logged in");
+            debug!("{}", json);
+            let mut user_token = json["user_auth_token"].to_string();
+            user_token = user_token[1..user_token.len() - 1].to_string();
+
+            let user_id = json["user"]["id"].to_string().parse::<i64>().unwrap();
+
+            Ok(LoginResult {
+                user_token,
+                user_id,
             })
         }
-    }
-
-    // Check the retrieved secrets to see which one works.
-    async fn find_active_secret(&mut self, secrets: HashMap<String, String>) -> Result<String> {
-        debug!("testing secrets: {secrets:?}");
-
-        for (timezone, secret) in secrets.into_iter() {
-            let response = self.track_url(64868955, Some(&secret)).await;
-
-            if response.is_ok() {
-                debug!("found good secret: {}\t{}", timezone, secret);
-                let secret_string = secret;
-
-                return Ok(secret_string);
-            }
+        Err(err) => {
+            error!("error logging into qobuz: {}", err);
+            Err(Error::Login)
         }
-
-        Err(Error::ActiveSecret)
     }
 }
 
@@ -685,7 +736,6 @@ async fn get_secrets(client: &reqwest::Client) -> Result<Secrets> {
                         .name("app_id")
                         .map_or("".to_string(), |m| m.as_str().to_string());
 
-                    // app_id = Some(found_app_id);
                     let seed_data = seed_regex.captures_iter(bundle_contents.as_str());
 
                     seed_data.for_each(|s| {

@@ -395,7 +395,7 @@ pub async fn previous() -> Result<()> {
 }
 
 async fn attach_track_url(client: &Client, track: &mut Track) {
-    if let Ok(track_url) = client.track_url(track.id as i32, None).await {
+    if let Ok(track_url) = client.track_url(track.id as i32).await {
         debug!("attaching url information to track");
         track.track_url = Some(track_url.url);
     }
@@ -413,7 +413,7 @@ async fn skip_to_track(
                 track.status = TrackStatus::Played;
             }
             std::cmp::Ordering::Equal => {
-                if let Ok(url) = client.track_url(track.id as i32, None).await {
+                if let Ok(url) = client.track_url(track.id as i32).await {
                     track.status = TrackStatus::Playing;
                     track.track_url = Some(url.url.clone());
                     next_track_url = Some(url.url);
@@ -486,7 +486,7 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
 
     let client = CLIENT.get().unwrap();
     let mut tracklist = TRACKLIST.write().await;
-    let user_id = client.get_user_id().unwrap();
+    let user_id = client.get_user_id();
 
     if let Ok(playlist) = client.playlist(playlist_id).await {
         let mut playlist: Playlist = models::parse_playlist(playlist, user_id);
@@ -539,7 +539,7 @@ async fn prep_next_track() -> Result<()> {
         .map(|t| t.1);
 
     if let Some(next_track) = next_track {
-        if let Ok(url) = client.track_url(next_track.id as i32, None).await {
+        if let Ok(url) = client.track_url(next_track.id as i32).await {
             next_track.track_url = Some(url.url.clone());
             PLAYBIN.set_property("uri", url.url);
         };
@@ -569,7 +569,7 @@ pub async fn current_track() -> Option<Track> {
 #[instrument]
 pub async fn search(query: &str) -> SearchResults {
     let client = CLIENT.get().unwrap();
-    let user_id = client.get_user_id().unwrap();
+    let user_id = client.get_user_id();
 
     client
         .search_all(query, 20)
@@ -638,7 +638,7 @@ pub async fn suggested_albums(album_id: &str) -> Vec<Album> {
 pub async fn playlist(id: i64) -> Playlist {
     let client = CLIENT.get().unwrap();
 
-    let user_id = client.get_user_id().unwrap();
+    let user_id = client.get_user_id();
     client
         .playlist(id)
         .await
@@ -721,7 +721,7 @@ pub async fn remove_favorite_playlist(id: &str) {
 #[instrument]
 /// Fetch the current user's list of playlists.
 async fn user_playlists(client: &Client) -> Vec<Playlist> {
-    let user_id = client.get_user_id().unwrap();
+    let user_id = client.get_user_id();
     client.user_playlists().await.ok().map_or(vec![], |x| {
         x.playlists
             .items
