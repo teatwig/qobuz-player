@@ -67,11 +67,11 @@ The TUI has full mouse support.
 | Enter URL           | <kbd>3</kbd>                           |
 | Cycle elements      | <kbd>tab</kbd>                         |
 | Play/Pause          | <kbd>space</kbd>                       |
-| Next track          | <kbd>N</kbd>                           |
-| Previous track      | <kbd>P</kbd>                           |
+| Next track          | <kbd>n</kbd>                           |
+| Previous track      | <kbd>p</kbd>                           |
 | Jump forward        | <kbd>l</kbd>                           |
 | Jump backward       | <kbd>h</kbd>                           |
-| Quit                | <kbd>ctrl</kbd> + <kbd>c</kbd>         |
+| Quit                | <kbd>q</kbd>                           |
 | Move up in list     | <kbd>up arrow</kbd>                    |
 | Move down in list   | <kbd>down arrow</kbd>                  |
 | Select item in list | <kbd>enter</kbd>                       |

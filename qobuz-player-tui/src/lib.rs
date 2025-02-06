@@ -3,7 +3,6 @@ use std::sync::{Arc, OnceLock};
 use cursive::{
     align::HAlign,
     direction::Orientation,
-    event::Event,
     reexports::crossbeam_channel::Sender,
     theme::{BorderStyle, Effect, Palette, Style},
     utils::{markup::StyledString, Counter},
@@ -233,9 +232,7 @@ fn player() -> LinearLayout {
 }
 
 fn global_events(s: &mut Cursive) {
-    s.clear_global_callbacks(Event::CtrlChar('c'));
-
-    s.set_on_pre_event(Event::CtrlChar('c'), move |s| {
+    s.set_on_pre_event('q', move |s| {
         let dialog = Dialog::text("Do you want to quit?")
             .button("Yes", move |s: &mut Cursive| {
                 s.quit();
@@ -269,11 +266,11 @@ fn global_events(s: &mut Cursive) {
         block_on(async { qobuz_player_controls::play_pause().await.expect("") });
     });
 
-    s.add_global_callback('N', move |_| {
+    s.add_global_callback('n', move |_| {
         block_on(async { qobuz_player_controls::next().await.expect("") });
     });
 
-    s.add_global_callback('P', move |_| {
+    s.add_global_callback('p', move |_| {
         block_on(async { qobuz_player_controls::previous().await.expect("") });
     });
 
