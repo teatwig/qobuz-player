@@ -559,7 +559,7 @@ fn set_current_track(s: &mut Cursive, track: &Track, lt: &TrackListType) {
                 track_num.set_content(format!("{:03}", track.position));
             }
             TrackListType::Track => {
-                track_num.set_content(format!("{:03}", track.number));
+                track_num.set_content(format!("{:03}", track.position));
             }
             TrackListType::Unknown => {
                 track_num.set_content(format!("{:03}", track.position));

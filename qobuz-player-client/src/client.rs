@@ -2,12 +2,12 @@ use crate::{
     qobuz_models::{
         album::{Album, AlbumSearchResults},
         album_suggestion::AlbumSuggestionResults,
-        artist::Artist,
-        artist::{Artists, ArtistsResponse},
+        artist::{Artist, Artists, ArtistsResponse},
         favorites::Favorites,
         playlist::{Playlist, UserPlaylistsResult},
         release::{Release, ReleaseQuery},
         search_results::SearchAllResults,
+        track::Track,
         TrackURL,
     },
     Error, Result,
@@ -75,6 +75,7 @@ enum Endpoint {
     Login,
     UserPlaylist,
     SearchAlbums,
+    Track,
     TrackURL,
     Playlist,
     PlaylistCreate,
@@ -107,6 +108,7 @@ impl Display for Endpoint {
             Endpoint::PlaylistUpdatePosition => "playlist/updateTracksPosition",
             Endpoint::Search => "catalog/search",
             Endpoint::SearchAlbums => "album/search",
+            Endpoint::Track => "track/get",
             Endpoint::TrackURL => "track/getFileUrl",
             Endpoint::UserPlaylist => "playlist/getUserPlaylists",
             Endpoint::Favorites => "favorite/getUserFavorites",
@@ -398,6 +400,14 @@ impl Client {
             ("offset", "0"),
             ("limit", "500"),
         ];
+
+        get!(self, &endpoint, Some(&params))
+    }
+
+    pub async fn track(&self, track_id: i32) -> Result<Track> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::Track);
+        let track_id_string = track_id.to_string();
+        let params = vec![("track_id", track_id_string.as_str())];
 
         get!(self, &endpoint, Some(&params))
     }

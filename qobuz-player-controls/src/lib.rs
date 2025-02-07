@@ -450,6 +450,34 @@ fn skip_to_next_track(tracklist: &mut Tracklist) {
 }
 
 #[instrument]
+/// Plays a single track.
+pub async fn play_track(track_id: i32) -> Result<()> {
+    ready().await?;
+
+    let client = CLIENT.get().unwrap();
+    let mut tracklist = TRACKLIST.write().await;
+
+    let mut track: Track = client.track(track_id).await?.into();
+    track.status = TrackStatus::Playing;
+    track.position = 1;
+    attach_track_url(client, &mut track).await;
+
+    PLAYBIN.set_property("uri", track.track_url.clone());
+    play().await?;
+
+    let queue = BTreeMap::from([(1, track.clone())]);
+
+    tracklist.queue = queue;
+    tracklist.album = track.album;
+    tracklist.playlist = None;
+    tracklist.list_type = TrackListType::Track;
+
+    broadcast_track_list(&tracklist).await?;
+
+    Ok(())
+}
+
+#[instrument]
 /// Plays a full album.
 pub async fn play_album(album_id: &str) -> Result<()> {
     ready().await?;

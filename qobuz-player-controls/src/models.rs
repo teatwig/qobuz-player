@@ -20,19 +20,25 @@ pub fn parse_search_results(search_results: SearchAllResults, user_id: i64) -> S
             .items
             .into_iter()
             .map(|a| a.into())
-            .collect::<Vec<Album>>(),
+            .collect(),
         artists: search_results
             .artists
             .items
             .into_iter()
             .map(|a| a.into())
-            .collect::<Vec<Artist>>(),
+            .collect(),
         playlists: search_results
             .playlists
             .items
             .into_iter()
             .map(|p| parse_playlist(p, user_id))
-            .collect::<Vec<Playlist>>(),
+            .collect(),
+        tracks: search_results
+            .tracks
+            .items
+            .into_iter()
+            .map(|t| t.into())
+            .collect(),
     }
 }
 
@@ -378,6 +384,7 @@ pub struct SearchResults {
     pub albums: Vec<Album>,
     pub artists: Vec<Artist>,
     pub playlists: Vec<Playlist>,
+    pub tracks: Vec<Track>,
 }
 
 #[derive(Default, Debug, Clone)]

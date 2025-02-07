@@ -117,43 +117,45 @@ pub fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
                 .map(|album| {
                     html! {
                         <ListItem>
-                            {html! {
-                                <a
-                                    class="flex gap-4 items-center w-full"
-                                    hx-push-url="true"
-                                    href=format!("/album/{}", album.id)
-                                >
-                                    <img
-                                        class="inline text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
-                                        alt=album.title.clone()
-                                        src=album.cover_art_small
-                                    />
-
-                                    <div class="overflow-hidden w-full">
-                                        <div class="flex justify-between">
-                                            <h3 class="text-lg truncate">{album.title}</h3>
-                                            <Info
-                                                explicit=album.explicit
-                                                hires_available=album.hires_available
-                                            />
-                                        </div>
-
-                                        <h4 class="flex gap-2 text-left text-gray-400">
-                                            <span class="truncate">{album.artist.name}</span>
-                                            <span>"•︎"</span>
-                                            <span>{album.release_year}</span>
-                                        </h4>
-                                    </div>
-                                </a>
-                            }
-                                .attr("preload", "mousedown")
-                                .attr("preload-images", "true")}
+                            <Album album=album />
                         </ListItem>
                     }
                 })
                 .collect::<Vec<_>>()}
         </List>
     }
+}
+
+#[component]
+fn album(album: Album) -> impl IntoView {
+    html! {
+        <a
+            class="flex gap-4 items-center w-full"
+            hx-push-url="true"
+            href=format!("/album/{}", album.id)
+        >
+            <img
+                class="inline text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
+                alt=album.title.clone()
+                src=album.cover_art_small
+            />
+
+            <div class="overflow-hidden w-full">
+                <div class="flex justify-between">
+                    <h3 class="text-lg truncate">{album.title}</h3>
+                    <Info explicit=album.explicit hires_available=album.hires_available />
+                </div>
+
+                <h4 class="flex gap-2 text-left text-gray-400">
+                    <span class="truncate">{album.artist.name}</span>
+                    <span>"•︎"</span>
+                    <span>{album.release_year}</span>
+                </h4>
+            </div>
+        </a>
+    }
+    .attr("preload", "mousedown")
+    .attr("preload-images", "true")
 }
 
 pub enum ArtistSort {
