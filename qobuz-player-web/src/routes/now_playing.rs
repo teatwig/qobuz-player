@@ -213,6 +213,8 @@ pub fn now_playing(
 
     let album = current_tracklist.get_album();
     let cover_image = album.map(|album| album.cover_art.clone());
+    let album_artist_name = album.map(|album| album.artist.name.clone());
+    let album_artist_id = album.map(|album| album.artist.id);
 
     let (entity_title, entity_link) = match current_tracklist.list_type() {
         TrackListType::Album => (
@@ -247,11 +249,9 @@ pub fn now_playing(
             (
                 track.title.clone(),
                 track.position,
-                track.artist.as_ref().map(|artist| artist.name.clone()),
-                track
-                    .artist
-                    .as_ref()
-                    .map(|artist| artist.id)
+                album_artist_name.or(track.album.as_ref().map(|album| album.artist.name.clone())),
+                album_artist_id
+                    .or(track.album.as_ref().map(|album| album.artist.id))
                     .map(|id| format!("/artist/{}", id)),
                 Some(track.duration_seconds),
                 track.explicit,

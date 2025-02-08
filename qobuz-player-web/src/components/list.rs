@@ -28,7 +28,20 @@ pub enum AlbumSort {
 }
 
 #[component]
-pub fn list_albums_vertical(albums: Vec<Album>) -> impl IntoView {
+pub fn list_albums_vertical(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
+    match sort {
+        AlbumSort::Default => (),
+        AlbumSort::Artist => albums.sort_by(|a, b| {
+            a.artist
+                .name
+                .cmp(&b.artist.name)
+                .then_with(|| b.release_year.cmp(&a.release_year))
+        }),
+        AlbumSort::ReleaseYear => {
+            albums.sort_by_key(|album| album.release_year);
+            albums.reverse();
+        }
+    };
     html! {
         <div class="flex overflow-scroll gap-4 p-2 w-full">
             {albums

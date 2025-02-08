@@ -11,7 +11,7 @@ use tokio::join;
 
 use crate::{
     components::{
-        list::{ListAlbums, ListArtistsVertical},
+        list::{ListAlbumsVertical, ListArtistsVertical},
         ToggleFavorite,
     },
     html,
@@ -75,7 +75,14 @@ fn artist(
                 <ToggleFavorite id=artist.id.to_string() is_favorite=is_favorite />
             </div>
             <div class="flex flex-col gap-4">
-                <ListAlbums albums=albums sort=crate::components::list::AlbumSort::ReleaseYear />
+                <div></div>
+                <div class="flex flex-col gap-2">
+                    <h3 class="px-4 text-lg">Albums</h3>
+                    <ListAlbumsVertical
+                        albums=albums
+                        sort=crate::components::list::AlbumSort::ReleaseYear
+                    />
+                </div>
                 {if !similar_artists.is_empty() {
                     Some(
                         html! {

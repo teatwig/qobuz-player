@@ -11,7 +11,7 @@ use tokio::join;
 
 use crate::{
     components::{
-        list::{ListAlbumsVertical, ListTracks, TrackNumberDisplay},
+        list::{AlbumSort, ListAlbumsVertical, ListTracks, TrackNumberDisplay},
         parse_duration, ToggleFavorite,
     },
     html,
@@ -175,7 +175,10 @@ fn album(
                         html! {
                             <div class="flex flex-col gap-2 w-full">
                                 <h3 class="px-4 text-lg">Album suggestions</h3>
-                                <ListAlbumsVertical albums=suggested_albums />
+                                <ListAlbumsVertical
+                                    albums=suggested_albums
+                                    sort=AlbumSort::Default
+                                />
                             </div>
                         },
                     )
