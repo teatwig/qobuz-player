@@ -1,4 +1,4 @@
-use crate::models::{Album, Playlist, Track, TrackStatus};
+use crate::models::{AlbumPage, Playlist, Track, TrackStatus};
 use std::collections::BTreeMap;
 use tracing::instrument;
 
@@ -14,33 +14,19 @@ pub enum TrackListType {
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct Tracklist {
     pub queue: BTreeMap<u32, Track>,
-    pub album: Option<Album>,
+    pub album: Option<AlbumPage>,
     pub playlist: Option<Playlist>,
     pub list_type: TrackListType,
 }
 
 impl Tracklist {
     pub fn total(&self) -> u32 {
-        if let Some(album) = &self.album {
-            album.total_tracks
-        } else if let Some(list) = &self.playlist {
-            list.tracks_count
-        } else {
-            self.queue.len() as u32
-        }
+        self.queue.len() as u32
     }
 
     #[instrument(skip(self))]
-    pub fn get_album(&self) -> Option<&Album> {
-        if let Some(c) = self.current_track() {
-            if let Some(album) = &c.album {
-                Some(album)
-            } else {
-                self.album.as_ref()
-            }
-        } else {
-            self.album.as_ref()
-        }
+    pub fn get_album(&self) -> Option<&AlbumPage> {
+        self.album.as_ref()
     }
 
     #[instrument(skip(self))]

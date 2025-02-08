@@ -26,8 +26,6 @@ pub struct Artist {
     pub image: Option<Image>,
     pub name: String,
     pub id: i64,
-    pub albums_count: i64,
-    pub slug: String,
     pub albums: Option<Albums>,
 }
 

@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::models::{Album, Track};
+use qobuz_player_controls::models::{AlbumPage, Track};
 use std::sync::Arc;
 use tokio::join;
 
@@ -112,8 +112,8 @@ fn album_tracks(
 
 #[component]
 fn album(
-    album: Album,
-    suggested_albums: Vec<Album>,
+    album: AlbumPage,
+    suggested_albums: Vec<AlbumPage>,
     is_favorite: bool,
     now_playing_id: Option<u32>,
 ) -> impl IntoView {

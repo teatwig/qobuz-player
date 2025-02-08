@@ -1,7 +1,7 @@
 use chrono::{DateTime, Duration, Local};
 use gstreamer::{ClockTime, State as GstState};
 use qobuz_player_controls::{
-    models::{Album, Track, TrackStatus},
+    models::{AlbumPage, Track, TrackStatus},
     notification::Notification,
 };
 use std::collections::HashMap;
@@ -364,7 +364,7 @@ impl MprisTrackList {
 
 fn track_to_meta<'a>(
     playlist_track: Track,
-    album: Option<Album>,
+    album: Option<AlbumPage>,
 ) -> HashMap<&'a str, zvariant::Value<'a>> {
     let mut meta = HashMap::new();
 

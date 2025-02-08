@@ -1,4 +1,4 @@
-use crate::models::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
+use crate::models::{Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
 use cached::proc_macro::cached;
 use error::Error;
 use futures::prelude::*;
@@ -6,6 +6,7 @@ use gstreamer::{
     prelude::*, ClockTime, Element, Message, MessageView, SeekFlags, State as GstState,
     StateChangeSuccess, Structure,
 };
+use models::{AlbumPage, ArtistPage};
 use notification::Notification;
 use qobuz_player_client::client::Client;
 use std::{
@@ -467,8 +468,13 @@ pub async fn play_track(track_id: i32) -> Result<()> {
 
     let queue = BTreeMap::from([(1, track.clone())]);
 
+    let album = match track.album {
+        Some(a) => Some(client.album(&a.id).await?),
+        None => None,
+    };
+
     tracklist.queue = queue;
-    tracklist.album = track.album;
+    tracklist.album = album.map(|a| a.into());
     tracklist.playlist = None;
     tracklist.list_type = TrackListType::Track;
 
@@ -486,7 +492,7 @@ pub async fn play_album(album_id: &str) -> Result<()> {
     let mut tracklist = TRACKLIST.write().await;
 
     if let Ok(album) = client.album(album_id).await {
-        let mut album: Album = album.into();
+        let mut album: AlbumPage = album.into();
 
         if let Some(first_track) = album.tracks.get_mut(&1) {
             first_track.status = TrackStatus::Playing;
@@ -608,16 +614,15 @@ pub async fn search(query: &str) -> SearchResults {
 }
 
 #[instrument]
-/// Get artist
-pub async fn artist(artist_id: i32) -> Artist {
+/// Get artist page
+pub async fn artist_page(artist_id: i32) -> ArtistPage {
     CLIENT
         .get()
         .unwrap()
-        .artist(artist_id, None)
+        .artist(artist_id)
         .await
-        .ok()
-        .map(|x| x.into())
-        .unwrap_or_default()
+        .unwrap()
+        .into()
 }
 
 #[instrument]
@@ -636,7 +641,7 @@ pub async fn similar_artists(artist_id: i32) -> Vec<Artist> {
 
 #[instrument]
 /// Get album
-pub async fn album(id: &str) -> Album {
+pub async fn album(id: &str) -> AlbumPage {
     CLIENT
         .get()
         .unwrap()
@@ -649,7 +654,7 @@ pub async fn album(id: &str) -> Album {
 
 #[instrument]
 /// Get suggested albums
-pub async fn suggested_albums(album_id: &str) -> Vec<Album> {
+pub async fn suggested_albums(album_id: &str) -> Vec<AlbumPage> {
     CLIENT
         .get()
         .unwrap()
@@ -678,7 +683,7 @@ pub async fn playlist(id: i64) -> Playlist {
 #[instrument]
 #[cached(size = 10, time = 600)]
 /// Fetch the albums for a specific artist.
-pub async fn artist_albums(artist_id: i32) -> Vec<Album> {
+pub async fn artist_albums(artist_id: i32) -> Vec<AlbumPage> {
     CLIENT
         .get()
         .unwrap()

@@ -4,6 +4,7 @@ use snafu::prelude::*;
 pub mod album;
 pub mod album_suggestion;
 pub mod artist;
+pub mod artist_page;
 pub mod favorites;
 pub mod playlist;
 pub mod release;
@@ -35,12 +36,6 @@ pub struct TrackURL {
     pub mime_type: String,
     pub sampling_rate: f64,
     pub bit_depth: i32,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct User {
-    pub id: i64,
-    pub login: String,
 }
 
 pub enum UrlType {

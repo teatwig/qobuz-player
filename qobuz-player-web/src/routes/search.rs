@@ -33,7 +33,7 @@ use crate::{
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/search/{tab}", get(index).post(search))
-        .route("/play/{track_id}", put(play_track))
+        .route("/play-track/{track_id}", put(play_track))
 }
 
 async fn play_track(Path(track_id): Path<i32>) -> impl IntoResponse {
@@ -112,7 +112,7 @@ fn search_partial(search_results: SearchResults, tab: Tab) -> impl IntoView {
 }
 
 #[component]
-pub fn list_tracks(tracks: Vec<TrackModel>) -> impl IntoView {
+fn list_tracks(tracks: Vec<TrackModel>) -> impl IntoView {
     html! {
         <List>
             {tracks
@@ -134,7 +134,7 @@ fn track(track: TrackModel) -> impl IntoView {
     html! {
         <button
             class="flex gap-4 items-center w-full cursor-pointer"
-            hx-put=format!("/play/{}", track.id)
+            hx-put=format!("/play-track/{}", track.id)
             hx-swap="none"
         >
             <img
@@ -155,21 +155,10 @@ fn track(track: TrackModel) -> impl IntoView {
                         .map(|artist| {
                             html! { <span class="truncate">{artist.name}</span> }
                         })}
-                    {track
-                        .album
-                        .map(|album| {
-                            html! {
-                                <span>"•︎"</span>
-                                <span>{album.release_year}</span>
-                            }
-                                .into_any()
-                        })}
                 </h4>
             </div>
         </button>
     }
-    .attr("preload", "mousedown")
-    .attr("preload-images", "true")
 }
 
 #[component]

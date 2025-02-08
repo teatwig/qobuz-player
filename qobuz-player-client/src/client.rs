@@ -2,7 +2,8 @@ use crate::{
     qobuz_models::{
         album::{Album, AlbumSearchResults},
         album_suggestion::AlbumSuggestionResults,
-        artist::{Artist, Artists, ArtistsResponse},
+        artist::{Artists, ArtistsResponse},
+        artist_page::ArtistPage,
         favorites::Favorites,
         playlist::{Playlist, UserPlaylistsResult},
         release::{Release, ReleaseQuery},
@@ -69,7 +70,7 @@ pub async fn new(username: &str, password: &str) -> Result<Client> {
 
 enum Endpoint {
     Album,
-    Artist,
+    ArtistPage,
     SimilarArtists,
     ArtistReleases,
     Login,
@@ -96,7 +97,7 @@ impl Display for Endpoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let endpoint = match self {
             Endpoint::Album => "album/get",
-            Endpoint::Artist => "artist/get",
+            Endpoint::ArtistPage => "artist/page",
             Endpoint::ArtistReleases => "artist/getReleasesList",
             Endpoint::SimilarArtists => "artist/getSimilarArtists",
             Endpoint::Login => "user/login",
@@ -431,20 +432,17 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
-    pub async fn artist(&self, artist_id: i32, limit: Option<i32>) -> Result<Artist> {
+    pub async fn artist(&self, artist_id: i32) -> Result<ArtistPage> {
         let app_id = &self.app_id;
 
-        let endpoint = format!("{}{}", self.base_url, Endpoint::Artist);
-        let limit = limit.unwrap_or(100).to_string();
+        let endpoint = format!("{}{}", self.base_url, Endpoint::ArtistPage);
 
         let artistid_string = artist_id.to_string();
 
         let params = vec![
             ("artist_id", artistid_string.as_str()),
             ("app_id", app_id),
-            ("limit", &limit),
-            ("offset", "0"),
-            ("extra", "albums"),
+            ("sort", "relevant"),
         ];
 
         get!(self, &endpoint, Some(&params))

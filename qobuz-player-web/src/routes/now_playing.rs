@@ -23,11 +23,11 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/status", get(status_partial))
         .route("/volume-slider", get(volume_slider_partial))
         .route("/now-playing", get(now_playing_partial))
-        .route("/api/play", put(play))
-        .route("/api/pause", put(pause))
-        .route("/api/previous", put(previous))
-        .route("/api/next", put(next))
-        .route("/api/volume", post(set_volume))
+        .route("/play", put(play))
+        .route("/pause", put(pause))
+        .route("/previous", put(previous))
+        .route("/next", put(next))
+        .route("/volume", post(set_volume))
 }
 
 #[derive(serde::Deserialize, Clone, Copy)]
@@ -51,7 +51,7 @@ fn volume_slider(current_volume: u32) -> impl IntoView {
         >
             <input
                 class="w-full"
-                hx-post="api/volume"
+                hx-post="volume"
                 hx-trigger="input delay:100ms"
                 hx-swap="none"
                 value=current_volume
@@ -98,7 +98,7 @@ fn play_pause(play: bool) -> impl IntoView {
             class="cursor-pointer"
             hx-swap="none"
             hx-target="this"
-            hx-put=format!("api/{}", if play { "pause" } else { "play" })
+            hx-put=format!("{}", if play { "pause" } else { "play" })
         >
             {match play {
                 true => html! { <Pause /> }.into_any(),
@@ -316,7 +316,7 @@ pub fn now_playing(
 
                 <div class="flex flex-col gap-4">
                     <div class="flex flex-row gap-2 justify-center h-10">
-                        <button hx-swap="none" hx-put="api/previous" class="cursor-pointer">
+                        <button hx-swap="none" hx-put="previous" class="cursor-pointer">
                             <Backward />
                         </button>
 
@@ -332,7 +332,7 @@ pub fn now_playing(
                                 html! { <PlayPause play=true /> }.into_any()
                             }}
                         </div>
-                        <button hx-put="api/next" hx-swap="none" class="cursor-pointer">
+                        <button hx-put="next" hx-swap="none" class="cursor-pointer">
                             <Forward />
                         </button>
                     </div>

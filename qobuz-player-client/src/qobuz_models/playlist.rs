@@ -1,9 +1,15 @@
-use crate::qobuz_models::{track::Tracks, User};
+use crate::qobuz_models::track::Tracks;
 use serde::{Deserialize, Serialize};
+
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct User {
+    pub id: i64,
+    pub login: String,
+}
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserPlaylistsResult {
-    pub user: User,
+    user: User,
     pub playlists: Playlists,
 }
 
