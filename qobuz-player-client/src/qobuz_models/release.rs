@@ -1,6 +1,8 @@
 use crate::qobuz_models::{artist::OtherArtists, Image};
 use serde::{Deserialize, Serialize};
 
+use super::artist_page::ArtistName;
+
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReleaseQuery {
     has_more: bool,
@@ -44,8 +46,8 @@ pub struct Track {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PhysicalSupport {
-    pub media_number: i64,
-    pub track_number: i64,
+    pub media_number: u32,
+    pub track_number: u32,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,13 +87,8 @@ pub struct Rights {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Artist {
-    pub id: i64,
+    pub id: u32,
     pub name: ArtistName,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ArtistName {
-    pub display: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

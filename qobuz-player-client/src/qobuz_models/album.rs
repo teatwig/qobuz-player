@@ -17,14 +17,12 @@ pub struct Album {
     pub displayable: bool,
     pub downloadable: bool,
     pub duration: Option<i64>,
-    pub genre: Genre,
     pub genres_list: Option<Vec<String>>,
     pub hires: bool,
     pub hires_streamable: bool,
     pub id: String,
     pub image: Image,
     pub is_official: Option<bool>,
-    pub label: Label,
     pub maximum_bit_depth: Option<i64>,
     pub maximum_channel_count: Option<i64>,
     pub maximum_sampling_rate: Option<f64>,
@@ -74,22 +72,4 @@ pub struct Albums {
     pub offset: i64,
     pub total: i64,
     pub items: Vec<Album>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Label {
-    pub name: String,
-    pub id: i64,
-    pub albums_count: i64,
-    pub supplier_id: i64,
-    pub slug: String,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Genre {
-    pub path: Vec<i64>,
-    pub color: String,
-    pub name: String,
-    pub id: i64,
-    pub slug: String,
 }

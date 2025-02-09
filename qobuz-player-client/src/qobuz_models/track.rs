@@ -19,7 +19,7 @@ pub struct Track {
     pub duration: i64,
     pub hires: bool,
     pub hires_streamable: bool,
-    pub id: i32,
+    pub id: u32,
     pub isrc: Option<String>,
     pub maximum_bit_depth: i64,
     pub maximum_channel_count: i64,

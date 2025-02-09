@@ -2,7 +2,8 @@ use crate::{
     qobuz_models::{
         album::{Album, AlbumSearchResults},
         album_suggestion::AlbumSuggestionResults,
-        artist::{Artist, Artists, ArtistsResponse},
+        artist::{Artists, ArtistsResponse},
+        artist_page::ArtistPage,
         favorites::Favorites,
         playlist::{Playlist, UserPlaylistsResult},
         release::{Release, ReleaseQuery},
@@ -69,7 +70,7 @@ pub async fn new(username: &str, password: &str) -> Result<Client> {
 
 enum Endpoint {
     Album,
-    Artist,
+    ArtistPage,
     SimilarArtists,
     ArtistReleases,
     Login,
@@ -96,7 +97,7 @@ impl Display for Endpoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let endpoint = match self {
             Endpoint::Album => "album/get",
-            Endpoint::Artist => "artist/get",
+            Endpoint::ArtistPage => "artist/page",
             Endpoint::ArtistReleases => "artist/getReleasesList",
             Endpoint::SimilarArtists => "artist/getSimilarArtists",
             Endpoint::Login => "user/login",
@@ -313,7 +314,7 @@ impl Client {
         post!(self, &endpoint, form_data)
     }
 
-    pub async fn track_url(&self, track_id: i32) -> Result<TrackURL> {
+    pub async fn track_url(&self, track_id: u32) -> Result<String> {
         track_url(
             track_id,
             &self.active_secret,
@@ -323,6 +324,7 @@ impl Client {
             &self.user_token,
         )
         .await
+        .map(|u| u.url)
     }
 
     pub async fn favorites(&self, limit: i32) -> Result<Favorites> {
@@ -404,7 +406,7 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
-    pub async fn track(&self, track_id: i32) -> Result<Track> {
+    pub async fn track(&self, track_id: u32) -> Result<Track> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::Track);
         let track_id_string = track_id.to_string();
         let params = vec![("track_id", track_id_string.as_str())];
@@ -431,26 +433,23 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
-    pub async fn artist(&self, artist_id: i32, limit: Option<i32>) -> Result<Artist> {
+    pub async fn artist(&self, artist_id: u32) -> Result<ArtistPage> {
         let app_id = &self.app_id;
 
-        let endpoint = format!("{}{}", self.base_url, Endpoint::Artist);
-        let limit = limit.unwrap_or(100).to_string();
+        let endpoint = format!("{}{}", self.base_url, Endpoint::ArtistPage);
 
         let artistid_string = artist_id.to_string();
 
         let params = vec![
             ("artist_id", artistid_string.as_str()),
             ("app_id", app_id),
-            ("limit", &limit),
-            ("offset", "0"),
-            ("extra", "albums"),
+            ("sort", "relevant"),
         ];
 
         get!(self, &endpoint, Some(&params))
     }
 
-    pub async fn similar_artists(&self, artist_id: i32, limit: Option<i32>) -> Result<Artists> {
+    pub async fn similar_artists(&self, artist_id: u32, limit: Option<i32>) -> Result<Artists> {
         let limit = limit.unwrap_or(10).to_string();
 
         let endpoint = format!("{}{}", self.base_url, Endpoint::SimilarArtists);
@@ -469,7 +468,7 @@ impl Client {
 
     pub async fn artist_releases(
         &self,
-        artist_id: i32,
+        artist_id: u32,
         limit: Option<i32>,
     ) -> Result<Vec<Release>> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::ArtistReleases);
@@ -565,7 +564,7 @@ async fn find_active_secret(
 }
 
 async fn track_url(
-    track_id: i32,
+    track_id: u32,
     secret: &str,
     base_url: &str,
     client: &reqwest::Client,

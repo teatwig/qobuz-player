@@ -1,7 +1,7 @@
 use chrono::{DateTime, Duration, Local};
 use gstreamer::{ClockTime, State as GstState};
 use qobuz_player_controls::{
-    models::{Album, Track, TrackStatus},
+    models::{Track, TrackStatus},
     notification::Notification,
 };
 use std::collections::HashMap;
@@ -125,15 +125,14 @@ async fn receive_notifications(conn: &Connection) {
 
                     let mut player_iface = player_ref.get_mut().await;
 
-                    if let Some(album) = list.get_album() {
-                        player_iface.total_tracks = album.total_tracks;
-                    }
+                    player_iface.total_tracks = list.total();
 
                     if let Some(current) = list.current_track() {
-                        player_iface.can_previous = current.position != 0;
+                        let current_position = list.current_position();
+                        player_iface.can_previous = current_position != 0;
 
                         player_iface.can_next = !(player_iface.total_tracks != 0
-                            && current.position == player_iface.total_tracks - 1);
+                            && current_position == player_iface.total_tracks - 1);
 
                         let tracks = list
                             .queue
@@ -264,14 +263,8 @@ impl MprisPlayer {
     #[zbus(property, name = "Metadata")]
     async fn metadata(&self) -> HashMap<&str, zvariant::Value> {
         debug!("signal metadata refresh");
-        if let Some(current_track) = qobuz_player_controls::current_track().await {
-            track_to_meta(
-                current_track,
-                qobuz_player_controls::current_tracklist()
-                    .await
-                    .get_album()
-                    .cloned(),
-            )
+        if let Some(current_track) = qobuz_player_controls::current_track().await.unwrap() {
+            track_to_meta(current_track)
         } else {
             HashMap::default()
         }
@@ -352,7 +345,8 @@ impl MprisTrackList {
                     None
                 }
             })
-            .map(|i| i.position.to_string())
+            .enumerate()
+            .map(|(i, _)| i.to_string())
             .collect::<Vec<String>>()
     }
 
@@ -362,10 +356,7 @@ impl MprisTrackList {
     }
 }
 
-fn track_to_meta<'a>(
-    playlist_track: Track,
-    album: Option<Album>,
-) -> HashMap<&'a str, zvariant::Value<'a>> {
+fn track_to_meta<'a>(playlist_track: Track) -> HashMap<&'a str, zvariant::Value<'a>> {
     let mut meta = HashMap::new();
 
     meta.insert(
@@ -398,11 +389,8 @@ fn track_to_meta<'a>(
         );
     }
 
-    if let Some(album) = album {
-        meta.insert(
-            "mpris:artUrl",
-            zvariant::Value::new(album.cover_art.clone()),
-        );
+    if let Some(album) = playlist_track.album {
+        meta.insert("mpris:artUrl", zvariant::Value::new(album.image));
         meta.insert(
             "xesam:album",
             zvariant::Value::new(album.title.trim().to_string()),

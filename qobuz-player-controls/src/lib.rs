@@ -1,4 +1,4 @@
-use crate::models::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
+use crate::models::{Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
 use cached::proc_macro::cached;
 use error::Error;
 use futures::prelude::*;
@@ -6,6 +6,7 @@ use gstreamer::{
     prelude::*, ClockTime, Element, Message, MessageView, SeekFlags, State as GstState,
     StateChangeSuccess, Structure,
 };
+use models::{AlbumPage, ArtistPage};
 use notification::Notification;
 use qobuz_player_client::client::Client;
 use std::{
@@ -120,14 +121,7 @@ static SHOULD_QUIT: AtomicBool = AtomicBool::new(false);
 static IS_LIVE: AtomicBool = AtomicBool::new(false);
 static TARGET_STATUS: LazyLock<RwLock<gstreamer::State>> =
     LazyLock::new(|| RwLock::new(gstreamer::State::Null));
-static TRACKLIST: LazyLock<RwLock<Tracklist>> = LazyLock::new(|| {
-    RwLock::new(Tracklist {
-        queue: BTreeMap::new(),
-        album: None,
-        playlist: None,
-        list_type: TrackListType::Unknown,
-    })
-});
+static TRACKLIST: LazyLock<RwLock<Tracklist>> = LazyLock::new(|| RwLock::new(Tracklist::new()));
 static CLIENT: OnceLock<Client> = OnceLock::new();
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
@@ -323,10 +317,10 @@ pub async fn jump_backward() -> Result<()> {
 }
 
 #[instrument]
-/// Skip to a specific track in the playlist.
+/// Skip to a specific track in the tracklist.
 pub async fn skip_to_position(new_position: u32, force: bool) -> Result<()> {
     let mut tracklist = TRACKLIST.write().await;
-    let current_position = tracklist.current_track().map_or(0, |ct| ct.position);
+    let current_position = tracklist.current_position();
 
     if !force && new_position < current_position && current_position == 1 {
         seek(ClockTime::default(), None).await?;
@@ -357,17 +351,17 @@ pub async fn skip_to_position(new_position: u32, force: bool) -> Result<()> {
 
     let client = CLIENT.get().unwrap();
 
-    if let Some(next_track_to_play) = skip_to_track(&mut tracklist, client, new_position).await {
-        PLAYBIN.set_property("uri", next_track_to_play);
+    if let Some(next_track) = skip_to_track(&mut tracklist, new_position) {
+        let next_track_url = client.track_url(next_track.id).await?;
+        PLAYBIN.set_property("uri", next_track_url);
         play().await?;
     } else if let Some(mut first_track) = tracklist.queue.first_entry() {
         let first_track = first_track.get_mut();
         first_track.status = TrackStatus::Playing;
-        PLAYBIN.set_property(
-            "uri",
-            first_track.track_url.as_ref().unwrap_or(&String::default()),
-        );
-    }
+        let first_track_url = client.track_url(first_track.id).await?;
+
+        PLAYBIN.set_property("uri", first_track_url);
+    };
 
     broadcast_track_list(&tracklist).await?;
 
@@ -378,7 +372,7 @@ pub async fn skip_to_position(new_position: u32, force: bool) -> Result<()> {
 pub async fn next() -> Result<()> {
     let current_position = {
         let lock = TRACKLIST.read().await;
-        lock.current_track().map_or(0, |ct| ct.position)
+        lock.current_position()
     };
 
     skip_to_position(current_position + 1, true).await
@@ -388,62 +382,46 @@ pub async fn next() -> Result<()> {
 pub async fn previous() -> Result<()> {
     let current_position = {
         let lock = TRACKLIST.read().await;
-        lock.current_track().map_or(0, |ct| ct.position)
+        lock.current_position()
     };
 
     skip_to_position(current_position - 1, false).await
 }
 
-async fn attach_track_url(client: &Client, track: &mut Track) {
-    if let Ok(track_url) = client.track_url(track.id as i32).await {
-        debug!("attaching url information to track");
-        track.track_url = Some(track_url.url);
-    }
-}
-
-async fn skip_to_track(
-    tracklist: &mut Tracklist,
-    client: &Client,
-    new_position: u32,
-) -> Option<String> {
-    let mut next_track_url = None;
-    for track in tracklist.queue.values_mut() {
-        match track.position.cmp(&new_position) {
+fn skip_to_track(tracklist: &mut Tracklist, new_position: u32) -> Option<&tracklist::Track> {
+    let mut new_track: Option<&tracklist::Track> = None;
+    for queue_item in tracklist.queue.iter_mut() {
+        match queue_item.0.cmp(&new_position) {
             std::cmp::Ordering::Less => {
-                track.status = TrackStatus::Played;
+                queue_item.1.status = TrackStatus::Played;
             }
             std::cmp::Ordering::Equal => {
-                if let Ok(url) = client.track_url(track.id as i32).await {
-                    track.status = TrackStatus::Playing;
-                    track.track_url = Some(url.url.clone());
-                    next_track_url = Some(url.url);
-                } else {
-                    track.status = TrackStatus::Unplayable;
-                }
+                queue_item.1.status = TrackStatus::Playing;
+                new_track = Some(queue_item.1)
             }
             std::cmp::Ordering::Greater => {
-                track.status = TrackStatus::Unplayed;
+                queue_item.1.status = TrackStatus::Unplayed;
             }
         }
     }
 
-    next_track_url
+    new_track
 }
 
 fn skip_to_next_track(tracklist: &mut Tracklist) {
-    let current_position = tracklist.current_track().map_or(0, |ct| ct.position);
+    let current_position = tracklist.current_position();
     let new_position = current_position + 1;
 
-    for track in tracklist.queue.values_mut() {
-        match track.position.cmp(&new_position) {
+    for queue_item in tracklist.queue.iter_mut() {
+        match queue_item.0.cmp(&new_position) {
             std::cmp::Ordering::Less => {
-                track.status = TrackStatus::Played;
+                queue_item.1.status = TrackStatus::Played;
             }
             std::cmp::Ordering::Equal => {
-                track.status = TrackStatus::Playing;
+                queue_item.1.status = TrackStatus::Playing;
             }
             std::cmp::Ordering::Greater => {
-                track.status = TrackStatus::Unplayed;
+                queue_item.1.status = TrackStatus::Unplayed;
             }
         }
     }
@@ -451,25 +429,26 @@ fn skip_to_next_track(tracklist: &mut Tracklist) {
 
 #[instrument]
 /// Plays a single track.
-pub async fn play_track(track_id: i32) -> Result<()> {
+pub async fn play_track(track_id: u32) -> Result<()> {
     ready().await?;
 
     let client = CLIENT.get().unwrap();
+    let track_url = client.track_url(track_id).await?;
+    PLAYBIN.set_property("uri", track_url);
+    play().await?;
+
     let mut tracklist = TRACKLIST.write().await;
 
-    let mut track: Track = client.track(track_id).await?.into();
-    track.status = TrackStatus::Playing;
-    track.position = 1;
-    attach_track_url(client, &mut track).await;
-
-    PLAYBIN.set_property("uri", track.track_url.clone());
-    play().await?;
+    let full_track_info: Track = client.track(track_id).await?.into();
+    let track = tracklist::Track {
+        id: full_track_info.id,
+        title: full_track_info.title,
+        status: TrackStatus::Unplayed,
+    };
 
     let queue = BTreeMap::from([(1, track.clone())]);
 
     tracklist.queue = queue;
-    tracklist.album = track.album;
-    tracklist.playlist = None;
     tracklist.list_type = TrackListType::Track;
 
     broadcast_track_list(&tracklist).await?;
@@ -486,20 +465,76 @@ pub async fn play_album(album_id: &str) -> Result<()> {
     let mut tracklist = TRACKLIST.write().await;
 
     if let Ok(album) = client.album(album_id).await {
-        let mut album: Album = album.into();
+        let mut tracks: BTreeMap<u32, tracklist::Track> = album
+            .tracks
+            .unwrap_or_default()
+            .items
+            .into_iter()
+            .enumerate()
+            .map(|(i, t)| {
+                (
+                    i as u32,
+                    tracklist::Track {
+                        id: t.id,
+                        title: t.title,
+                        status: TrackStatus::Unplayed,
+                    },
+                )
+            })
+            .collect();
 
-        if let Some(first_track) = album.tracks.get_mut(&1) {
+        if let Some(first_track) = tracks.get_mut(&0) {
             first_track.status = TrackStatus::Playing;
-            attach_track_url(client, first_track).await;
+            let track_url = client.track_url(first_track.id).await?;
 
-            PLAYBIN.set_property("uri", first_track.track_url.clone());
+            PLAYBIN.set_property("uri", track_url);
             play().await?;
-        }
 
-        tracklist.queue = album.tracks.clone();
-        tracklist.playlist = None;
-        tracklist.album = Some(album);
-        tracklist.list_type = TrackListType::Album;
+            tracklist.queue = tracks;
+            tracklist.list_type = TrackListType::Album(tracklist::AlbumTracklist {
+                title: album.title,
+                id: album.id,
+            });
+
+            broadcast_track_list(&tracklist).await?;
+        }
+    };
+
+    Ok(())
+}
+
+#[instrument]
+/// Plays top tracks from artist starting from index.
+pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
+    ready().await?;
+
+    let client = CLIENT.get().unwrap();
+    let mut tracklist = TRACKLIST.write().await;
+
+    tracklist.queue = client
+        .artist(artist_id)
+        .await?
+        .top_tracks
+        .into_iter()
+        .enumerate()
+        .map(|(i, t)| {
+            (
+                i as u32,
+                tracklist::Track {
+                    id: t.id,
+                    title: t.title,
+                    status: TrackStatus::Unplayed,
+                },
+            )
+        })
+        .collect();
+
+    if let Some(track) = skip_to_track(&mut tracklist, index) {
+        let track_url = client.track_url(track.id).await?;
+        PLAYBIN.set_property("uri", track_url);
+        play().await?;
+
+        tracklist.list_type = TrackListType::Track;
 
         broadcast_track_list(&tracklist).await?;
     };
@@ -514,26 +549,43 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
 
     let client = CLIENT.get().unwrap();
     let mut tracklist = TRACKLIST.write().await;
-    let user_id = client.get_user_id();
 
-    if let Ok(playlist) = client.playlist(playlist_id).await {
-        let mut playlist: Playlist = models::parse_playlist(playlist, user_id);
+    let playlist = client.playlist(playlist_id).await?;
 
-        if let Some(first_track) = playlist.tracks.get_mut(&1) {
-            first_track.status = TrackStatus::Playing;
-            attach_track_url(client, first_track).await;
+    let mut tracks: BTreeMap<u32, tracklist::Track> =
+        playlist.tracks.map_or(Default::default(), |tracks| {
+            tracks
+                .items
+                .into_iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    (
+                        i as u32,
+                        tracklist::Track {
+                            id: t.id,
+                            title: t.title,
+                            status: TrackStatus::Unplayed,
+                        },
+                    )
+                })
+                .collect()
+        });
 
-            PLAYBIN.set_property("uri", first_track.track_url.clone());
-            play().await?;
-        };
+    if let Some(first_track) = tracks.get_mut(&0) {
+        first_track.status = TrackStatus::Playing;
+        let track_url = client.track_url(first_track.id).await?;
 
-        tracklist.queue = playlist.tracks.clone();
-        tracklist.album = None;
-        tracklist.playlist = Some(playlist);
-        tracklist.list_type = TrackListType::Playlist;
+        PLAYBIN.set_property("uri", track_url);
+        play().await?;
+
+        tracklist.queue = tracks;
+        tracklist.list_type = TrackListType::Playlist(tracklist::PlaylistTracklist {
+            title: playlist.name,
+            id: playlist.id,
+        });
 
         broadcast_track_list(&tracklist).await?;
-    }
+    };
 
     Ok(())
 }
@@ -548,7 +600,7 @@ async fn prep_next_track() -> Result<()> {
     let mut tracklist = TRACKLIST.write().await;
 
     let total_tracks = tracklist.total();
-    let current_position = tracklist.current_track().map_or(0, |ct| ct.position);
+    let current_position = tracklist.current_position();
 
     tracing::info!(
         "Total tracks: {}, current position: {}",
@@ -563,13 +615,12 @@ async fn prep_next_track() -> Result<()> {
     let next_track = tracklist
         .queue
         .iter_mut()
-        .find(|t| t.1.position == current_position + 1)
+        .find(|t| *t.0 == current_position + 1)
         .map(|t| t.1);
 
     if let Some(next_track) = next_track {
-        if let Ok(url) = client.track_url(next_track.id as i32).await {
-            next_track.track_url = Some(url.url.clone());
-            PLAYBIN.set_property("uri", url.url);
+        if let Ok(url) = client.track_url(next_track.id).await {
+            PLAYBIN.set_property("uri", url);
         };
     };
 
@@ -590,8 +641,15 @@ pub async fn current_tracklist() -> Tracklist {
 
 #[instrument]
 /// Returns the current track loaded in the player.
-pub async fn current_track() -> Option<Track> {
-    TRACKLIST.read().await.current_track().cloned()
+pub async fn current_track() -> Result<Option<Track>> {
+    let track_id = TRACKLIST.read().await.current_track().map(|t| t.id);
+
+    let client = CLIENT.get().unwrap();
+
+    match track_id {
+        Some(id) => Ok(Some(client.track(id).await?.into())),
+        None => Ok(None),
+    }
 }
 
 #[instrument]
@@ -608,21 +666,20 @@ pub async fn search(query: &str) -> SearchResults {
 }
 
 #[instrument]
-/// Get artist
-pub async fn artist(artist_id: i32) -> Artist {
+/// Get artist page
+pub async fn artist_page(artist_id: u32) -> ArtistPage {
     CLIENT
         .get()
         .unwrap()
-        .artist(artist_id, None)
+        .artist(artist_id)
         .await
-        .ok()
-        .map(|x| x.into())
-        .unwrap_or_default()
+        .unwrap()
+        .into()
 }
 
 #[instrument]
 /// Get similar artists
-pub async fn similar_artists(artist_id: i32) -> Vec<Artist> {
+pub async fn similar_artists(artist_id: u32) -> Vec<Artist> {
     CLIENT
         .get()
         .unwrap()
@@ -636,7 +693,7 @@ pub async fn similar_artists(artist_id: i32) -> Vec<Artist> {
 
 #[instrument]
 /// Get album
-pub async fn album(id: &str) -> Album {
+pub async fn album(id: &str) -> AlbumPage {
     CLIENT
         .get()
         .unwrap()
@@ -648,8 +705,14 @@ pub async fn album(id: &str) -> Album {
 }
 
 #[instrument]
+/// Get track
+pub async fn track(id: u32) -> Result<Track> {
+    Ok(CLIENT.get().unwrap().track(id).await?.into())
+}
+
+#[instrument]
 /// Get suggested albums
-pub async fn suggested_albums(album_id: &str) -> Vec<Album> {
+pub async fn suggested_albums(album_id: &str) -> Vec<AlbumPage> {
     CLIENT
         .get()
         .unwrap()
@@ -678,7 +741,7 @@ pub async fn playlist(id: i64) -> Playlist {
 #[instrument]
 #[cached(size = 10, time = 600)]
 /// Fetch the albums for a specific artist.
-pub async fn artist_albums(artist_id: i32) -> Vec<Album> {
+pub async fn artist_albums(artist_id: u32) -> Vec<AlbumPage> {
     CLIENT
         .get()
         .unwrap()
@@ -880,10 +943,9 @@ async fn handle_message(msg: &Message) -> Result<()> {
             if let Some(mut first_track) = tracklist.queue.first_entry() {
                 let first_track = first_track.get_mut();
                 first_track.status = TrackStatus::Playing;
-                PLAYBIN.set_property(
-                    "uri",
-                    first_track.track_url.as_ref().unwrap_or(&String::default()),
-                );
+                let client = CLIENT.get().unwrap();
+                let track_url = client.track_url(first_track.id).await?;
+                PLAYBIN.set_property("uri", track_url);
             };
 
             ready().await?;

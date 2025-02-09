@@ -51,13 +51,13 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn index(Path(id): Path<i64>) -> impl IntoResponse {
-    let (playlist, now_playing, favorites) = join!(
+    let (playlist, tracklist, favorites) = join!(
         qobuz_player_controls::playlist(id),
-        qobuz_player_controls::current_track(),
+        qobuz_player_controls::current_tracklist(),
         qobuz_player_controls::favorites()
     );
 
-    let now_playing_id = now_playing.map(|track| track.id);
+    let now_playing_id = tracklist.currently_playing();
     let is_favorite = favorites
         .playlists
         .iter()
@@ -71,12 +71,12 @@ async fn index(Path(id): Path<i64>) -> impl IntoResponse {
 }
 
 async fn tracks_partial(Path(id): Path<i64>) -> impl IntoResponse {
-    let (playlist, now_playing) = join!(
+    let (playlist, tracklist) = join!(
         qobuz_player_controls::playlist(id),
-        qobuz_player_controls::current_track()
+        qobuz_player_controls::current_tracklist(),
     );
 
-    let now_playing_id = now_playing.map(|track| track.id);
+    let now_playing_id = tracklist.currently_playing();
     let tracks: Vec<Track> = playlist.tracks.into_iter().map(|x| x.1).collect();
 
     render(html! { <Tracks now_playing_id=now_playing_id tracks=tracks playlist_id=playlist.id /> })

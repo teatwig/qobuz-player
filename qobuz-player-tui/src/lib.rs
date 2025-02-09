@@ -16,9 +16,9 @@ use cursive::{
 use futures::executor::block_on;
 use gstreamer::{ClockTime, State as GstState};
 use qobuz_player_controls::{
-    models::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
+    models::{AlbumPage, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
     notification::Notification,
-    tracklist::TrackListType,
+    tracklist::{self, TrackListType},
 };
 use tracing::debug;
 
@@ -319,7 +319,7 @@ fn menubar(s: &mut Cursive) {
     });
 }
 
-fn favorite_albums(favorite_albums: Vec<Album>) -> LinearLayout {
+fn favorite_albums(favorite_albums: Vec<AlbumPage>) -> LinearLayout {
     let mut list_layout = LinearLayout::new(Orientation::Vertical);
 
     let mut album_list = SelectView::new();
@@ -355,7 +355,7 @@ fn favorite_artists(favorite_artists: Vec<Artist>) -> LinearLayout {
     });
 
     artist_list.set_on_submit(move |s: &mut Cursive, item: &u32| {
-        submit_artist(s, *item as i32);
+        submit_artist(s, *item);
     });
 
     list_layout.add_child(
@@ -490,7 +490,7 @@ fn load_search_results(item: &str, s: &mut Cursive) {
                     }
 
                     search_results.set_on_submit(move |s: &mut Cursive, item: &String| {
-                        submit_artist(s, item.parse::<i32>().expect("failed to parse string"));
+                        submit_artist(s, item.parse::<u32>().expect("failed to parse string"));
                     });
                 }
                 "Playlists" => {
@@ -511,7 +511,7 @@ fn load_search_results(item: &str, s: &mut Cursive) {
     }
 }
 
-fn submit_artist(s: &mut Cursive, item: i32) {
+fn submit_artist(s: &mut Cursive, item: u32) {
     let artist_albums = block_on(async { qobuz_player_controls::artist_albums(item).await });
 
     if !artist_albums.is_empty() {
@@ -552,10 +552,10 @@ fn set_current_track(s: &mut Cursive, track: &Track, lt: &TrackListType) {
         s.find_name::<ProgressBar>("progress"),
     ) {
         match lt {
-            TrackListType::Album => {
+            TrackListType::Album(_) => {
                 track_num.set_content(format!("{:03}", track.number));
             }
-            TrackListType::Playlist => {
+            TrackListType::Playlist(_) => {
                 track_num.set_content(format!("{:03}", track.position));
             }
             TrackListType::Track => {
@@ -642,169 +642,206 @@ async fn receive_notifications() {
                         .is_ok()
                     {}
                 }
-                Notification::CurrentTrackList { list } => match list.list_type() {
-                    TrackListType::Album => {
-                        if SINK
-                            .get()
-                            .unwrap()
-                            .send(Box::new(move |s| {
-                                if let Some(mut list_view) = s
-                                    .find_name::<ScrollView<SelectView<usize>>>(
-                                        "current_track_list",
-                                    )
-                                {
-                                    list_view.get_inner_mut().clear();
+                Notification::CurrentTrackList { list } => {
+                    let total = list.total();
+                    match list.list_type {
+                        TrackListType::Album(album) => {
+                            if SINK
+                                .get()
+                                .unwrap()
+                                .send(Box::new(move |s| {
+                                    if let Some(mut list_view) = s
+                                        .find_name::<ScrollView<SelectView<usize>>>(
+                                            "current_track_list",
+                                        )
+                                    {
+                                        list_view.get_inner_mut().clear();
 
-                                    list.queue
-                                        .iter()
-                                        .filter(|t| t.1.status == TrackStatus::Unplayed)
-                                        .map(|t| t.1)
-                                        .for_each(|i| {
-                                            list_view.get_inner_mut().add_item(
-                                                i.track_list_item(list.list_type(), false),
-                                                i.position as usize,
-                                            );
-                                        });
+                                        list.queue
+                                            .iter()
+                                            .filter(|t| t.1.status == TrackStatus::Unplayed)
+                                            .map(|t| t.1)
+                                            .enumerate()
+                                            .for_each(|(i, t)| {
+                                                list_view
+                                                    .get_inner_mut()
+                                                    .add_item(t.track_list_item(false, i), i);
+                                            });
 
-                                    list.queue
-                                        .iter()
-                                        .filter(|t| t.1.status == TrackStatus::Played)
-                                        .map(|t| t.1)
-                                        .for_each(|i| {
-                                            list_view.get_inner_mut().add_item(
-                                                i.track_list_item(list.list_type(), true),
-                                                i.position as usize,
-                                            );
-                                        });
-                                }
-                                if let (
-                                    Some(album),
-                                    Some(mut entity_title),
-                                    Some(mut total_tracks),
-                                ) = (
-                                    list.get_album(),
-                                    s.find_name::<TextView>("entity_title"),
-                                    s.find_name::<TextView>("total_tracks"),
-                                ) {
-                                    let mut title = StyledString::plain(album.title.clone());
-                                    title.append_plain(" ");
-                                    title.append_styled(
-                                        format!("({})", album.release_year),
-                                        Effect::Dim,
-                                    );
-
-                                    entity_title.set_content(title);
-                                    total_tracks.set_content(format!("{:03}", album.total_tracks));
-                                }
-
-                                for t in list.queue.values() {
-                                    if t.status == TrackStatus::Playing {
-                                        set_current_track(s, t, list.list_type());
-                                        break;
+                                        list.queue
+                                            .iter()
+                                            .filter(|t| t.1.status == TrackStatus::Played)
+                                            .map(|t| t.1)
+                                            .enumerate()
+                                            .for_each(|(i, t)| {
+                                                list_view
+                                                    .get_inner_mut()
+                                                    .add_item(t.track_list_item(true, i), i);
+                                            });
                                     }
-                                }
-                            }))
-                            .is_ok()
-                        {}
+                                    if let (Some(mut entity_title), Some(mut total_tracks)) = (
+                                        s.find_name::<TextView>("entity_title"),
+                                        s.find_name::<TextView>("total_tracks"),
+                                    ) {
+                                        let mut title = StyledString::plain(album.title.clone());
+                                        title.append_plain(" ");
+
+                                        entity_title.set_content(title);
+                                        total_tracks.set_content(format!("{:03}", total.clone()));
+                                    }
+
+                                    for t in list.queue.values() {
+                                        if t.status == TrackStatus::Playing {
+                                            let track_id = t.id;
+                                            tokio::spawn(async move {
+                                                let track = qobuz_player_controls::track(track_id)
+                                                    .await
+                                                    .unwrap();
+                                                let track_list =
+                                                    qobuz_player_controls::current_tracklist()
+                                                        .await;
+
+                                                SINK.get()
+                                                    .unwrap()
+                                                    .send(Box::new(move |s| {
+                                                        set_current_track(
+                                                            s,
+                                                            &track,
+                                                            &track_list.list_type,
+                                                        );
+                                                    }))
+                                                    .unwrap();
+                                            });
+                                            break;
+                                        }
+                                    }
+                                }))
+                                .is_ok()
+                            {}
+                        }
+                        TrackListType::Playlist(playlist) => {
+                            if SINK
+                                .get()
+                                .unwrap()
+                                .send(Box::new(move |s| {
+                                    if let Some(mut list_view) = s
+                                        .find_name::<ScrollView<SelectView<usize>>>(
+                                            "current_track_list",
+                                        )
+                                    {
+                                        list_view.get_inner_mut().clear();
+
+                                        list.queue
+                                            .iter()
+                                            .filter(|t| t.1.status == TrackStatus::Unplayed)
+                                            .map(|t| t.1)
+                                            .enumerate()
+                                            .for_each(|(i, t)| {
+                                                list_view
+                                                    .get_inner_mut()
+                                                    .add_item(t.track_list_item(false, i), i);
+                                            });
+
+                                        list.queue
+                                            .iter()
+                                            .filter(|t| t.1.status == TrackStatus::Played)
+                                            .map(|t| t.1)
+                                            .enumerate()
+                                            .for_each(|(i, t)| {
+                                                list_view
+                                                    .get_inner_mut()
+                                                    .add_item(t.track_list_item(true, i), i);
+                                            });
+                                    }
+
+                                    if let (Some(mut entity_title), Some(mut total_tracks)) = (
+                                        s.find_name::<TextView>("entity_title"),
+                                        s.find_name::<TextView>("total_tracks"),
+                                    ) {
+                                        entity_title.set_content(&playlist.title);
+                                        total_tracks.set_content(format!("{:03}", total.clone()));
+                                    }
+
+                                    for t in list.queue.values() {
+                                        if t.status == TrackStatus::Playing {
+                                            let track_id = t.id;
+                                            tokio::spawn(async move {
+                                                let track = qobuz_player_controls::track(track_id)
+                                                    .await
+                                                    .unwrap();
+                                                let track_list =
+                                                    qobuz_player_controls::current_tracklist()
+                                                        .await;
+
+                                                SINK.get()
+                                                    .unwrap()
+                                                    .send(Box::new(move |s| {
+                                                        set_current_track(
+                                                            s,
+                                                            &track,
+                                                            &track_list.list_type,
+                                                        );
+                                                    }))
+                                                    .unwrap();
+                                            });
+                                            break;
+                                        }
+                                    }
+                                }))
+                                .is_ok()
+                            {}
+                        }
+                        TrackListType::Track => {
+                            if SINK
+                                .get()
+                                .unwrap()
+                                .send(Box::new(move |sink| {
+                                    if let Some(mut list_view) = sink
+                                        .find_name::<ScrollView<SelectView<usize>>>(
+                                            "current_track_list",
+                                        )
+                                    {
+                                        list_view.get_inner_mut().clear();
+                                    }
+
+                                    if let Some(mut total_tracks) =
+                                        sink.find_name::<TextView>("total_tracks")
+                                    {
+                                        total_tracks.set_content("001");
+                                    }
+
+                                    for t in list.queue.values() {
+                                        if t.status == TrackStatus::Playing {
+                                            let track_id = t.id;
+                                            tokio::spawn(async move {
+                                                let track = qobuz_player_controls::track(track_id)
+                                                    .await
+                                                    .unwrap();
+                                                let track_list =
+                                                    qobuz_player_controls::current_tracklist()
+                                                        .await;
+
+                                                SINK.get()
+                                                    .unwrap()
+                                                    .send(Box::new(move |s| {
+                                                        set_current_track(
+                                                            s,
+                                                            &track,
+                                                            &track_list.list_type,
+                                                        );
+                                                    }))
+                                                    .unwrap();
+                                            });
+                                            break;
+                                        }
+                                    }
+                                }))
+                                .is_ok()
+                            {}
+                        }
+                        _ => {}
                     }
-                    TrackListType::Playlist => {
-                        if SINK
-                            .get()
-                            .unwrap()
-                            .send(Box::new(move |s| {
-                                if let Some(mut list_view) = s
-                                    .find_name::<ScrollView<SelectView<usize>>>(
-                                        "current_track_list",
-                                    )
-                                {
-                                    list_view.get_inner_mut().clear();
-
-                                    list.queue
-                                        .iter()
-                                        .filter(|t| t.1.status == TrackStatus::Unplayed)
-                                        .map(|t| t.1)
-                                        .for_each(|i| {
-                                            list_view.get_inner_mut().add_item(
-                                                i.track_list_item(list.list_type(), false),
-                                                i.position as usize,
-                                            );
-                                        });
-
-                                    list.queue
-                                        .iter()
-                                        .filter(|t| t.1.status == TrackStatus::Played)
-                                        .map(|t| t.1)
-                                        .for_each(|i| {
-                                            list_view.get_inner_mut().add_item(
-                                                i.track_list_item(list.list_type(), true),
-                                                i.position as usize,
-                                            );
-                                        });
-                                }
-
-                                if let (
-                                    Some(playlist),
-                                    Some(mut entity_title),
-                                    Some(mut total_tracks),
-                                ) = (
-                                    list.playlist.as_ref(),
-                                    s.find_name::<TextView>("entity_title"),
-                                    s.find_name::<TextView>("total_tracks"),
-                                ) {
-                                    if let Some(first) = playlist.tracks.first_key_value() {
-                                        set_current_track(s, first.1, list.list_type());
-                                    }
-
-                                    entity_title.set_content(&playlist.title);
-                                    total_tracks.set_content(format!("{:03}", list.total()));
-                                }
-
-                                for t in list.queue.values() {
-                                    if t.status == TrackStatus::Playing {
-                                        set_current_track(s, t, list.list_type());
-                                        break;
-                                    }
-                                }
-                            }))
-                            .is_ok()
-                        {}
-                    }
-                    TrackListType::Track => {
-                        if SINK
-                            .get()
-                            .unwrap()
-                            .send(Box::new(move |s| {
-                                if let Some(mut list_view) = s
-                                    .find_name::<ScrollView<SelectView<usize>>>(
-                                        "current_track_list",
-                                    )
-                                {
-                                    list_view.get_inner_mut().clear();
-                                }
-
-                                if let (Some(album), Some(mut entity_title)) =
-                                    (list.get_album(), s.find_name::<TextView>("entity_title"))
-                                {
-                                    entity_title.set_content(album.title.trim());
-                                }
-                                if let Some(mut total_tracks) =
-                                    s.find_name::<TextView>("total_tracks")
-                                {
-                                    total_tracks.set_content("001");
-                                }
-
-                                for t in list.queue.values() {
-                                    if t.status == TrackStatus::Playing {
-                                        set_current_track(s, t, list.list_type());
-                                        break;
-                                    }
-                                }
-                            }))
-                            .is_ok()
-                        {}
-                    }
-                    _ => {}
-                },
+                }
                 Notification::Error { error: _ } => {}
                 Notification::Volume { volume: _ } => {}
             }
@@ -814,7 +851,7 @@ async fn receive_notifications() {
 
 trait CursiveFormat {
     fn list_item(&self) -> StyledString;
-    fn track_list_item(&self, _list_type: &TrackListType, _inactive: bool) -> StyledString {
+    fn track_list_item(&self, _inactive: bool, _number: usize) -> StyledString {
         StyledString::new()
     }
 }
@@ -852,7 +889,7 @@ impl CursiveFormat for Track {
 
         title
     }
-    fn track_list_item(&self, list_type: &TrackListType, inactive: bool) -> StyledString {
+    fn track_list_item(&self, inactive: bool, number: usize) -> StyledString {
         let mut style = Style::none();
 
         if inactive || !self.available {
@@ -862,14 +899,7 @@ impl CursiveFormat for Track {
                 .combine(Effect::Strikethrough);
         }
 
-        let num = match list_type {
-            TrackListType::Album => self.number,
-            TrackListType::Playlist => self.position,
-            TrackListType::Track => self.number,
-            TrackListType::Unknown => self.position,
-        };
-
-        let mut item = StyledString::styled(format!("{:02} ", num), style);
+        let mut item = StyledString::styled(format!("{:02} ", number), style);
         item.append_styled(self.title.trim(), style.combine(Effect::Simple));
         item.append_plain(" ");
 
@@ -883,8 +913,26 @@ impl CursiveFormat for Track {
         item
     }
 }
+impl CursiveFormat for tracklist::Track {
+    fn list_item(&self) -> StyledString {
+        let style = Style::none();
 
-impl CursiveFormat for Album {
+        let title = StyledString::styled(self.title.trim(), style.combine(Effect::Bold));
+
+        title
+    }
+    fn track_list_item(&self, _inactive: bool, number: usize) -> StyledString {
+        let style = Style::none();
+
+        let mut item = StyledString::styled(format!("{:02} ", number), style);
+        item.append_styled(self.title.trim(), style.combine(Effect::Simple));
+        item.append_plain(" ");
+
+        item
+    }
+}
+
+impl CursiveFormat for AlbumPage {
     fn list_item(&self) -> StyledString {
         let mut style = Style::none();
 
