@@ -48,7 +48,7 @@ pub struct Biography {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Images {
-    pub portrait: Image,
+    pub portrait: Option<Image>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

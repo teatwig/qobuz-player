@@ -55,10 +55,10 @@ impl From<QobuzReleaseTrack> for Track {
             duration_seconds: value.duration as u32,
             explicit: value.parental_warning,
             hires_available: value.rights.streamable,
-            status: TrackStatus::Unplayed,
             track_url: None,
             available: value.rights.streamable,
             cover_art: None,
+            cover_art_small: None,
             position: value.physical_support.track_number,
         }
     }
@@ -218,12 +218,6 @@ impl From<QobuzAlbum> for AlbumPage {
     }
 }
 
-impl From<&QobuzAlbum> for AlbumPage {
-    fn from(value: &QobuzAlbum) -> Self {
-        value.clone().into()
-    }
-}
-
 fn image_to_string(value: artist_page::Image) -> String {
     format!(
         "https://static.qobuz.com/images/artists/covers/large/{}.{}",
@@ -233,7 +227,8 @@ fn image_to_string(value: artist_page::Image) -> String {
 
 impl From<QobuzArtistPage> for ArtistPage {
     fn from(value: QobuzArtistPage) -> Self {
-        let artist_image_url = image_to_string(value.images.portrait);
+        let artist_image_url = value.images.portrait.map(image_to_string);
+
         Self {
             id: value.id,
             name: value.name.display.clone(),
@@ -242,11 +237,12 @@ impl From<QobuzArtistPage> for ArtistPage {
                 .top_tracks
                 .into_iter()
                 .map(|t| {
-                    let album_image_url = t.album.image.small;
+                    let album_image_url = t.album.image.large;
+                    let album_image_url_small = t.album.image.small;
                     let artist = Artist {
                         id: value.id,
                         name: value.name.display.clone(),
-                        image: Some(artist_image_url.clone()),
+                        image: artist_image_url.clone(),
                     };
                     Track {
                         id: t.id,
@@ -262,10 +258,10 @@ impl From<QobuzArtistPage> for ArtistPage {
                         duration_seconds: t.duration,
                         explicit: t.parental_warning,
                         hires_available: t.rights.hires_streamable,
-                        status: TrackStatus::Unplayed,
                         track_url: None,
                         available: t.rights.hires_streamable,
                         cover_art: Some(album_image_url),
+                        cover_art_small: Some(album_image_url_small),
                         position: t.physical_support.media_number,
                     }
                 })
@@ -277,7 +273,7 @@ impl From<QobuzArtistPage> for ArtistPage {
 impl From<QobuzArtist> for Artist {
     fn from(value: QobuzArtist) -> Self {
         Self {
-            id: value.id as u32,
+            id: value.id,
             name: value.name,
             image: value.image.map(|i| i.large),
         }
@@ -285,30 +281,14 @@ impl From<QobuzArtist> for Artist {
 }
 
 pub fn parse_playlist(playlist: QobuzPlaylist, user_id: i64) -> Playlist {
-    let tracks = if let Some(tracks) = playlist.tracks {
-        let mut position = 1_u32;
-
+    let tracks: BTreeMap<u32, Track> = playlist.tracks.map_or(Default::default(), |tracks| {
         tracks
             .items
             .into_iter()
-            .filter_map(|t| {
-                if t.streamable {
-                    let mut track: Track = t.into();
-
-                    let next_position = position;
-                    track.position = next_position;
-
-                    position += 1;
-
-                    Some((next_position, track))
-                } else {
-                    None
-                }
-            })
-            .collect::<BTreeMap<u32, Track>>()
-    } else {
-        BTreeMap::new()
-    };
+            .enumerate()
+            .map(|(i, t)| (i as u32, t.into()))
+            .collect()
+    });
 
     let cover_art = if let Some(image) = playlist.image_rectangle.first() {
         Some(image.clone())
@@ -341,6 +321,9 @@ impl From<QobuzTrack> for Track {
             value.album.as_ref().map(|a| a.clone().artist.into())
         };
 
+        let cover_art = value.album.as_ref().map(|a| a.image.large.clone());
+        let cover_art_small = value.album.as_ref().map(|a| a.image.small.clone());
+
         let album = value.album.map(|a| Album {
             id: a.id,
             title: a.title,
@@ -348,16 +331,8 @@ impl From<QobuzTrack> for Track {
             image: a.image.small,
         });
 
-        let cover_art = album.as_ref().map(|a| a.image.clone());
-
-        let status = if value.streamable {
-            TrackStatus::Unplayed
-        } else {
-            TrackStatus::Unplayable
-        };
-
         Self {
-            id: value.id as u32,
+            id: value.id,
             number: value.track_number as u32,
             title: value.title,
             album,
@@ -365,11 +340,11 @@ impl From<QobuzTrack> for Track {
             duration_seconds: value.duration as u32,
             explicit: value.parental_warning,
             hires_available: value.hires_streamable,
-            status,
             track_url: None,
             available: value.streamable,
             position: value.position.unwrap_or(value.track_number as usize) as u32,
             cover_art,
+            cover_art_small,
         }
     }
 }
@@ -399,10 +374,10 @@ pub struct Track {
     pub duration_seconds: u32,
     pub explicit: bool,
     pub hires_available: bool,
-    pub status: TrackStatus,
     pub track_url: Option<String>,
     pub available: bool,
     pub cover_art: Option<String>,
+    pub cover_art_small: Option<String>,
     pub position: u32,
 }
 
@@ -457,7 +432,7 @@ pub struct Artist {
 pub struct ArtistPage {
     pub id: u32,
     pub name: String,
-    pub image: String,
+    pub image: Option<String>,
     pub top_tracks: Vec<Track>,
 }
 

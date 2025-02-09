@@ -1,11 +1,23 @@
-use crate::models::{AlbumPage, Playlist, Track, TrackStatus};
+use crate::models::{self, TrackStatus};
 use std::collections::BTreeMap;
 use tracing::instrument;
 
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct AlbumTracklist {
+    pub title: String,
+    pub id: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct PlaylistTracklist {
+    pub title: String,
+    pub id: i64,
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum TrackListType {
-    Album,
-    Playlist,
+    Album(AlbumTracklist),
+    Playlist(PlaylistTracklist),
     Track,
     #[default]
     Unknown,
@@ -14,19 +26,50 @@ pub enum TrackListType {
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct Tracklist {
     pub queue: BTreeMap<u32, Track>,
-    pub album: Option<AlbumPage>,
-    pub playlist: Option<Playlist>,
     pub list_type: TrackListType,
 }
 
+#[derive(Default, Debug, Clone, PartialEq)]
+pub struct Track {
+    pub id: u32,
+    pub title: String,
+    pub status: TrackStatus,
+}
+
+impl From<models::Track> for Track {
+    fn from(value: models::Track) -> Self {
+        Self {
+            id: value.id,
+            title: value.title,
+            status: TrackStatus::Unplayed,
+        }
+    }
+}
+
 impl Tracklist {
+    pub fn new() -> Self {
+        Self {
+            queue: BTreeMap::new(),
+            list_type: TrackListType::Unknown,
+        }
+    }
     pub fn total(&self) -> u32 {
         self.queue.len() as u32
     }
 
-    #[instrument(skip(self))]
-    pub fn get_album(&self) -> Option<&AlbumPage> {
-        self.album.as_ref()
+    pub fn currently_playing(&self) -> Option<u32> {
+        self.queue
+            .iter()
+            .find(|t| t.1.status == TrackStatus::Playing)
+            .map(|x| x.1.id)
+    }
+
+    pub fn current_position(&self) -> u32 {
+        self.queue
+            .iter()
+            .find(|t| t.1.status == TrackStatus::Playing)
+            .map(|x| *x.0)
+            .unwrap_or(0)
     }
 
     #[instrument(skip(self))]

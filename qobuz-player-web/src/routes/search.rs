@@ -36,7 +36,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/play-track/{track_id}", put(play_track))
 }
 
-async fn play_track(Path(track_id): Path<i32>) -> impl IntoResponse {
+async fn play_track(Path(track_id): Path<u32>) -> impl IntoResponse {
     qobuz_player_controls::play_track(track_id).await.unwrap();
 }
 
@@ -140,7 +140,7 @@ fn track(track: TrackModel) -> impl IntoView {
             <img
                 class="inline text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
                 alt=track.title.clone()
-                src=track.cover_art
+                src=track.cover_art_small
             />
 
             <div class="overflow-hidden w-full">

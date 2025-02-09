@@ -12,10 +12,7 @@ use qobuz_player_controls::{
 use std::sync::Arc;
 
 use crate::{
-    components::{
-        list::{List, ListItem},
-        Info,
-    },
+    components::list::{List, ListItem},
     html,
     page::Page,
     view::render,
@@ -46,15 +43,11 @@ async fn index() -> impl IntoResponse {
 }
 
 #[component]
-pub fn queue(current_tracklist: Tracklist) -> impl IntoView {
-    let album = current_tracklist.get_album();
+fn queue(current_tracklist: Tracklist) -> impl IntoView {
     let entity_title = match current_tracklist.list_type() {
-        TrackListType::Album => album.map(|album| album.title.clone()),
-        TrackListType::Playlist => current_tracklist
-            .clone()
-            .playlist
-            .map(|playlist| playlist.title),
-        TrackListType::Track => album.map(|album| album.title.clone()),
+        TrackListType::Album(album) => Some(album.title.clone()),
+        TrackListType::Playlist(playlist) => Some(playlist.title.clone()),
+        TrackListType::Track => None,
         TrackListType::Unknown => None,
     };
 
@@ -83,19 +76,18 @@ async fn queue_partial() -> impl IntoResponse {
 }
 
 #[component]
-pub fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
+fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
     html! {
         <List>
             {current_tracklist
                 .queue
                 .into_iter()
-                .map(|x| x.1)
-                .map(|track| {
+                .map(|(position, track)| {
                     html! {
                         <ListItem>
                             <button
                                 hx-swap="none"
-                                hx-put=format!("/queue/skip-to/{}", track.position)
+                                hx-put=format!("/queue/skip-to/{}", position)
                                 class=format!(
                                     "cursor-pointer flex w-full items-center flex-row gap-4 text-left {}",
                                     if track.status == TrackStatus::Playing {
@@ -108,16 +100,10 @@ pub fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
                                 )
                             >
                                 <span class="w-5 text-center">
-                                    <span class="text-gray-400">{track.position}</span>
+                                    <span class="text-gray-400">{position + 1}</span>
                                 </span>
 
-                                <div class="flex overflow-hidden flex-grow justify-between items-center">
-                                    <span class="truncate">{track.title.clone()}</span>
-                                    <Info
-                                        explicit=track.explicit
-                                        hires_available=track.hires_available
-                                    />
-                                </div>
+                                <span class="truncate">{track.title.clone()}</span>
                             </button>
                         </ListItem>
                     }

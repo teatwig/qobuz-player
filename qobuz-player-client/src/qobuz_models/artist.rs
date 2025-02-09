@@ -25,7 +25,7 @@ pub struct Artists {
 pub struct Artist {
     pub image: Option<Image>,
     pub name: String,
-    pub id: i64,
+    pub id: u32,
     pub albums: Option<Albums>,
 }
 

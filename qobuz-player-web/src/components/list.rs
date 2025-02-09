@@ -250,14 +250,15 @@ pub fn list_tracks(
         <List>
             {tracks
                 .into_iter()
-                .map(|track| {
+                .enumerate()
+                .map(|(index, track)| {
                     let now_playing = now_playing_id.is_some_and(|id| id == track.id);
                     let parent_id = parent_id.clone();
                     html! {
                         <ListItem>
                             <button
                                 hx-swap="none"
-                                hx-put=format!("{}/play/{}", parent_id, track.position)
+                                hx-put=format!("{}/play/{}", parent_id, index)
                                 class="flex justify-between items-center w-full text-left cursor-pointer"
                             >
                                 <span class="flex overflow-hidden gap-4 items-center w-full">

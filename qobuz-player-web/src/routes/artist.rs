@@ -26,13 +26,15 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/artist/{id}/set-favorite", put(set_favorite))
         .route("/artist/{id}/unset-favorite", put(unset_favorite))
         .route(
-            "/artist/{id}/play-top-track/{track_index}",
+            "/artist/{artist_id}/play-top-track/{track_index}",
             put(play_top_track),
         )
 }
 
-async fn play_top_track(Path((id, track_id)): Path<(String, i32)>) -> impl IntoResponse {
-    qobuz_player_controls::add_favorite_artist(&id).await;
+async fn play_top_track(Path((artist_id, track_index)): Path<(u32, u32)>) -> impl IntoResponse {
+    qobuz_player_controls::play_top_tracks(artist_id, track_index)
+        .await
+        .unwrap();
 }
 
 async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
@@ -43,7 +45,7 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
     qobuz_player_controls::remove_favorite_artist(&id).await;
 }
 
-async fn index(Path(id): Path<i32>) -> impl IntoResponse {
+async fn index(Path(id): Path<u32>) -> impl IntoResponse {
     let (artist, albums, similar_artists, favorites) = join!(
         qobuz_player_controls::artist_page(id),
         qobuz_player_controls::artist_albums(id),
@@ -51,10 +53,7 @@ async fn index(Path(id): Path<i32>) -> impl IntoResponse {
         qobuz_player_controls::favorites()
     );
 
-    let is_favorite = favorites
-        .artists
-        .iter()
-        .any(|artist| artist.id == id as u32);
+    let is_favorite = favorites.artists.iter().any(|artist| artist.id == id);
 
     render(html! {
         <Page active_page=Page::None>
@@ -75,7 +74,10 @@ fn artist(
     similar_artists: Vec<Artist>,
     is_favorite: bool,
 ) -> impl IntoView {
-    let artist_image_style = format!("background-image: url({});", artist.image);
+    let artist_image_style = artist
+        .image
+        .map(|image| format!("background-image: url({});", image));
+
     html! {
         <div class="flex flex-col h-full">
             <div class="flex flex-col gap-4 items-center p-4">
@@ -89,7 +91,7 @@ fn artist(
             <div class="flex flex-col gap-4">
                 <div class="flex flex-col gap-2">
                     <h3 class="px-4 text-lg">Top tracks</h3>
-                    <ListTracks tracks=artist.top_tracks _now_playing_id=None />
+                    <ListTracks artist_id=artist.id tracks=artist.top_tracks _now_playing_id=None />
                 </div>
                 <div class="flex flex-col gap-2">
                     <h3 class="px-4 text-lg">Albums</h3>
@@ -116,14 +118,18 @@ fn artist(
 }
 
 #[component]
-fn list_tracks(tracks: Vec<models::Track>, _now_playing_id: Option<u32>) -> impl IntoView {
+fn list_tracks(
+    artist_id: u32,
+    tracks: Vec<models::Track>,
+    _now_playing_id: Option<u32>,
+) -> impl IntoView {
     html! {
         <div class="flex overflow-x-auto flex-col flex-wrap gap-4 p-4 max-h-92">
             {tracks
                 .into_iter()
                 .enumerate()
                 .map(|(index, track)| {
-                    html! { <Track track=track index=index /> }
+                    html! { <Track artist_id=artist_id track=track index=index /> }
                 })
                 .collect::<Vec<_>>()}
         </div>
@@ -131,11 +137,11 @@ fn list_tracks(tracks: Vec<models::Track>, _now_playing_id: Option<u32>) -> impl
 }
 
 #[component]
-fn track(track: models::Track, index: usize) -> impl IntoView {
+fn track(artist_id: u32, track: models::Track, index: usize) -> impl IntoView {
     html! {
         <button
             class="flex gap-4 items-center cursor-pointer w-lg"
-            hx-put=format!("play-track/{}", index)
+            hx-put=format!("{}/play-top-track/{}", artist_id, index)
             hx-swap="none"
         >
             <img
