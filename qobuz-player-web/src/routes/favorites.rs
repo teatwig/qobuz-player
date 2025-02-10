@@ -19,7 +19,7 @@ pub fn routes() -> Router<Arc<AppState>> {
 }
 
 async fn index(Path(tab): Path<Tab>) -> impl IntoResponse {
-    let favorites = qobuz_player_controls::favorites().await;
+    let favorites = qobuz_player_controls::favorites().await.unwrap();
 
     render(html! {
         <Page active_page=Page::Favorites>

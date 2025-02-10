@@ -76,7 +76,7 @@ pub async fn init() {
         albums,
         artists,
         playlists,
-    } = favorites;
+    } = favorites.unwrap();
 
     let favorite_albums = favorite_albums(albums);
     let favorite_artists = favorite_artists(artists);
@@ -512,7 +512,8 @@ fn load_search_results(item: &str, s: &mut Cursive) {
 }
 
 fn submit_artist(s: &mut Cursive, item: u32) {
-    let artist_albums = block_on(async { qobuz_player_controls::artist_albums(item).await });
+    let artist_albums =
+        block_on(async { qobuz_player_controls::artist_albums(item).await }).unwrap();
 
     if !artist_albums.is_empty() {
         let mut tree = cursive::menu::Tree::new();

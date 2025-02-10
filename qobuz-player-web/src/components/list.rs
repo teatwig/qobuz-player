@@ -252,7 +252,7 @@ pub fn list_tracks(
                 .into_iter()
                 .enumerate()
                 .map(|(index, track)| {
-                    let now_playing = now_playing_id.is_some_and(|id| id == track.id);
+                    let is_playing = now_playing_id.is_some_and(|id| id == track.id);
                     let parent_id = parent_id.clone();
                     html! {
                         <ListItem>
@@ -263,7 +263,7 @@ pub fn list_tracks(
                             >
                                 <span class="flex overflow-hidden gap-4 items-center w-full">
                                     <span class="w-5 text-center">
-                                        {now_playing
+                                        {is_playing
                                             .then_some({
                                                 html! {
                                                     <span class="text-blue-500 size-4">
@@ -271,7 +271,7 @@ pub fn list_tracks(
                                                     </span>
                                                 }
                                             })}
-                                        {(!now_playing)
+                                        {(!is_playing)
                                             .then_some({
                                                 html! {
                                                     <span class="text-gray-400">

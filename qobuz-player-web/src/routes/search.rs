@@ -5,7 +5,7 @@ use axum::{
     Form, Router,
 };
 use leptos::{component, prelude::*};
-use qobuz_player_controls::models::{SearchResults, Track as TrackModel};
+use qobuz_player_controls::models::{self, SearchResults};
 use serde::Deserialize;
 use std::sync::Arc;
 
@@ -51,7 +51,7 @@ async fn index(
 ) -> impl IntoResponse {
     let query = parameters.query;
     let search_results = match &query {
-        Some(query) => qobuz_player_controls::search(query).await,
+        Some(query) => qobuz_player_controls::search(query).await.unwrap(),
         None => SearchResults::default(),
     };
 
@@ -70,7 +70,7 @@ async fn search(
 ) -> impl IntoResponse {
     let query = parameters.query;
     let search_results = match &query {
-        Some(query) => qobuz_player_controls::search(query).await,
+        Some(query) => qobuz_player_controls::search(query).await.unwrap(),
         None => SearchResults::default(),
     };
 
@@ -112,7 +112,7 @@ fn search_partial(search_results: SearchResults, tab: Tab) -> impl IntoView {
 }
 
 #[component]
-fn list_tracks(tracks: Vec<TrackModel>) -> impl IntoView {
+fn list_tracks(tracks: Vec<models::Track>) -> impl IntoView {
     html! {
         <List>
             {tracks
@@ -130,7 +130,7 @@ fn list_tracks(tracks: Vec<TrackModel>) -> impl IntoView {
 }
 
 #[component]
-fn track(track: TrackModel) -> impl IntoView {
+fn track(track: models::Track) -> impl IntoView {
     html! {
         <button
             class="flex gap-4 items-center w-full cursor-pointer"
@@ -144,7 +144,7 @@ fn track(track: TrackModel) -> impl IntoView {
             />
 
             <div class="overflow-hidden w-full">
-                <div class="flex justify-between">
+                <div class="flex justify-between items-center">
                     <h3 class="text-lg truncate">{track.title}</h3>
                     <Info explicit=track.explicit hires_available=track.hires_available />
                 </div>

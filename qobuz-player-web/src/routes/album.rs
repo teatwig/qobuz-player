@@ -39,12 +39,16 @@ async fn play_track(Path((id, track_position)): Path<(String, u32)>) -> impl Int
 }
 
 async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::add_favorite_album(&id).await;
+    qobuz_player_controls::add_favorite_album(&id)
+        .await
+        .unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
 
 async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::remove_favorite_album(&id).await;
+    qobuz_player_controls::remove_favorite_album(&id)
+        .await
+        .unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
 
@@ -59,6 +63,10 @@ async fn index(Path(id): Path<String>) -> impl IntoResponse {
         qobuz_player_controls::current_tracklist(),
         qobuz_player_controls::favorites()
     );
+
+    let album = album.unwrap();
+    let suggested_albums = suggested_albums.unwrap();
+    let favorites = favorites.unwrap();
 
     let now_playing_id = tracklist.currently_playing();
     let is_favorite = favorites.albums.iter().any(|album| album.id == id);
@@ -80,6 +88,8 @@ async fn album_tracks_partial(Path(id): Path<String>) -> impl IntoResponse {
         qobuz_player_controls::album(&id),
         qobuz_player_controls::current_tracklist(),
     );
+
+    let album = album.unwrap();
 
     let tracks: Vec<Track> = album.tracks.into_iter().map(|x| x.1).collect();
     let now_playing_id = tracklist.currently_playing();

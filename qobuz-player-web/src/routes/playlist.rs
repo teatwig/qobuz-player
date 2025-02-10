@@ -43,11 +43,15 @@ async fn play(Path(id): Path<i64>) -> impl IntoResponse {
 }
 
 async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::add_favorite_playlist(&id).await;
+    qobuz_player_controls::add_favorite_playlist(&id)
+        .await
+        .unwrap();
 }
 
 async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::remove_favorite_playlist(&id).await;
+    qobuz_player_controls::remove_favorite_playlist(&id)
+        .await
+        .unwrap();
 }
 
 async fn index(Path(id): Path<i64>) -> impl IntoResponse {
@@ -56,6 +60,9 @@ async fn index(Path(id): Path<i64>) -> impl IntoResponse {
         qobuz_player_controls::current_tracklist(),
         qobuz_player_controls::favorites()
     );
+
+    let playlist = playlist.unwrap();
+    let favorites = favorites.unwrap();
 
     let now_playing_id = tracklist.currently_playing();
     let is_favorite = favorites
@@ -75,6 +82,7 @@ async fn tracks_partial(Path(id): Path<i64>) -> impl IntoResponse {
         qobuz_player_controls::playlist(id),
         qobuz_player_controls::current_tracklist(),
     );
+    let playlist = playlist.unwrap();
 
     let now_playing_id = tracklist.currently_playing();
     let tracks: Vec<Track> = playlist.tracks.into_iter().map(|x| x.1).collect();

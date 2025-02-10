@@ -653,55 +653,42 @@ pub async fn current_track() -> Result<Option<Track>> {
 }
 
 #[instrument]
-pub async fn search(query: &str) -> SearchResults {
+pub async fn search(query: &str) -> Result<SearchResults> {
     let client = CLIENT.get().unwrap();
     let user_id = client.get_user_id();
 
-    client
-        .search_all(query, 20)
-        .await
-        .ok()
-        .map(|x| models::parse_search_results(x, user_id))
-        .unwrap_or_default()
+    let results = client.search_all(query, 20).await?;
+    Ok(models::parse_search_results(results, user_id))
 }
 
 #[instrument]
 /// Get artist page
-pub async fn artist_page(artist_id: u32) -> ArtistPage {
-    CLIENT
-        .get()
-        .unwrap()
-        .artist(artist_id)
-        .await
-        .unwrap()
-        .into()
+pub async fn artist_page(artist_id: u32) -> Result<ArtistPage> {
+    let artist = CLIENT.get().unwrap().artist(artist_id).await?;
+    Ok(artist.into())
 }
 
 #[instrument]
 /// Get similar artists
-pub async fn similar_artists(artist_id: u32) -> Vec<Artist> {
-    CLIENT
+pub async fn similar_artists(artist_id: u32) -> Result<Vec<Artist>> {
+    let similar_artists = CLIENT
         .get()
         .unwrap()
         .similar_artists(artist_id, None)
-        .await
-        .ok()
-        .map_or(vec![], |result| {
-            result.items.into_iter().map(|x| x.into()).collect()
-        })
+        .await?;
+
+    Ok(similar_artists
+        .items
+        .into_iter()
+        .map(|s_a| s_a.into())
+        .collect())
 }
 
 #[instrument]
 /// Get album
-pub async fn album(id: &str) -> AlbumPage {
-    CLIENT
-        .get()
-        .unwrap()
-        .album(id)
-        .await
-        .ok()
-        .map(|x| x.into())
-        .unwrap()
+pub async fn album(id: &str) -> Result<AlbumPage> {
+    let album = CLIENT.get().unwrap().album(id).await?;
+    Ok(album.into())
 }
 
 #[instrument]
@@ -712,120 +699,100 @@ pub async fn track(id: u32) -> Result<Track> {
 
 #[instrument]
 /// Get suggested albums
-pub async fn suggested_albums(album_id: &str) -> Vec<AlbumPage> {
-    CLIENT
-        .get()
-        .unwrap()
-        .suggested_albums(album_id)
-        .await
-        .ok()
-        .map_or(vec![], |result| {
-            result.albums.items.into_iter().map(|x| x.into()).collect()
-        })
+pub async fn suggested_albums(album_id: &str) -> Result<Vec<AlbumPage>> {
+    let suggested_albums = CLIENT.get().unwrap().suggested_albums(album_id).await?;
+
+    Ok(suggested_albums
+        .albums
+        .items
+        .into_iter()
+        .map(|x| x.into())
+        .collect())
 }
 
 #[instrument]
 /// Get playlist
-pub async fn playlist(id: i64) -> Playlist {
+pub async fn playlist(id: i64) -> Result<Playlist> {
     let client = CLIENT.get().unwrap();
-
     let user_id = client.get_user_id();
-    client
-        .playlist(id)
-        .await
-        .ok()
-        .map(|x| models::parse_playlist(x, user_id))
-        .unwrap_or_default()
+    let playlist = client.playlist(id).await?;
+
+    Ok(models::parse_playlist(playlist, user_id))
 }
 
 #[instrument]
 #[cached(size = 10, time = 600)]
 /// Fetch the albums for a specific artist.
-pub async fn artist_albums(artist_id: u32) -> Vec<AlbumPage> {
-    CLIENT
+pub async fn artist_albums(artist_id: u32) -> Result<Vec<AlbumPage>> {
+    let albums = CLIENT
         .get()
         .unwrap()
         .artist_releases(artist_id, None)
-        .await
-        .ok()
-        .map_or(vec![], |result| {
-            result.into_iter().map(|release| release.into()).collect()
-        })
+        .await?;
+
+    Ok(albums.into_iter().map(|release| release.into()).collect())
 }
 
 #[instrument]
 /// Add album to favorites
-pub async fn add_favorite_album(id: &str) {
-    CLIENT.get().unwrap().add_favorite_album(id).await.unwrap();
+pub async fn add_favorite_album(id: &str) -> Result<()> {
+    CLIENT.get().unwrap().add_favorite_album(id).await?;
+    Ok(())
 }
 
 #[instrument]
 /// Remove album from favorites
-pub async fn remove_favorite_album(id: &str) {
-    CLIENT
-        .get()
-        .unwrap()
-        .remove_favorite_album(id)
-        .await
-        .unwrap();
+pub async fn remove_favorite_album(id: &str) -> Result<()> {
+    CLIENT.get().unwrap().remove_favorite_album(id).await?;
+    Ok(())
 }
 
 #[instrument]
 /// Add artist to favorites
-pub async fn add_favorite_artist(id: &str) {
-    CLIENT.get().unwrap().add_favorite_artist(id).await.unwrap();
+pub async fn add_favorite_artist(id: &str) -> Result<()> {
+    CLIENT.get().unwrap().add_favorite_artist(id).await?;
+    Ok(())
 }
 
 #[instrument]
 /// Remove artist from favorites
-pub async fn remove_favorite_artist(id: &str) {
-    CLIENT
-        .get()
-        .unwrap()
-        .remove_favorite_artist(id)
-        .await
-        .unwrap();
+pub async fn remove_favorite_artist(id: &str) -> Result<()> {
+    CLIENT.get().unwrap().remove_favorite_artist(id).await?;
+    Ok(())
 }
 
 #[instrument]
 /// Add playlist to favorites
-pub async fn add_favorite_playlist(id: &str) {
-    CLIENT
-        .get()
-        .unwrap()
-        .add_favorite_playlist(id)
-        .await
-        .unwrap();
+pub async fn add_favorite_playlist(id: &str) -> Result<()> {
+    CLIENT.get().unwrap().add_favorite_playlist(id).await?;
+    Ok(())
 }
 
 #[instrument]
 /// Remove playlist from favorites
-pub async fn remove_favorite_playlist(id: &str) {
-    CLIENT
-        .get()
-        .unwrap()
-        .remove_favorite_playlist(id)
-        .await
-        .unwrap();
+pub async fn remove_favorite_playlist(id: &str) -> Result<()> {
+    CLIENT.get().unwrap().remove_favorite_playlist(id).await?;
+    Ok(())
 }
 
 #[instrument]
 /// Fetch the current user's list of playlists.
-async fn user_playlists(client: &Client) -> Vec<Playlist> {
+async fn user_playlists(client: &Client) -> Result<Vec<Playlist>> {
     let user_id = client.get_user_id();
-    client.user_playlists().await.ok().map_or(vec![], |x| {
-        x.playlists
-            .items
-            .into_iter()
-            .map(|playlist| models::parse_playlist(playlist, user_id))
-            .collect()
-    })
+    let playlists = client.user_playlists().await?;
+
+    Ok(playlists
+        .playlists
+        .items
+        .into_iter()
+        .map(|playlist| models::parse_playlist(playlist, user_id))
+        .collect())
 }
 
 #[instrument]
 #[cached(size = 1, time = 600)]
 /// Get favorites
-pub async fn favorites() -> Favorites {
+pub async fn favorites() -> Result<Favorites> {
     let client = CLIENT.get().unwrap();
     let (favorites, favorite_playlists) =
         tokio::join!(client.favorites(1000), user_playlists(client));
@@ -834,15 +801,15 @@ pub async fn favorites() -> Favorites {
         albums,
         tracks: _,
         artists,
-    } = favorites.unwrap();
+    } = favorites?;
     let albums = albums.items;
     let artists = artists.items;
 
-    Favorites {
+    Ok(Favorites {
         albums: albums.into_iter().map(|x| x.into()).collect(),
         artists: artists.into_iter().map(|x| x.into()).collect(),
-        playlists: favorite_playlists,
-    }
+        playlists: favorite_playlists?,
+    })
 }
 
 #[instrument]
