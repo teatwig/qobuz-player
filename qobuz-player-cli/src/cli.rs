@@ -111,8 +111,6 @@ pub async fn run() -> Result<(), Error> {
                 }
             };
 
-            qobuz_player_controls::init(&username, &password).await?;
-
             #[cfg(target_os = "linux")]
             {
                 tokio::spawn(async move {
@@ -125,7 +123,7 @@ pub async fn run() -> Result<(), Error> {
             }
 
             tokio::spawn(async {
-                match qobuz_player_controls::player_loop().await {
+                match qobuz_player_controls::player_loop(username, password).await {
                     Ok(_) => debug!("player loop exited successfully"),
                     Err(error) => debug!("player loop error {error}"),
                 }

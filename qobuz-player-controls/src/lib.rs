@@ -128,8 +128,13 @@ static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
 ];
 
-#[instrument]
-pub async fn init(username: &str, password: &str) -> Result<()> {
+static USERNAME: OnceLock<String> = OnceLock::new();
+static PASSWORD: OnceLock<String> = OnceLock::new();
+
+async fn init_client() {
+    let username = USERNAME.get().unwrap();
+    let password = PASSWORD.get().unwrap();
+
     let client = qobuz_player_client::client::new(username, password)
         .await
         .expect("error making client");
@@ -138,8 +143,18 @@ pub async fn init(username: &str, password: &str) -> Result<()> {
     debug!(?version);
 
     CLIENT.set(client).expect("error setting client");
+}
 
-    Ok(())
+macro_rules! get_client {
+    () => {
+        match CLIENT.get() {
+            Some(client) => client,
+            None => {
+                init_client().await;
+                CLIENT.get().unwrap()
+            }
+        }
+    };
 }
 
 #[instrument]
@@ -349,7 +364,7 @@ pub async fn skip_to_position(new_position: u32, force: bool) -> Result<()> {
 
     ready().await?;
 
-    let client = CLIENT.get().unwrap();
+    let client = get_client!();
 
     if let Some(next_track) = skip_to_track(&mut tracklist, new_position) {
         let next_track_url = client.track_url(next_track.id).await?;
@@ -432,7 +447,7 @@ fn skip_to_next_track(tracklist: &mut Tracklist) {
 pub async fn play_track(track_id: u32) -> Result<()> {
     ready().await?;
 
-    let client = CLIENT.get().unwrap();
+    let client = get_client!();
     let track_url = client.track_url(track_id).await?;
     PLAYBIN.set_property("uri", track_url);
     play().await?;
@@ -461,7 +476,7 @@ pub async fn play_track(track_id: u32) -> Result<()> {
 pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
     ready().await?;
 
-    let client = CLIENT.get().unwrap();
+    let client = get_client!();
     let mut tracklist = TRACKLIST.write().await;
 
     let album = client.album(album_id).await?;
@@ -504,7 +519,7 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
 pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
     ready().await?;
 
-    let client = CLIENT.get().unwrap();
+    let client = get_client!();
     let mut tracklist = TRACKLIST.write().await;
 
     tracklist.queue = client
@@ -543,7 +558,7 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
 pub async fn play_playlist(playlist_id: i64, index: u32) -> Result<()> {
     ready().await?;
 
-    let client = CLIENT.get().unwrap();
+    let client = get_client!();
     let mut tracklist = TRACKLIST.write().await;
 
     let playlist = client.playlist(playlist_id).await?;
@@ -588,7 +603,7 @@ pub async fn play_playlist(playlist_id: i64, index: u32) -> Result<()> {
 async fn prep_next_track() -> Result<()> {
     tracing::info!("Prepping for next track");
 
-    let client = CLIENT.get().unwrap();
+    let client = get_client!();
     let mut tracklist = TRACKLIST.write().await;
 
     let total_tracks = tracklist.total();
@@ -636,7 +651,7 @@ pub async fn current_tracklist() -> Tracklist {
 pub async fn current_track() -> Result<Option<Track>> {
     let track_id = TRACKLIST.read().await.current_track().map(|t| t.id);
 
-    let client = CLIENT.get().unwrap();
+    let client = get_client!();
 
     match track_id {
         Some(id) => Ok(Some(client.track(id).await?.into())),
@@ -646,7 +661,7 @@ pub async fn current_track() -> Result<Option<Track>> {
 
 #[instrument]
 pub async fn search(query: &str) -> Result<SearchResults> {
-    let client = CLIENT.get().unwrap();
+    let client = get_client!();
     let user_id = client.get_user_id();
 
     let results = client.search_all(query, 20).await?;
@@ -656,18 +671,16 @@ pub async fn search(query: &str) -> Result<SearchResults> {
 #[instrument]
 /// Get artist page
 pub async fn artist_page(artist_id: u32) -> Result<ArtistPage> {
-    let artist = CLIENT.get().unwrap().artist(artist_id).await?;
+    let client = get_client!();
+    let artist = client.artist(artist_id).await?;
     Ok(artist.into())
 }
 
 #[instrument]
 /// Get similar artists
 pub async fn similar_artists(artist_id: u32) -> Result<Vec<Artist>> {
-    let similar_artists = CLIENT
-        .get()
-        .unwrap()
-        .similar_artists(artist_id, None)
-        .await?;
+    let client = get_client!();
+    let similar_artists = client.similar_artists(artist_id, None).await?;
 
     Ok(similar_artists
         .items
@@ -679,20 +692,23 @@ pub async fn similar_artists(artist_id: u32) -> Result<Vec<Artist>> {
 #[instrument]
 /// Get album
 pub async fn album(id: &str) -> Result<AlbumPage> {
-    let album = CLIENT.get().unwrap().album(id).await?;
+    let client = get_client!();
+    let album = client.album(id).await?;
     Ok(album.into())
 }
 
 #[instrument]
 /// Get track
 pub async fn track(id: u32) -> Result<Track> {
-    Ok(CLIENT.get().unwrap().track(id).await?.into())
+    let client = get_client!();
+    Ok(client.track(id).await?.into())
 }
 
 #[instrument]
 /// Get suggested albums
 pub async fn suggested_albums(album_id: &str) -> Result<Vec<AlbumPage>> {
-    let suggested_albums = CLIENT.get().unwrap().suggested_albums(album_id).await?;
+    let client = get_client!();
+    let suggested_albums = client.suggested_albums(album_id).await?;
 
     Ok(suggested_albums
         .albums
@@ -705,7 +721,7 @@ pub async fn suggested_albums(album_id: &str) -> Result<Vec<AlbumPage>> {
 #[instrument]
 /// Get playlist
 pub async fn playlist(id: i64) -> Result<Playlist> {
-    let client = CLIENT.get().unwrap();
+    let client = get_client!();
     let user_id = client.get_user_id();
     let playlist = client.playlist(id).await?;
 
@@ -728,42 +744,48 @@ pub async fn artist_albums(artist_id: u32) -> Result<Vec<AlbumPage>> {
 #[instrument]
 /// Add album to favorites
 pub async fn add_favorite_album(id: &str) -> Result<()> {
-    CLIENT.get().unwrap().add_favorite_album(id).await?;
+    let client = get_client!();
+    client.add_favorite_album(id).await?;
     Ok(())
 }
 
 #[instrument]
 /// Remove album from favorites
 pub async fn remove_favorite_album(id: &str) -> Result<()> {
-    CLIENT.get().unwrap().remove_favorite_album(id).await?;
+    let client = get_client!();
+    client.remove_favorite_album(id).await?;
     Ok(())
 }
 
 #[instrument]
 /// Add artist to favorites
 pub async fn add_favorite_artist(id: &str) -> Result<()> {
-    CLIENT.get().unwrap().add_favorite_artist(id).await?;
+    let client = get_client!();
+    client.add_favorite_artist(id).await?;
     Ok(())
 }
 
 #[instrument]
 /// Remove artist from favorites
 pub async fn remove_favorite_artist(id: &str) -> Result<()> {
-    CLIENT.get().unwrap().remove_favorite_artist(id).await?;
+    let client = get_client!();
+    client.remove_favorite_artist(id).await?;
     Ok(())
 }
 
 #[instrument]
 /// Add playlist to favorites
 pub async fn add_favorite_playlist(id: &str) -> Result<()> {
-    CLIENT.get().unwrap().add_favorite_playlist(id).await?;
+    let client = get_client!();
+    client.add_favorite_playlist(id).await?;
     Ok(())
 }
 
 #[instrument]
 /// Remove playlist from favorites
 pub async fn remove_favorite_playlist(id: &str) -> Result<()> {
-    CLIENT.get().unwrap().remove_favorite_playlist(id).await?;
+    let client = get_client!();
+    client.remove_favorite_playlist(id).await?;
     Ok(())
 }
 
@@ -785,7 +807,7 @@ async fn user_playlists(client: &Client) -> Result<Vec<Playlist>> {
 #[cached(size = 1, time = 600)]
 /// Get favorites
 pub async fn favorites() -> Result<Favorites> {
-    let client = CLIENT.get().unwrap();
+    let client = get_client!();
     let (favorites, favorite_playlists) =
         tokio::join!(client.favorites(1000), user_playlists(client));
 
@@ -860,7 +882,10 @@ pub async fn quit() -> Result<()> {
 #[instrument]
 /// Handles messages from GStreamer, receives player actions from external controls
 /// receives the about-to-finish event and takes necessary action.
-pub async fn player_loop() -> Result<()> {
+pub async fn player_loop(username: String, password: String) -> Result<()> {
+    USERNAME.set(username).unwrap();
+    PASSWORD.set(password).unwrap();
+
     let mut messages = PLAYBIN.bus().unwrap().stream();
     let mut about_to_finish = TRACK_ABOUT_TO_FINISH.rx.resubscribe();
 
@@ -902,7 +927,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
             if let Some(mut first_track) = tracklist.queue.first_entry() {
                 let first_track = first_track.get_mut();
                 first_track.status = TrackStatus::Playing;
-                let client = CLIENT.get().unwrap();
+                let client = get_client!();
                 let track_url = client.track_url(first_track.id).await?;
                 PLAYBIN.set_property("uri", track_url);
             };
