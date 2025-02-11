@@ -546,7 +546,7 @@ fn submit_artist(s: &mut Cursive, item: u32) {
     }
 }
 
-fn set_current_track(s: &mut Cursive, track: &Track, lt: &TrackListType) {
+fn set_current_track(s: &mut Cursive, track: &Track, lt: &TrackListType, current_position: u32) {
     if let (Some(mut track_num), Some(mut track_title), Some(mut progress)) = (
         s.find_name::<TextView>("current_track_number"),
         s.find_name::<TextView>("current_track_title"),
@@ -557,13 +557,13 @@ fn set_current_track(s: &mut Cursive, track: &Track, lt: &TrackListType) {
                 track_num.set_content(format!("{:03}", track.number));
             }
             TrackListType::Playlist(_) => {
-                track_num.set_content(format!("{:03}", track.position));
+                track_num.set_content(format!("{:03}", current_position));
             }
             TrackListType::Track => {
-                track_num.set_content(format!("{:03}", track.position));
+                track_num.set_content(format!("{:03}", current_position));
             }
             TrackListType::Unknown => {
-                track_num.set_content(format!("{:03}", track.position));
+                track_num.set_content(format!("{:03}", current_position));
             }
         };
 
@@ -701,6 +701,8 @@ async fn receive_notifications() {
                                                 let track_list =
                                                     qobuz_player_controls::current_tracklist()
                                                         .await;
+                                                let current_position =
+                                                    track_list.current_position();
 
                                                 SINK.get()
                                                     .unwrap()
@@ -709,6 +711,7 @@ async fn receive_notifications() {
                                                             s,
                                                             &track,
                                                             &track_list.list_type,
+                                                            current_position,
                                                         );
                                                     }))
                                                     .unwrap();
@@ -773,6 +776,8 @@ async fn receive_notifications() {
                                                 let track_list =
                                                     qobuz_player_controls::current_tracklist()
                                                         .await;
+                                                let current_positiion =
+                                                    track_list.current_position();
 
                                                 SINK.get()
                                                     .unwrap()
@@ -781,6 +786,7 @@ async fn receive_notifications() {
                                                             s,
                                                             &track,
                                                             &track_list.list_type,
+                                                            current_positiion,
                                                         );
                                                     }))
                                                     .unwrap();
@@ -821,6 +827,8 @@ async fn receive_notifications() {
                                                 let track_list =
                                                     qobuz_player_controls::current_tracklist()
                                                         .await;
+                                                let current_positiion =
+                                                    track_list.current_position();
 
                                                 SINK.get()
                                                     .unwrap()
@@ -829,6 +837,7 @@ async fn receive_notifications() {
                                                             s,
                                                             &track,
                                                             &track_list.list_type,
+                                                            current_positiion,
                                                         );
                                                     }))
                                                     .unwrap();
@@ -857,63 +866,6 @@ trait CursiveFormat {
     }
 }
 
-impl CursiveFormat for Track {
-    fn list_item(&self) -> StyledString {
-        let mut style = Style::none();
-
-        if !self.available {
-            style = style.combine(Effect::Dim).combine(Effect::Strikethrough);
-        }
-
-        let mut title = StyledString::styled(self.title.trim(), style.combine(Effect::Bold));
-
-        if let Some(artist) = &self.artist {
-            title.append_styled(" by ", style);
-            title.append_styled(&artist.name, style);
-        }
-
-        let duration = ClockTime::from_seconds(self.duration_seconds as u64)
-            .to_string()
-            .as_str()[2..7]
-            .to_string();
-        title.append_plain(" ");
-        title.append_styled(duration, style.combine(Effect::Dim));
-        title.append_plain(" ");
-
-        if self.explicit {
-            title.append_styled("e", style.combine(Effect::Dim));
-        }
-
-        if self.hires_available {
-            title.append_styled("*", style.combine(Effect::Dim));
-        }
-
-        title
-    }
-    fn track_list_item(&self, inactive: bool, number: usize) -> StyledString {
-        let mut style = Style::none();
-
-        if inactive || !self.available {
-            style = style
-                .combine(Effect::Dim)
-                .combine(Effect::Italic)
-                .combine(Effect::Strikethrough);
-        }
-
-        let mut item = StyledString::styled(format!("{:02} ", number), style);
-        item.append_styled(self.title.trim(), style.combine(Effect::Simple));
-        item.append_plain(" ");
-
-        let duration = ClockTime::from_seconds(self.duration_seconds as u64)
-            .to_string()
-            .as_str()[2..7]
-            .to_string();
-
-        item.append_styled(duration, style.combine(Effect::Dim));
-
-        item
-    }
-}
 impl CursiveFormat for tracklist::Track {
     fn list_item(&self) -> StyledString {
         let style = Style::none();

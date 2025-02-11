@@ -264,7 +264,10 @@ impl MprisPlayer {
     async fn metadata(&self) -> HashMap<&str, zvariant::Value> {
         debug!("signal metadata refresh");
         if let Some(current_track) = qobuz_player_controls::current_track().await.unwrap() {
-            track_to_meta(current_track)
+            let current_position = qobuz_player_controls::current_tracklist()
+                .await
+                .current_position();
+            track_to_meta(current_track, current_position)
         } else {
             HashMap::default()
         }
@@ -356,7 +359,10 @@ impl MprisTrackList {
     }
 }
 
-fn track_to_meta<'a>(playlist_track: Track) -> HashMap<&'a str, zvariant::Value<'a>> {
+fn track_to_meta<'a>(
+    playlist_track: Track,
+    current_position: u32,
+) -> HashMap<&'a str, zvariant::Value<'a>> {
     let mut meta = HashMap::new();
 
     meta.insert(
@@ -370,10 +376,7 @@ fn track_to_meta<'a>(playlist_track: Track) -> HashMap<&'a str, zvariant::Value<
         "xesam:title",
         zvariant::Value::new(playlist_track.title.trim().to_string()),
     );
-    meta.insert(
-        "xesam:trackNumber",
-        zvariant::Value::new(playlist_track.position as i32),
-    );
+    meta.insert("xesam:trackNumber", zvariant::Value::new(current_position));
 
     meta.insert(
         "mpris:length",

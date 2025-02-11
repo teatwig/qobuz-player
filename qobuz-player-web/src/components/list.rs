@@ -276,7 +276,7 @@ pub fn list_tracks(
                                                 html! {
                                                     <span class="text-gray-400">
                                                         {match track_number_display {
-                                                            TrackNumberDisplay::Position => track.position,
+                                                            TrackNumberDisplay::Position => index as u32 + 1,
                                                             TrackNumberDisplay::Number => track.number,
                                                         }}
                                                     </span>

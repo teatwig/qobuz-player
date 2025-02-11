@@ -55,11 +55,8 @@ impl From<QobuzReleaseTrack> for Track {
             duration_seconds: value.duration as u32,
             explicit: value.parental_warning,
             hires_available: value.rights.streamable,
-            track_url: None,
-            available: value.rights.streamable,
             cover_art: None,
             cover_art_small: None,
-            position: value.physical_support.track_number,
         }
     }
 }
@@ -70,30 +67,14 @@ impl From<Release> for AlbumPage {
             .expect("failed to parse date")
             .format("%Y");
 
-        let tracks = if let Some(tracks) = s.tracks {
-            let mut position = 1_u32;
-
+        let tracks: BTreeMap<u32, Track> = s.tracks.map_or(Default::default(), |tracks| {
             tracks
                 .items
                 .into_iter()
-                .filter_map(|t| {
-                    if t.rights.streamable {
-                        let mut track: Track = t.into();
-
-                        let next_position = position;
-                        track.position = next_position;
-
-                        position += 1;
-
-                        Some((next_position, track))
-                    } else {
-                        None
-                    }
-                })
-                .collect::<BTreeMap<u32, Track>>()
-        } else {
-            BTreeMap::new()
-        };
+                .enumerate()
+                .map(|(i, t)| (i as u32, t.into()))
+                .collect()
+        });
 
         Self {
             id: s.id,
@@ -173,30 +154,14 @@ impl From<QobuzAlbum> for AlbumPage {
             .expect("failed to parse date")
             .format("%Y");
 
-        let tracks = if let Some(tracks) = value.tracks {
-            let mut position = 1_u32;
-
+        let tracks: BTreeMap<u32, Track> = value.tracks.map_or(Default::default(), |tracks| {
             tracks
                 .items
                 .into_iter()
-                .filter_map(|t| {
-                    if t.streamable {
-                        let mut track: Track = t.into();
-
-                        let next_position = position;
-                        track.position = next_position;
-
-                        position += 1;
-
-                        Some((next_position, track))
-                    } else {
-                        None
-                    }
-                })
-                .collect::<BTreeMap<u32, Track>>()
-        } else {
-            BTreeMap::new()
-        };
+                .enumerate()
+                .map(|(i, t)| (i as u32, t.into()))
+                .collect()
+        });
 
         Self {
             id: value.id,
@@ -258,11 +223,8 @@ impl From<QobuzArtistPage> for ArtistPage {
                         duration_seconds: t.duration,
                         explicit: t.parental_warning,
                         hires_available: t.rights.hires_streamable,
-                        track_url: None,
-                        available: t.rights.hires_streamable,
                         cover_art: Some(album_image_url),
                         cover_art_small: Some(album_image_url_small),
-                        position: t.physical_support.media_number,
                     }
                 })
                 .collect(),
@@ -340,9 +302,6 @@ impl From<QobuzTrack> for Track {
             duration_seconds: value.duration as u32,
             explicit: value.parental_warning,
             hires_available: value.hires_streamable,
-            track_url: None,
-            available: value.streamable,
-            position: value.position.unwrap_or(value.track_number as usize) as u32,
             cover_art,
             cover_art_small,
         }
@@ -374,11 +333,8 @@ pub struct Track {
     pub duration_seconds: u32,
     pub explicit: bool,
     pub hires_available: bool,
-    pub track_url: Option<String>,
-    pub available: bool,
     pub cover_art: Option<String>,
     pub cover_art_small: Option<String>,
-    pub position: u32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
