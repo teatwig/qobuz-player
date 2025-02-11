@@ -70,32 +70,6 @@ pub async fn init() {
     let player = player();
     let search = search();
 
-    siv.screen_mut()
-        .add_fullscreen_layer(player.resized(SizeConstraint::Full, SizeConstraint::Free));
-
-    // favorite albums
-    siv.add_active_screen();
-
-    // favorite artists
-    siv.add_active_screen();
-
-    // favorite playlists
-    siv.add_active_screen();
-
-    siv.add_active_screen();
-    siv.screen_mut()
-        .add_fullscreen_layer(search.resized(SizeConstraint::Full, SizeConstraint::Free));
-
-    siv.set_screen(0);
-
-    global_events(&mut siv);
-    menubar(&mut siv);
-    siv.run();
-
-    tokio::spawn(async { set_favorite_pages().await });
-}
-
-async fn set_favorite_pages() {
     let favorites = qobuz_player_controls::favorites().await;
 
     let Favorites {
@@ -108,25 +82,55 @@ async fn set_favorite_pages() {
     let favorite_artists = favorite_artists(artists);
     let favorite_playlists = favorite_playlists(playlists);
 
-    SINK.get()
-        .unwrap()
-        .send(Box::new(move |siv| {
-            siv.set_screen(1);
-            siv.screen_mut().add_fullscreen_layer(
-                favorite_albums.resized(SizeConstraint::Full, SizeConstraint::Free),
-            );
+    siv.screen_mut().add_fullscreen_layer(PaddedView::lrtb(
+        0,
+        0,
+        1,
+        0,
+        player.resized(SizeConstraint::Full, SizeConstraint::Free),
+    ));
 
-            siv.set_screen(2);
-            siv.screen_mut().add_fullscreen_layer(
-                favorite_artists.resized(SizeConstraint::Full, SizeConstraint::Free),
-            );
+    siv.add_active_screen();
+    siv.screen_mut().add_fullscreen_layer(PaddedView::lrtb(
+        0,
+        0,
+        1,
+        0,
+        favorite_albums.resized(SizeConstraint::Full, SizeConstraint::Free),
+    ));
 
-            siv.set_screen(3);
-            siv.screen_mut().add_fullscreen_layer(
-                favorite_playlists.resized(SizeConstraint::Full, SizeConstraint::Free),
-            );
-        }))
-        .expect("failed to send update");
+    siv.add_active_screen();
+    siv.screen_mut().add_fullscreen_layer(PaddedView::lrtb(
+        0,
+        0,
+        1,
+        0,
+        favorite_artists.resized(SizeConstraint::Full, SizeConstraint::Free),
+    ));
+
+    siv.add_active_screen();
+    siv.screen_mut().add_fullscreen_layer(PaddedView::lrtb(
+        0,
+        0,
+        1,
+        0,
+        favorite_playlists.resized(SizeConstraint::Full, SizeConstraint::Free),
+    ));
+
+    siv.add_active_screen();
+    siv.screen_mut().add_fullscreen_layer(PaddedView::lrtb(
+        0,
+        0,
+        1,
+        0,
+        search.resized(SizeConstraint::Full, SizeConstraint::Free),
+    ));
+
+    siv.set_screen(0);
+
+    global_events(&mut siv);
+    menubar(&mut siv);
+    siv.run();
 }
 
 fn player() -> LinearLayout {
