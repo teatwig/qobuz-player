@@ -329,7 +329,7 @@ fn favorite_albums(favorite_albums: Vec<AlbumPage>) -> LinearLayout {
 
     album_list.set_on_submit(move |_s: &mut Cursive, item: &String| {
         let item = item.clone();
-        tokio::spawn(async move { qobuz_player_controls::play_album(&item).await });
+        tokio::spawn(async move { qobuz_player_controls::play_album(&item, 0).await });
     });
 
     list_layout.add_child(
@@ -382,7 +382,7 @@ fn favorite_playlists(favorite_playlists: Vec<Playlist>) -> LinearLayout {
 
     playlist_list.set_on_submit(move |_s: &mut Cursive, item: &u32| {
         let item = *item;
-        tokio::spawn(async move { qobuz_player_controls::play_playlist(item as i64).await });
+        tokio::spawn(async move { qobuz_player_controls::play_playlist(item as i64, 0).await });
     });
 
     list_layout.add_child(
@@ -478,9 +478,9 @@ fn load_search_results(item: &str, s: &mut Cursive) {
                     search_results.set_on_submit(move |_s: &mut Cursive, item: &String| {
                         if item != UNSTREAMABLE {
                             let item = item.clone();
-                            tokio::spawn(
-                                async move { qobuz_player_controls::play_album(&item).await },
-                            );
+                            tokio::spawn(async move {
+                                qobuz_player_controls::play_album(&item, 0).await
+                            });
                         }
                     });
                 }
@@ -501,7 +501,7 @@ fn load_search_results(item: &str, s: &mut Cursive) {
                     search_results.set_on_submit(move |_s: &mut Cursive, item: &String| {
                         let item = item.parse::<i64>().expect("failed to parse string");
                         tokio::spawn(
-                            async move { qobuz_player_controls::play_playlist(item).await },
+                            async move { qobuz_player_controls::play_playlist(item, 0).await },
                         );
                     });
                 }
@@ -525,7 +525,7 @@ fn submit_artist(s: &mut Cursive, item: u32) {
 
             tree.add_leaf(a.list_item(), move |s: &mut Cursive| {
                 let id = a.id.clone();
-                tokio::spawn(async move { qobuz_player_controls::play_album(&id).await });
+                tokio::spawn(async move { qobuz_player_controls::play_album(&id, 0).await });
 
                 s.call_on_name(
                     "screens",

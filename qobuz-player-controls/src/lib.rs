@@ -458,46 +458,42 @@ pub async fn play_track(track_id: u32) -> Result<()> {
 
 #[instrument]
 /// Plays a full album.
-pub async fn play_album(album_id: &str) -> Result<()> {
+pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
     ready().await?;
 
     let client = CLIENT.get().unwrap();
     let mut tracklist = TRACKLIST.write().await;
 
-    if let Ok(album) = client.album(album_id).await {
-        let mut tracks: BTreeMap<u32, tracklist::Track> = album
-            .tracks
-            .unwrap_or_default()
-            .items
-            .into_iter()
-            .enumerate()
-            .map(|(i, t)| {
-                (
-                    i as u32,
-                    tracklist::Track {
-                        id: t.id,
-                        title: t.title,
-                        status: TrackStatus::Unplayed,
-                    },
-                )
-            })
-            .collect();
+    let album = client.album(album_id).await?;
+    tracklist.queue = album
+        .tracks
+        .unwrap_or_default()
+        .items
+        .into_iter()
+        .enumerate()
+        .map(|(i, t)| {
+            (
+                i as u32,
+                tracklist::Track {
+                    id: t.id,
+                    title: t.title,
+                    status: TrackStatus::Unplayed,
+                },
+            )
+        })
+        .collect();
 
-        if let Some(first_track) = tracks.get_mut(&0) {
-            first_track.status = TrackStatus::Playing;
-            let track_url = client.track_url(first_track.id).await?;
+    if let Some(track) = skip_to_track(&mut tracklist, index) {
+        let track_url = client.track_url(track.id).await?;
+        PLAYBIN.set_property("uri", track_url);
+        play().await?;
 
-            PLAYBIN.set_property("uri", track_url);
-            play().await?;
+        tracklist.list_type = TrackListType::Album(tracklist::AlbumTracklist {
+            title: album.title,
+            id: album.id,
+        });
 
-            tracklist.queue = tracks;
-            tracklist.list_type = TrackListType::Album(tracklist::AlbumTracklist {
-                title: album.title,
-                id: album.id,
-            });
-
-            broadcast_track_list(&tracklist).await?;
-        }
+        broadcast_track_list(&tracklist).await?;
     };
 
     Ok(())
@@ -544,7 +540,7 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
 
 #[instrument]
 /// Plays all tracks in a playlist.
-pub async fn play_playlist(playlist_id: i64) -> Result<()> {
+pub async fn play_playlist(playlist_id: i64, index: u32) -> Result<()> {
     ready().await?;
 
     let client = CLIENT.get().unwrap();
@@ -552,33 +548,29 @@ pub async fn play_playlist(playlist_id: i64) -> Result<()> {
 
     let playlist = client.playlist(playlist_id).await?;
 
-    let mut tracks: BTreeMap<u32, tracklist::Track> =
-        playlist.tracks.map_or(Default::default(), |tracks| {
-            tracks
-                .items
-                .into_iter()
-                .enumerate()
-                .map(|(i, t)| {
-                    (
-                        i as u32,
-                        tracklist::Track {
-                            id: t.id,
-                            title: t.title,
-                            status: TrackStatus::Unplayed,
-                        },
-                    )
-                })
-                .collect()
-        });
+    tracklist.queue = playlist
+        .tracks
+        .unwrap_or_default()
+        .items
+        .into_iter()
+        .enumerate()
+        .map(|(i, t)| {
+            (
+                i as u32,
+                tracklist::Track {
+                    id: t.id,
+                    title: t.title,
+                    status: TrackStatus::Unplayed,
+                },
+            )
+        })
+        .collect();
 
-    if let Some(first_track) = tracks.get_mut(&0) {
-        first_track.status = TrackStatus::Playing;
-        let track_url = client.track_url(first_track.id).await?;
-
+    if let Some(track) = skip_to_track(&mut tracklist, index) {
+        let track_url = client.track_url(track.id).await?;
         PLAYBIN.set_property("uri", track_url);
         play().await?;
 
-        tracklist.queue = tracks;
         tracklist.list_type = TrackListType::Playlist(tracklist::PlaylistTracklist {
             title: playlist.name,
             id: playlist.id,
