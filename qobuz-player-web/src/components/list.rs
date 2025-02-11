@@ -15,7 +15,7 @@ pub fn list(children: Children) -> impl IntoView {
 #[component]
 pub fn list_item(children: Children) -> impl IntoView {
     html! {
-        <li class="w-full text-left border-b border-gray-700 *:p-4 hover:bg-blue-500/25">
+        <li class="w-full text-left border-b border-gray-700 hover:bg-blue-800 active:bg-blue-700 *:p-4">
             {children()}
         </li>
     }
@@ -48,7 +48,10 @@ pub fn list_albums_vertical(mut albums: Vec<AlbumPage>, sort: AlbumSort) -> impl
                 .into_iter()
                 .map(|album| {
                     html! {
-                        <a href=format!("/album/{}", album.id) class="h-full shrink-0 size-32">
+                        <a
+                            href=format!("/album/{}", album.id)
+                            class="h-full active:bg-blue-700 shrink-0 size-32"
+                        >
                             <img class="rounded-lg" alt=album.title.clone() src=album.cover_art />
                             <p class="text-sm truncate">{album.title}</p>
                             <p class="text-sm text-gray-500 truncate">{album.artist.name}</p>
@@ -73,7 +76,10 @@ pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
                         .image
                         .map(|image| format!("background-image: url({});", image));
                     html! {
-                        <a href=format!("/artist/{}", artist.id) class="w-32 h-full text-center">
+                        <a
+                            href=format!("/artist/{}", artist.id)
+                            class="w-32 h-full text-center active:bg-blue-700"
+                        >
                             {match artist_image_style {
                                 Some(img_src) => {
                                     html! {
@@ -143,7 +149,7 @@ pub fn list_albums(mut albums: Vec<AlbumPage>, sort: AlbumSort) -> impl IntoView
 fn album(album: AlbumPage) -> impl IntoView {
     html! {
         <a
-            class="flex gap-4 items-center w-full"
+            class="flex gap-4 items-center w-full active:bg-blue-700"
             hx-push-url="true"
             href=format!("/album/{}", album.id)
         >

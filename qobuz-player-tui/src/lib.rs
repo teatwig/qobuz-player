@@ -666,18 +666,7 @@ async fn receive_notifications() {
                                             .for_each(|(i, t)| {
                                                 list_view
                                                     .get_inner_mut()
-                                                    .add_item(t.track_list_item(false, i), i);
-                                            });
-
-                                        list.queue
-                                            .iter()
-                                            .filter(|t| t.1.status == TrackStatus::Played)
-                                            .map(|t| t.1)
-                                            .enumerate()
-                                            .for_each(|(i, t)| {
-                                                list_view
-                                                    .get_inner_mut()
-                                                    .add_item(t.track_list_item(true, i), i);
+                                                    .add_item(t.track_list_item(), i);
                                             });
                                     }
                                     if let (Some(mut entity_title), Some(mut total_tracks)) = (
@@ -743,7 +732,7 @@ async fn receive_notifications() {
                                             .for_each(|(i, t)| {
                                                 list_view
                                                     .get_inner_mut()
-                                                    .add_item(t.track_list_item(false, i), i);
+                                                    .add_item(t.track_list_item(), i);
                                             });
 
                                         list.queue
@@ -754,7 +743,7 @@ async fn receive_notifications() {
                                             .for_each(|(i, t)| {
                                                 list_view
                                                     .get_inner_mut()
-                                                    .add_item(t.track_list_item(true, i), i);
+                                                    .add_item(t.track_list_item(), i);
                                             });
                                     }
 
@@ -861,7 +850,7 @@ async fn receive_notifications() {
 
 trait CursiveFormat {
     fn list_item(&self) -> StyledString;
-    fn track_list_item(&self, _inactive: bool, _number: usize) -> StyledString {
+    fn track_list_item(&self) -> StyledString {
         StyledString::new()
     }
 }
@@ -870,18 +859,10 @@ impl CursiveFormat for tracklist::Track {
     fn list_item(&self) -> StyledString {
         let style = Style::none();
 
-        let title = StyledString::styled(self.title.trim(), style.combine(Effect::Bold));
-
-        title
+        StyledString::styled(self.title.trim(), style.combine(Effect::Bold))
     }
-    fn track_list_item(&self, _inactive: bool, number: usize) -> StyledString {
-        let style = Style::none();
-
-        let mut item = StyledString::styled(format!("{:02} ", number), style);
-        item.append_styled(self.title.trim(), style.combine(Effect::Simple));
-        item.append_plain(" ");
-
-        item
+    fn track_list_item(&self) -> StyledString {
+        StyledString::styled(self.title.trim(), Style::none())
     }
 }
 
@@ -911,11 +892,5 @@ impl CursiveFormat for AlbumPage {
         }
 
         title
-    }
-}
-
-impl CursiveFormat for Artist {
-    fn list_item(&self) -> StyledString {
-        StyledString::plain(self.name.as_str())
     }
 }

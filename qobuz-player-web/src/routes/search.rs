@@ -166,7 +166,7 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
     html! {
         <div
             id="tabs"
-            class="flex justify-between *:rounded-full *:px-2 *:py-1 *:transition-colors"
+            class="flex justify-between *:rounded-full *:px-2 *:py-1 *:transition-colors *:active:bg-blue-700"
         >
             {html! {
                 <a

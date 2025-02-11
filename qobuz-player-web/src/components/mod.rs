@@ -26,7 +26,7 @@ pub fn parse_duration(seconds: u32) -> Duration {
 pub fn toggle_favorite(id: String, is_favorite: bool) -> impl IntoView {
     html! {
         <button
-            class="flex gap-2 justify-center items-center py-2 px-4 bg-blue-500 rounded cursor-pointer"
+            class="flex gap-2 justify-center items-center py-2 px-4 bg-blue-500 rounded cursor-pointer active:bg-blue-700"
             id="toggle-favorite"
             hx-swap="outerHTML"
             hx-target="this"

@@ -98,7 +98,7 @@ fn play_pause(play: bool) -> impl IntoView {
     html! {
         <button
             id="play-pause-button"
-            class="cursor-pointer"
+            class="transition-colors cursor-pointer active:text-blue-700"
             hx-swap="none"
             hx-target="this"
             hx-put=format!("{}", if play { "pause" } else { "play" })
@@ -286,7 +286,7 @@ pub fn now_playing(
 
             <div class="flex flex-col flex-grow justify-center w-full">
                 <div class="flex gap-2 justify-between items-center">
-                    <a class="text truncate" href=entity_link>
+                    <a class="active:bg-blue-700 text truncate" href=entity_link>
                         {entity_title}
                     </a>
                     <div class="text-gray-500 whitespace-nowrap">
@@ -298,7 +298,7 @@ pub fn now_playing(
                     </div>
                 </div>
 
-                <a href=artist_link class="text-gray-400 truncate">
+                <a href=artist_link class="text-gray-400 active:bg-blue-700 truncate w-fit">
                     {artist_name}
                 </a>
 
@@ -318,7 +318,11 @@ pub fn now_playing(
 
                 <div class="flex flex-col gap-4">
                     <div class="flex flex-row gap-2 justify-center h-10">
-                        <button hx-swap="none" hx-put="previous" class="cursor-pointer">
+                        <button
+                            hx-swap="none"
+                            hx-put="previous"
+                            class="transition-colors cursor-pointer active:text-blue-700"
+                        >
                             <Backward />
                         </button>
 
@@ -334,7 +338,11 @@ pub fn now_playing(
                                 html! { <PlayPause play=true /> }.into_any()
                             }}
                         </div>
-                        <button hx-put="next" hx-swap="none" class="cursor-pointer">
+                        <button
+                            hx-put="next"
+                            hx-swap="none"
+                            class="transition-colors cursor-pointer active:text-blue-700"
+                        >
                             <Forward />
                         </button>
                     </div>

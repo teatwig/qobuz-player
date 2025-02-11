@@ -35,7 +35,7 @@ fn favorites(favorites: Favorites, tab: Tab) -> impl IntoView {
             <div class="flex flex-col flex-grow gap-4 p-4 max-h-full">
                 <h1 class="text-2xl">Favorites</h1>
 
-                <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors">
+                <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors *:active:bg-blue-700">
                     {html! {
                         <a
                             href="albums"
