@@ -1,5 +1,4 @@
 use crate::models::{self, TrackStatus};
-use std::collections::BTreeMap;
 use tracing::instrument;
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -24,7 +23,7 @@ pub enum TrackListType {
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct Tracklist {
-    pub queue: BTreeMap<u32, Track>,
+    pub queue: Vec<Track>,
     pub list_type: TrackListType,
 }
 
@@ -59,15 +58,16 @@ impl Tracklist {
     pub fn currently_playing(&self) -> Option<u32> {
         self.queue
             .iter()
-            .find(|t| t.1.status == TrackStatus::Playing)
-            .map(|x| x.1.id)
+            .find(|t| t.status == TrackStatus::Playing)
+            .map(|x| x.id)
     }
 
     pub fn current_position(&self) -> u32 {
         self.queue
             .iter()
+            .enumerate()
             .find(|t| t.1.status == TrackStatus::Playing)
-            .map(|x| *x.0)
+            .map(|x| x.0 as u32)
             .unwrap_or(0)
     }
 
@@ -77,8 +77,6 @@ impl Tracklist {
     }
 
     pub fn current_track(&self) -> Option<&Track> {
-        self.queue
-            .values()
-            .find(|&track| track.status == TrackStatus::Playing)
+        self.queue.iter().find(|t| t.status == TrackStatus::Playing)
     }
 }

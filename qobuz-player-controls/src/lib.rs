@@ -10,7 +10,6 @@ use models::{AlbumPage, ArtistPage};
 use notification::Notification;
 use qobuz_player_client::client::Client;
 use std::{
-    collections::BTreeMap,
     str::FromStr,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -370,8 +369,7 @@ pub async fn skip_to_position(new_position: u32, force: bool) -> Result<()> {
         let next_track_url = client.track_url(next_track.id).await?;
         PLAYBIN.set_property("uri", next_track_url);
         play().await?;
-    } else if let Some(mut first_track) = tracklist.queue.first_entry() {
-        let first_track = first_track.get_mut();
+    } else if let Some(first_track) = tracklist.queue.first_mut() {
         first_track.status = TrackStatus::Playing;
         let first_track_url = client.track_url(first_track.id).await?;
 
@@ -405,8 +403,9 @@ pub async fn previous() -> Result<()> {
 
 fn skip_to_track(tracklist: &mut Tracklist, new_position: u32) -> Option<&tracklist::Track> {
     let mut new_track: Option<&tracklist::Track> = None;
-    for queue_item in tracklist.queue.iter_mut() {
-        match queue_item.0.cmp(&new_position) {
+    for queue_item in tracklist.queue.iter_mut().enumerate() {
+        let queue_item_position = queue_item.0 as u32;
+        match queue_item_position.cmp(&new_position) {
             std::cmp::Ordering::Less => {
                 queue_item.1.status = TrackStatus::Played;
             }
@@ -427,8 +426,9 @@ fn skip_to_next_track(tracklist: &mut Tracklist) {
     let current_position = tracklist.current_position();
     let new_position = current_position + 1;
 
-    for queue_item in tracklist.queue.iter_mut() {
-        match queue_item.0.cmp(&new_position) {
+    for queue_item in tracklist.queue.iter_mut().enumerate() {
+        let queue_item_position = queue_item.0 as u32;
+        match queue_item_position.cmp(&new_position) {
             std::cmp::Ordering::Less => {
                 queue_item.1.status = TrackStatus::Played;
             }
@@ -461,9 +461,7 @@ pub async fn play_track(track_id: u32) -> Result<()> {
         status: TrackStatus::Unplayed,
     };
 
-    let queue = BTreeMap::from([(1, track.clone())]);
-
-    tracklist.queue = queue;
+    tracklist.queue = vec![track];
     tracklist.list_type = TrackListType::Track;
 
     broadcast_track_list(&tracklist).await?;
@@ -485,16 +483,10 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
         .unwrap_or_default()
         .items
         .into_iter()
-        .enumerate()
-        .map(|(i, t)| {
-            (
-                i as u32,
-                tracklist::Track {
-                    id: t.id,
-                    title: t.title,
-                    status: TrackStatus::Unplayed,
-                },
-            )
+        .map(|t| tracklist::Track {
+            id: t.id,
+            title: t.title,
+            status: TrackStatus::Unplayed,
         })
         .collect();
 
@@ -527,16 +519,10 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
         .await?
         .top_tracks
         .into_iter()
-        .enumerate()
-        .map(|(i, t)| {
-            (
-                i as u32,
-                tracklist::Track {
-                    id: t.id,
-                    title: t.title,
-                    status: TrackStatus::Unplayed,
-                },
-            )
+        .map(|t| tracklist::Track {
+            id: t.id,
+            title: t.title,
+            status: TrackStatus::Unplayed,
         })
         .collect();
 
@@ -568,16 +554,10 @@ pub async fn play_playlist(playlist_id: i64, index: u32) -> Result<()> {
         .unwrap_or_default()
         .items
         .into_iter()
-        .enumerate()
-        .map(|(i, t)| {
-            (
-                i as u32,
-                tracklist::Track {
-                    id: t.id,
-                    title: t.title,
-                    status: TrackStatus::Unplayed,
-                },
-            )
+        .map(|t| tracklist::Track {
+            id: t.id,
+            title: t.title,
+            status: TrackStatus::Unplayed,
         })
         .collect();
 
@@ -622,7 +602,8 @@ async fn prep_next_track() -> Result<()> {
     let next_track = tracklist
         .queue
         .iter_mut()
-        .find(|t| *t.0 == current_position + 1)
+        .enumerate()
+        .find(|t| t.0 as u32 == current_position + 1)
         .map(|t| t.1);
 
     if let Some(next_track) = next_track {
@@ -920,12 +901,11 @@ async fn handle_message(msg: &Message) -> Result<()> {
             tracing::debug!("END OF STREAM");
             let mut tracklist = TRACKLIST.write().await;
 
-            if let Some(mut last_track) = tracklist.queue.last_entry() {
-                last_track.get_mut().status = TrackStatus::Played;
+            if let Some(last_track) = tracklist.queue.last_mut() {
+                last_track.status = TrackStatus::Played;
             };
 
-            if let Some(mut first_track) = tracklist.queue.first_entry() {
-                let first_track = first_track.get_mut();
+            if let Some(first_track) = tracklist.queue.first_mut() {
                 first_track.status = TrackStatus::Playing;
                 let client = get_client!();
                 let track_url = client.track_url(first_track.id).await?;

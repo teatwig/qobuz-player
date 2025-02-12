@@ -81,6 +81,7 @@ fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
             {current_tracklist
                 .queue
                 .into_iter()
+                .enumerate()
                 .map(|(position, track)| {
                     html! {
                         <ListItem>

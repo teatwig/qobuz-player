@@ -657,8 +657,7 @@ async fn receive_notifications() {
 
                                         list.queue
                                             .iter()
-                                            .filter(|t| t.1.status == TrackStatus::Unplayed)
-                                            .map(|t| t.1)
+                                            .filter(|t| t.status == TrackStatus::Unplayed)
                                             .enumerate()
                                             .for_each(|(i, t)| {
                                                 list_view
@@ -677,7 +676,7 @@ async fn receive_notifications() {
                                         total_tracks.set_content(format!("{:03}", total.clone()));
                                     }
 
-                                    for t in list.queue.values() {
+                                    for t in list.queue.iter() {
                                         if t.status == TrackStatus::Playing {
                                             let track_id = t.id;
                                             tokio::spawn(async move {
@@ -723,8 +722,7 @@ async fn receive_notifications() {
 
                                         list.queue
                                             .iter()
-                                            .filter(|t| t.1.status == TrackStatus::Unplayed)
-                                            .map(|t| t.1)
+                                            .filter(|t| t.status == TrackStatus::Unplayed)
                                             .enumerate()
                                             .for_each(|(i, t)| {
                                                 list_view
@@ -741,7 +739,7 @@ async fn receive_notifications() {
                                         total_tracks.set_content(format!("{:03}", total.clone()));
                                     }
 
-                                    for t in list.queue.values() {
+                                    for t in list.queue.iter() {
                                         if t.status == TrackStatus::Playing {
                                             let track_id = t.id;
                                             tokio::spawn(async move {
@@ -787,8 +785,7 @@ async fn receive_notifications() {
 
                                         list.queue
                                             .iter()
-                                            .filter(|t| t.1.status == TrackStatus::Unplayed)
-                                            .map(|t| t.1)
+                                            .filter(|t| t.status == TrackStatus::Unplayed)
                                             .enumerate()
                                             .for_each(|(i, t)| {
                                                 list_view
@@ -803,7 +800,7 @@ async fn receive_notifications() {
                                         total_tracks.set_content(format!("{:03}", total.clone()));
                                     }
 
-                                    for t in list.queue.values() {
+                                    for t in list.queue.iter() {
                                         if t.status == TrackStatus::Playing {
                                             let track_id = t.id;
                                             tokio::spawn(async move {

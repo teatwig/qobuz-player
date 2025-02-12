@@ -136,7 +136,7 @@ async fn receive_notifications(conn: &Connection) {
 
                         let tracks = list
                             .queue
-                            .values()
+                            .iter()
                             .map(|i| i.title.as_str())
                             .collect::<Vec<&str>>();
 
@@ -341,13 +341,7 @@ impl MprisTrackList {
             .await
             .queue
             .iter()
-            .filter_map(|t| {
-                if t.1.status == TrackStatus::Unplayed {
-                    Some(t.1)
-                } else {
-                    None
-                }
-            })
+            .filter(|t| t.status == TrackStatus::Unplayed)
             .enumerate()
             .map(|(i, _)| i.to_string())
             .collect::<Vec<String>>()
