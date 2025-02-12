@@ -186,7 +186,7 @@ impl Client {
         }
     }
 
-    async fn playlist_items<'p>(&self, playlist: &'p mut Playlist, endpoint: &str) -> Result<()> {
+    async fn playlist_items(&self, playlist: &mut Playlist, endpoint: &str) -> Result<()> {
         let total_tracks = playlist.tracks_count as usize;
 
         if let Some(tracks) = playlist.tracks.as_mut() {

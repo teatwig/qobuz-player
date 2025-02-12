@@ -87,9 +87,10 @@ async fn tracks_partial(Path(id): Path<i64>) -> impl IntoResponse {
     let playlist = playlist.unwrap();
 
     let now_playing_id = tracklist.currently_playing();
-    let tracks: Vec<Track> = playlist.tracks.into_iter().map(|x| x.1).collect();
 
-    render(html! { <Tracks now_playing_id=now_playing_id tracks=tracks playlist_id=playlist.id /> })
+    render(
+        html! { <Tracks now_playing_id=now_playing_id tracks=playlist.tracks playlist_id=playlist.id /> },
+    )
 }
 
 #[component]
@@ -113,7 +114,6 @@ fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> 
 
 #[component]
 fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) -> impl IntoView {
-    let tracks: Vec<Track> = playlist.tracks.into_iter().map(|x| x.1).collect();
     let duration = parse_duration(playlist.duration_seconds);
 
     html! {
@@ -165,7 +165,7 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
                     }
                 </div>
             </div>
-            <Tracks now_playing_id=now_playing_id tracks=tracks playlist_id=playlist.id />
+            <Tracks now_playing_id=now_playing_id tracks=playlist.tracks playlist_id=playlist.id />
         </div>
     }
 }

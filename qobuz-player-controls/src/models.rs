@@ -8,7 +8,7 @@ use qobuz_player_client::qobuz_models::{
     search_results::SearchAllResults,
     track::Track as QobuzTrack,
 };
-use std::{collections::BTreeMap, fmt::Debug, str::FromStr};
+use std::{fmt::Debug, str::FromStr};
 
 pub fn parse_search_results(search_results: SearchAllResults, user_id: i64) -> SearchResults {
     SearchResults {
@@ -67,13 +67,8 @@ impl From<Release> for AlbumPage {
             .expect("failed to parse date")
             .format("%Y");
 
-        let tracks: BTreeMap<u32, Track> = s.tracks.map_or(Default::default(), |tracks| {
-            tracks
-                .items
-                .into_iter()
-                .enumerate()
-                .map(|(i, t)| (i as u32, t.into()))
-                .collect()
+        let tracks = s.tracks.map_or(Default::default(), |tracks| {
+            tracks.items.into_iter().map(|t| t.into()).collect()
         });
 
         Self {
@@ -117,8 +112,6 @@ impl From<AlbumSuggestion> for AlbumPage {
             .expect("failed to parse date")
             .format("%Y");
 
-        let tracks = BTreeMap::new();
-
         let artist = s.artists.and_then(|vec| vec.into_iter().next());
         let (artist_id, artist_name) = artist.map_or((0, "Unknown".into()), |artist| {
             (artist.id as u32, artist.name)
@@ -139,7 +132,7 @@ impl From<AlbumSuggestion> for AlbumPage {
             hires_available: s.rights.hires_streamable,
             explicit: s.parental_warning,
             total_tracks: s.track_count as u32,
-            tracks,
+            tracks: Default::default(),
             available: s.rights.streamable,
             cover_art: s.image.large,
             cover_art_small: s.image.small,
@@ -154,13 +147,8 @@ impl From<QobuzAlbum> for AlbumPage {
             .expect("failed to parse date")
             .format("%Y");
 
-        let tracks: BTreeMap<u32, Track> = value.tracks.map_or(Default::default(), |tracks| {
-            tracks
-                .items
-                .into_iter()
-                .enumerate()
-                .map(|(i, t)| (i as u32, t.into()))
-                .collect()
+        let tracks = value.tracks.map_or(Default::default(), |tracks| {
+            tracks.items.into_iter().map(|t| t.into()).collect()
         });
 
         Self {
@@ -243,13 +231,8 @@ impl From<QobuzArtist> for Artist {
 }
 
 pub fn parse_playlist(playlist: QobuzPlaylist, user_id: i64) -> Playlist {
-    let tracks: BTreeMap<u32, Track> = playlist.tracks.map_or(Default::default(), |tracks| {
-        tracks
-            .items
-            .into_iter()
-            .enumerate()
-            .map(|(i, t)| (i as u32, t.into()))
-            .collect()
+    let tracks = playlist.tracks.map_or(Default::default(), |tracks| {
+        tracks.items.into_iter().map(|t| t.into()).collect()
     });
 
     let cover_art = if let Some(image) = playlist.image_rectangle.first() {
@@ -346,7 +329,7 @@ pub struct AlbumPage {
     pub hires_available: bool,
     pub explicit: bool,
     pub total_tracks: u32,
-    pub tracks: BTreeMap<u32, Track>,
+    pub tracks: Vec<Track>,
     pub available: bool,
     pub cover_art: String,
     pub cover_art_small: String,
@@ -400,5 +383,5 @@ pub struct Playlist {
     pub tracks_count: u32,
     pub id: u32,
     pub cover_art: Option<String>,
-    pub tracks: BTreeMap<u32, Track>,
+    pub tracks: Vec<Track>,
 }

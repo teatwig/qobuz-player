@@ -90,10 +90,11 @@ async fn album_tracks_partial(Path(id): Path<String>) -> impl IntoResponse {
 
     let album = album.unwrap();
 
-    let tracks: Vec<Track> = album.tracks.into_iter().map(|x| x.1).collect();
     let now_playing_id = tracklist.currently_playing();
 
-    render(html! { <AlbumTracks now_playing_id=now_playing_id tracks=tracks album_id=album.id /> })
+    render(
+        html! { <AlbumTracks now_playing_id=now_playing_id tracks=album.tracks album_id=album.id /> },
+    )
 }
 
 #[component]
@@ -126,7 +127,6 @@ fn album(
     is_favorite: bool,
     now_playing_id: Option<u32>,
 ) -> impl IntoView {
-    let tracks: Vec<Track> = album.tracks.into_iter().map(|x| x.1).collect();
     let duration = parse_duration(album.duration_seconds);
 
     html! {
@@ -175,7 +175,7 @@ fn album(
             <div class="flex flex-col gap-4 w-full">
                 <AlbumTracks
                     now_playing_id=now_playing_id
-                    tracks=tracks
+                    tracks=album.tracks
                     album_id=album.id.clone()
                 />
 
