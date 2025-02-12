@@ -2,7 +2,7 @@ use leptos::{component, prelude::*, IntoView};
 
 use crate::{
     html,
-    icons::{MagnifyingGlass, PlayCircle, QueueList, Star},
+    icons::{self, MagnifyingGlass, PlayCircle, QueueList, Star},
 };
 
 #[derive(PartialEq)]
@@ -106,7 +106,16 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 hx-ext="sse, preload"
                 sse-connect="/sse"
                 hx-boost="true"
+                hx-indicator="#loading-spinner"
             >
+
+                <div
+                    id="loading-spinner"
+                    hx-preserve
+                    class="fixed top-8 right-8 z-10 p-2 rounded pointer-events-none bg-black/20 my-indicator backdrop-blur size-12"
+                >
+                    <icons::ArrowPath />
+                </div>
                 <div class="overflow-auto h-full">{children()}</div>
 
                 <Navigation active_page=active_page />

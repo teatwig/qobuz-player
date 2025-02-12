@@ -1,2 +1,11 @@
 @import "tailwindcss";
 @plugin "tailwindcss-safe-area";
+
+.my-indicator {
+  opacity: 0;
+  transition: opacity 150ms ease-in;
+  transition-delay: 100ms;
+}
+.htmx-request.my-indicator {
+  opacity: 1;
+}
