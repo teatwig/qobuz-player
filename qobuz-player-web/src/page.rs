@@ -17,7 +17,7 @@ pub enum Page {
 #[component]
 fn Navigation(active_page: Page) -> impl IntoView {
     html! {
-        <nav class="flex gap-2 justify-evenly w-full p-safe *:flex *:h-[3.25rem] *:w-20 *:flex-col *:items-center *:overflow-visible *:text-nowrap *:px-4 *:py-1 *:text-[10px] *:font-medium *:transition-colors *:active:text-blue-400 *:active:bg-blue-700 *:rounded">
+        <nav class="flex gap-2 justify-evenly w-full p-safe *:flex *:h-[3.25rem] *:w-20 *:flex-col *:items-center *:overflow-visible *:text-nowrap *:px-4 *:py-1 *:text-[10px] *:font-medium *:transition-colors">
             {html! {
                 <a
                     href="/"

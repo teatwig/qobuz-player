@@ -181,7 +181,7 @@ fn list_tracks(
 fn track(artist_id: u32, track: models::Track, index: usize, is_playing: bool) -> impl IntoView {
     html! {
         <button
-            class="flex gap-4 items-center w-5/6 max-w-lg rounded cursor-pointer hover:bg-blue-800 active:bg-blue-700"
+            class="flex gap-4 items-center w-5/6 max-w-lg rounded cursor-pointer hover:bg-blue-800"
             hx-put=format!("{}/play-top-track/{}", artist_id, index)
             hx-swap="none"
         >

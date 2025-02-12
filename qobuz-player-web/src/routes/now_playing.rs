@@ -98,7 +98,7 @@ fn play_pause(play: bool) -> impl IntoView {
     html! {
         <button
             id="play-pause-button"
-            class="transition-colors cursor-pointer active:text-blue-700"
+            class="transition-colors cursor-pointer"
             hx-swap="none"
             hx-target="this"
             hx-put=format!("{}", if play { "pause" } else { "play" })
@@ -285,7 +285,7 @@ pub fn now_playing(
 
             <div class="flex flex-col flex-grow justify-center w-full">
                 <div class="flex gap-2 justify-between items-center">
-                    <a class="active:bg-blue-700 text truncate" href=entity_link>
+                    <a class="text truncate" href=entity_link>
                         {entity_title}
                     </a>
                     <div class="text-gray-500 whitespace-nowrap">
@@ -297,7 +297,7 @@ pub fn now_playing(
                     </div>
                 </div>
 
-                <a href=artist_link class="text-gray-400 active:bg-blue-700 truncate w-fit">
+                <a href=artist_link class="text-gray-400 truncate w-fit">
                     {artist_name}
                 </a>
 
@@ -320,7 +320,7 @@ pub fn now_playing(
                         <button
                             hx-swap="none"
                             hx-put="previous"
-                            class="transition-colors cursor-pointer active:text-blue-700"
+                            class="transition-colors cursor-pointer"
                         >
                             <Backward />
                         </button>
@@ -340,7 +340,7 @@ pub fn now_playing(
                         <button
                             hx-put="next"
                             hx-swap="none"
-                            class="transition-colors cursor-pointer active:text-blue-700"
+                            class="transition-colors cursor-pointer"
                         >
                             <Forward />
                         </button>
