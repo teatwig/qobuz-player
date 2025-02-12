@@ -562,9 +562,6 @@ fn set_current_track(s: &mut Cursive, track: &Track, lt: &TrackListType, current
             TrackListType::Track => {
                 track_num.set_content(format!("{:03}", current_position));
             }
-            TrackListType::Unknown => {
-                track_num.set_content(format!("{:03}", current_position));
-            }
         };
 
         track_title.set_content(track.title.trim());
@@ -734,17 +731,6 @@ async fn receive_notifications() {
                                                     .get_inner_mut()
                                                     .add_item(t.track_list_item(), i);
                                             });
-
-                                        list.queue
-                                            .iter()
-                                            .filter(|t| t.1.status == TrackStatus::Played)
-                                            .map(|t| t.1)
-                                            .enumerate()
-                                            .for_each(|(i, t)| {
-                                                list_view
-                                                    .get_inner_mut()
-                                                    .add_item(t.track_list_item(), i);
-                                            });
                                     }
 
                                     if let (Some(mut entity_title), Some(mut total_tracks)) = (
@@ -798,12 +784,23 @@ async fn receive_notifications() {
                                         )
                                     {
                                         list_view.get_inner_mut().clear();
+
+                                        list.queue
+                                            .iter()
+                                            .filter(|t| t.1.status == TrackStatus::Unplayed)
+                                            .map(|t| t.1)
+                                            .enumerate()
+                                            .for_each(|(i, t)| {
+                                                list_view
+                                                    .get_inner_mut()
+                                                    .add_item(t.track_list_item(), i);
+                                            });
                                     }
 
                                     if let Some(mut total_tracks) =
                                         sink.find_name::<TextView>("total_tracks")
                                     {
-                                        total_tracks.set_content("001");
+                                        total_tracks.set_content(format!("{:03}", total.clone()));
                                     }
 
                                     for t in list.queue.values() {
@@ -838,7 +835,6 @@ async fn receive_notifications() {
                                 .is_ok()
                             {}
                         }
-                        _ => {}
                     }
                 }
                 Notification::Error { error: _ } => {}

@@ -18,9 +18,8 @@ pub struct PlaylistTracklist {
 pub enum TrackListType {
     Album(AlbumTracklist),
     Playlist(PlaylistTracklist),
-    Track,
     #[default]
-    Unknown,
+    Track,
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -49,8 +48,8 @@ impl From<models::Track> for Track {
 impl Tracklist {
     pub fn new() -> Self {
         Self {
-            queue: BTreeMap::new(),
-            list_type: TrackListType::Unknown,
+            queue: Default::default(),
+            list_type: Default::default(),
         }
     }
     pub fn total(&self) -> u32 {

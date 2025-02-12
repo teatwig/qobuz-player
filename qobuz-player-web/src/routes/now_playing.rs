@@ -241,7 +241,6 @@ pub fn now_playing(
                 .as_ref()
                 .and_then(|track| track.album.as_ref().map(|album| album.id.clone())),
         ),
-        TrackListType::Unknown => (None, None),
     };
 
     let (title, artist_name, artist_link, duration_seconds, explicit, hires_available) =

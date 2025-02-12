@@ -48,7 +48,6 @@ fn queue(current_tracklist: Tracklist) -> impl IntoView {
         TrackListType::Album(album) => Some(album.title.clone()),
         TrackListType::Playlist(playlist) => Some(playlist.title.clone()),
         TrackListType::Track => None,
-        TrackListType::Unknown => None,
     };
 
     html! {
