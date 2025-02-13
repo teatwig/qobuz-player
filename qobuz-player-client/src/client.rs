@@ -1,10 +1,11 @@
 use crate::{
     qobuz_models::{
         album::{Album, AlbumSearchResults},
-        album_suggestion::AlbumSuggestionResults,
+        album_suggestion::AlbumSuggestionResponse,
         artist::{Artists, ArtistsResponse},
         artist_page::ArtistPage,
         favorites::Favorites,
+        featured::{FeaturedAlbumResponse, FeaturedPlaylistResponse},
         playlist::{Playlist, UserPlaylistsResult},
         release::{Release, ReleaseQuery},
         search_results::SearchAllResults,
@@ -91,6 +92,8 @@ enum Endpoint {
     FavoritePlaylistAdd,
     FavoritePlaylistRemove,
     AlbumSuggest,
+    AlbumFeatured,
+    PlaylistFeatured,
 }
 
 impl Display for Endpoint {
@@ -118,6 +121,8 @@ impl Display for Endpoint {
             Endpoint::FavoritePlaylistAdd => "playlist/subscribe",
             Endpoint::FavoritePlaylistRemove => "playlist/unsubscribe",
             Endpoint::AlbumSuggest => "album/suggest",
+            Endpoint::AlbumFeatured => "album/getFeatured",
+            Endpoint::PlaylistFeatured => "playlist/getFeatured",
         };
 
         f.write_str(endpoint)
@@ -156,7 +161,49 @@ macro_rules! post {
     };
 }
 
+pub enum AlbumFeaturedType {
+    PressAwards,
+    NewReleasesFull,
+    Qobuzissims,
+}
+
+pub enum PlaylistFeaturedType {
+    EditorPicks,
+}
+
 impl Client {
+    pub async fn featured_albums(
+        &self,
+        featured_type: AlbumFeaturedType,
+    ) -> Result<FeaturedAlbumResponse> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::AlbumFeatured);
+
+        let type_string = match featured_type {
+            AlbumFeaturedType::PressAwards => "press-awards",
+            AlbumFeaturedType::NewReleasesFull => "new-releases-full",
+            AlbumFeaturedType::Qobuzissims => "qobuzissims",
+        };
+
+        let params = vec![("type", type_string), ("offset", "0"), ("limit", "20")];
+
+        get!(self, &endpoint, Some(&params))
+    }
+
+    pub async fn featured_playlists(
+        &self,
+        featured_type: PlaylistFeaturedType,
+    ) -> Result<FeaturedPlaylistResponse> {
+        let endpoint = format!("{}{}", self.base_url, Endpoint::PlaylistFeatured);
+
+        let type_string = match featured_type {
+            PlaylistFeaturedType::EditorPicks => "editor-picks",
+        };
+
+        let params = vec![("type", type_string), ("offset", "0"), ("limit", "20")];
+
+        get!(self, &endpoint, Some(&params))
+    }
+
     pub async fn user_playlists(&self) -> Result<UserPlaylistsResult> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::UserPlaylist);
         let params = vec![("limit", "500"), ("extra", "tracks"), ("offset", "0")];
@@ -414,7 +461,7 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
-    pub async fn suggested_albums(&self, album_id: &str) -> Result<AlbumSuggestionResults> {
+    pub async fn suggested_albums(&self, album_id: &str) -> Result<AlbumSuggestionResponse> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::AlbumSuggest);
         let params = vec![("album_id", album_id)];
 

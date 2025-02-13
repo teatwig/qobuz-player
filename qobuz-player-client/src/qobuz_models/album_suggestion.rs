@@ -23,7 +23,7 @@ pub struct AlbumSuggestion {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AlbumSuggestionResults {
+pub struct AlbumSuggestionResponse {
     pub algorithm: String,
     pub albums: AlbumSuggestions,
 }
