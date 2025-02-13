@@ -33,14 +33,12 @@ async fn index() -> impl IntoResponse {
 
     render(html! {
         <Page active_page=Page::Discover>
-            <div class="p-4">
+            <div class="flex flex-col gap-8 p-4">
                 <h1 class="text-2xl">Discover</h1>
-                <div class="flex flex-col gap-8">
-                    <AlbumFeature albums=press_awards name="Press awards".to_string() />
-                    <AlbumFeature albums=new_releases name="New releases".to_string() />
-                    <AlbumFeature albums=qobuzissims name="Qobuzissims".to_string() />
-                    <PlaylistFeature playlists=editor_picks name="Featured playlists".to_string() />
-                </div>
+                <AlbumFeature albums=press_awards name="Press awards".to_string() />
+                <AlbumFeature albums=new_releases name="New releases".to_string() />
+                <AlbumFeature albums=qobuzissims name="Qobuzissims".to_string() />
+                <PlaylistFeature playlists=editor_picks name="Featured playlists".to_string() />
             </div>
         </Page>
     })
@@ -50,7 +48,7 @@ async fn index() -> impl IntoResponse {
 fn album_feature(albums: Vec<AlbumPage>, name: String) -> impl IntoView {
     html! {
         <div class="flex flex-col gap-2">
-            <h3 class="px-4 text-lg">{name}</h3>
+            <h3 class="text-lg">{name}</h3>
             <ListAlbumsVertical albums=albums sort=crate::components::list::AlbumSort::Default />
         </div>
     }
@@ -60,7 +58,7 @@ fn album_feature(albums: Vec<AlbumPage>, name: String) -> impl IntoView {
 fn playlist_feature(playlists: Vec<Playlist>, name: String) -> impl IntoView {
     html! {
         <div class="flex flex-col gap-2">
-            <h3 class="px-4 text-lg">{name}</h3>
+            <h3 class="text-lg">{name}</h3>
             <ListPlaylistsVertical playlists=playlists />
         </div>
     }

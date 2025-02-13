@@ -55,6 +55,7 @@ impl From<QobuzReleaseTrack> for Track {
             duration_seconds: value.duration as u32,
             explicit: value.parental_warning,
             hires_available: value.rights.streamable,
+            available: value.rights.streamable,
             cover_art: None,
             cover_art_small: None,
         }
@@ -211,6 +212,7 @@ impl From<QobuzArtistPage> for ArtistPage {
                         duration_seconds: t.duration,
                         explicit: t.parental_warning,
                         hires_available: t.rights.hires_streamable,
+                        available: t.rights.streamable,
                         cover_art: Some(album_image_url),
                         cover_art_small: Some(album_image_url_small),
                     }
@@ -285,6 +287,7 @@ impl From<QobuzTrack> for Track {
             duration_seconds: value.duration as u32,
             explicit: value.parental_warning,
             hires_available: value.hires_streamable,
+            available: value.streamable,
             cover_art,
             cover_art_small,
         }
@@ -316,6 +319,7 @@ pub struct Track {
     pub duration_seconds: u32,
     pub explicit: bool,
     pub hires_available: bool,
+    pub available: bool,
     pub cover_art: Option<String>,
     pub cover_art_small: Option<String>,
 }

@@ -130,10 +130,8 @@ static USER_AGENTS: &[&str] = &[
 
 static USERNAME: OnceLock<String> = OnceLock::new();
 static PASSWORD: OnceLock<String> = OnceLock::new();
-static CLIENT_INITIATED: AtomicBool = AtomicBool::new(false);
 
 async fn init_client() {
-    CLIENT_INITIATED.store(true, Ordering::Relaxed);
     let username = USERNAME.get().unwrap();
     let password = PASSWORD.get().unwrap();
 
@@ -144,17 +142,16 @@ async fn init_client() {
     let version = gstreamer::version();
     debug!(?version);
 
-    CLIENT.set(client).expect("error setting client");
+    if let Ok(_) = CLIENT.set(client) {
+        ()
+    };
 }
 
 macro_rules! get_client {
     () => {
-        match CLIENT_INITIATED.load(Ordering::Relaxed) {
-            true => match CLIENT.get() {
-                Some(client) => client,
-                None => CLIENT.wait(),
-            },
-            false => {
+        match CLIENT.get() {
+            Some(client) => client,
+            None => {
                 init_client().await;
                 CLIENT.get().unwrap()
             }
@@ -489,6 +486,7 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
         .unwrap_or_default()
         .items
         .into_iter()
+        .filter(|t| t.streamable)
         .map(|t| tracklist::Track {
             id: t.id,
             title: t.title,
@@ -560,6 +558,7 @@ pub async fn play_playlist(playlist_id: i64, index: u32) -> Result<()> {
         .unwrap_or_default()
         .items
         .into_iter()
+        .filter(|t| t.streamable)
         .map(|t| tracklist::Track {
             id: t.id,
             title: t.title,

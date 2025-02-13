@@ -47,7 +47,9 @@ async fn index(
     Path(tab): Path<Tab>,
     Query(parameters): Query<SearchParameters>,
 ) -> impl IntoResponse {
-    let query = parameters.query;
+    let query = parameters
+        .query
+        .and_then(|s| if s.is_empty() { None } else { Some(s) });
     let search_results = match &query {
         Some(query) => qobuz_player_controls::search(query).await.unwrap(),
         None => SearchResults::default(),
@@ -66,7 +68,9 @@ async fn search(
     Path(tab): Path<Tab>,
     Form(parameters): Form<SearchParameters>,
 ) -> impl IntoResponse {
-    let query = parameters.query;
+    let query = parameters
+        .query
+        .and_then(|s| if s.is_empty() { None } else { Some(s) });
     let search_results = match &query {
         Some(query) => qobuz_player_controls::search(query).await.unwrap(),
         None => SearchResults::default(),

@@ -289,7 +289,8 @@ pub fn list_tracks(
                             <button
                                 hx-swap="none"
                                 hx-put=format!("{}/play/{}", parent_id, index)
-                                class="flex justify-between items-center w-full text-left cursor-pointer"
+                                class="flex justify-between items-center w-full text-left cursor-pointer disabled:text-gray-500 disabled:cursor-default"
+                                disabled=!track.available
                             >
                                 <span class="flex overflow-hidden gap-4 items-center w-full">
                                     <span class="w-5 text-center">
