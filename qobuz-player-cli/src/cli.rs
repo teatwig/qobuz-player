@@ -19,6 +19,10 @@ struct Cli {
     /// Disable the TUI interface.
     pub disable_tui: bool,
 
+    #[clap(long, default_value_t = false)]
+    /// Disable the mpris interface.
+    pub disable_mpris: bool,
+
     #[clap(short, long, default_value_t = tracing::Level::ERROR)]
     /// Log level
     verbosity: tracing::Level,
@@ -111,8 +115,7 @@ pub async fn run() -> Result<(), Error> {
                 }
             };
 
-            #[cfg(target_os = "linux")]
-            {
+            if !cli.disable_mpris {
                 tokio::spawn(async move {
                     qobuz_player_mpris::init().await;
                 });

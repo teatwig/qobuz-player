@@ -842,18 +842,15 @@ async fn receive_notifications() {
 }
 
 trait CursiveFormat {
-    fn list_item(&self) -> StyledString;
+    fn list_item(&self) -> StyledString {
+        StyledString::new()
+    }
     fn track_list_item(&self) -> StyledString {
         StyledString::new()
     }
 }
 
 impl CursiveFormat for tracklist::Track {
-    fn list_item(&self) -> StyledString {
-        let style = Style::none();
-
-        StyledString::styled(self.title.trim(), style.combine(Effect::Bold))
-    }
     fn track_list_item(&self) -> StyledString {
         StyledString::styled(self.title.trim(), Style::none())
     }
