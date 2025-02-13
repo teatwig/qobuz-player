@@ -632,10 +632,11 @@ pub async fn current_tracklist() -> Tracklist {
 pub async fn current_track() -> Result<Option<Track>> {
     let track_id = TRACKLIST.read().await.current_track().map(|t| t.id);
 
-    let client = get_client!();
-
     match track_id {
-        Some(id) => Ok(Some(client.track(id).await?.into())),
+        Some(id) => {
+            let client = get_client!();
+            Ok(Some(client.track(id).await?.into()))
+        }
         None => Ok(None),
     }
 }
