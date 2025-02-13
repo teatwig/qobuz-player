@@ -50,8 +50,8 @@
 
           packages = [
             pkgs.cargo-machete
+            pkgs.cargo-outdated
             pkgs.sqlx-cli
-
           ];
 
           DATABASE_URL = "sqlite:///tmp/data.db";

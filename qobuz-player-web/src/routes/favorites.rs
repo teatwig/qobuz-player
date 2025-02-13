@@ -1,7 +1,6 @@
 use axum::{extract::Path, response::IntoResponse, routing::get, Router};
 use leptos::{component, prelude::*, IntoView};
 use qobuz_player_controls::models::Favorites;
-use std::sync::Arc;
 
 use crate::{
     components::{
@@ -11,10 +10,9 @@ use crate::{
     html,
     page::Page,
     view::render,
-    AppState,
 };
 
-pub fn routes() -> Router<Arc<AppState>> {
+pub fn routes() -> Router {
     Router::new().route("/favorites/{tab}", get(index))
 }
 

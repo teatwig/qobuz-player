@@ -9,7 +9,7 @@ use futures::stream::Stream;
 use leptos::html::*;
 use leptos::*;
 use qobuz_player_controls::notification::Notification;
-use routes::{album, artist, favorites, now_playing, playlist, queue, search};
+use routes::{album, artist, discover, favorites, now_playing, playlist, queue, search};
 use std::{convert::Infallible, sync::Arc};
 use tokio::sync::broadcast::{self, Sender};
 use tokio_stream::wrappers::BroadcastStream;
@@ -51,7 +51,9 @@ async fn create_router() -> Router {
     let shared_state = Arc::new(AppState { tx: tx.clone() });
     tokio::spawn(background_task(tx));
 
-    let router = axum::Router::new()
+    axum::Router::new()
+        .route("/sse", get(sse_handler))
+        .with_state(shared_state)
         .merge(now_playing::routes())
         .merge(search::routes())
         .merge(album::routes())
@@ -59,10 +61,8 @@ async fn create_router() -> Router {
         .merge(playlist::routes())
         .merge(favorites::routes())
         .merge(queue::routes())
-        .route("/sse", get(sse_handler))
-        .route("/assets/{*file}", get(static_handler));
-
-    router.with_state(shared_state)
+        .merge(discover::routes())
+        .route("/assets/{*file}", get(static_handler))
 }
 
 async fn background_task(tx: Sender<ServerSentEvent>) {

@@ -27,6 +27,7 @@ use tokio::{
 use tracing::{debug, instrument};
 use tracklist::{TrackListType, Tracklist};
 
+pub use qobuz_player_client::client::{AlbumFeaturedType, PlaylistFeaturedType};
 pub mod error;
 pub mod models;
 pub mod notification;
@@ -129,8 +130,10 @@ static USER_AGENTS: &[&str] = &[
 
 static USERNAME: OnceLock<String> = OnceLock::new();
 static PASSWORD: OnceLock<String> = OnceLock::new();
+static CLIENT_INITIATED: AtomicBool = AtomicBool::new(false);
 
 async fn init_client() {
+    CLIENT_INITIATED.store(true, Ordering::Relaxed);
     let username = USERNAME.get().unwrap();
     let password = PASSWORD.get().unwrap();
 
@@ -146,9 +149,12 @@ async fn init_client() {
 
 macro_rules! get_client {
     () => {
-        match CLIENT.get() {
-            Some(client) => client,
-            None => {
+        match CLIENT_INITIATED.load(Ordering::Relaxed) {
+            true => match CLIENT.get() {
+                Some(client) => client,
+                None => CLIENT.wait(),
+            },
+            false => {
                 init_client().await;
                 CLIENT.get().unwrap()
             }
@@ -697,6 +703,59 @@ pub async fn suggested_albums(album_id: &str) -> Result<Vec<AlbumPage>> {
         .items
         .into_iter()
         .map(|x| x.into())
+        .collect())
+}
+
+#[instrument]
+#[cached(size = 1, time = 600)]
+/// Get featured albums
+pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<AlbumPage>> {
+    let client = get_client!();
+    let featured = client.featured_albums(featured_type).await?;
+
+    Ok(featured
+        .albums
+        .items
+        .into_iter()
+        .map(|value| {
+            let year = chrono::NaiveDate::from_str(&value.release_date_original)
+                .expect("failed to parse date")
+                .format("%Y")
+                .to_string()
+                .parse::<u32>()
+                .expect("error converting year");
+
+            AlbumPage {
+                id: value.id,
+                title: value.title,
+                artist: value.artist.into(),
+                release_year: year,
+                hires_available: value.hires_streamable,
+                explicit: value.parental_warning,
+                total_tracks: value.tracks_count,
+                tracks: vec![],
+                available: value.streamable,
+                cover_art: value.image.large,
+                cover_art_small: value.image.small,
+                duration_seconds: value.duration,
+            }
+        })
+        .collect())
+}
+
+#[instrument]
+#[cached(size = 1, time = 600)]
+/// Get featured albums
+pub async fn featured_playlists(featured_type: PlaylistFeaturedType) -> Result<Vec<Playlist>> {
+    let client = get_client!();
+    let user_id = client.get_user_id();
+    let featured = client.featured_playlists(featured_type).await?;
+
+    Ok(featured
+        .playlists
+        .items
+        .into_iter()
+        .map(|playlist| models::parse_playlist(playlist, user_id))
         .collect())
 }
 

@@ -7,7 +7,6 @@ use axum::{
 use leptos::{component, prelude::*};
 use qobuz_player_controls::models::{self, SearchResults};
 use serde::Deserialize;
-use std::sync::Arc;
 
 #[derive(Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -27,10 +26,9 @@ use crate::{
     icons::MagnifyingGlass,
     page::Page,
     view::render,
-    AppState,
 };
 
-pub fn routes() -> Router<Arc<AppState>> {
+pub fn routes() -> Router {
     Router::new()
         .route("/search/{tab}", get(index).post(search))
         .route("/play-track/{track_id}", put(play_track))

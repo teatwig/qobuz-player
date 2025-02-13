@@ -63,6 +63,36 @@ pub fn list_albums_vertical(mut albums: Vec<AlbumPage>, sort: AlbumSort) -> impl
 }
 
 #[component]
+pub fn list_playlists_vertical(playlists: Vec<Playlist>) -> impl IntoView {
+    html! {
+        <div class="flex overflow-scroll gap-4 p-2 w-full">
+            {playlists
+                .into_iter()
+                .map(|playlist| {
+                    let img_src = playlist
+                        .cover_art
+                        .map(|image| format!("background-image: url({});", image));
+                    html! {
+                        <a
+                            href=format!("/playlist/{}", playlist.id)
+                            class="h-full shrink-0 size-32"
+                        >
+                            <div
+                                class="bg-gray-800 bg-center bg-no-repeat bg-cover rounded-lg aspect-square"
+                                style=img_src
+                            ></div>
+                            <p class="text-sm truncate">{playlist.title}</p>
+                        </a>
+                    }
+                        .attr("preload", "mousedown")
+                        .attr("preload-images", "true")
+                })
+                .collect::<Vec<_>>()}
+        </div>
+    }
+}
+
+#[component]
 pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
     html! {
         <div class="flex overflow-scroll gap-4 p-2 w-full">

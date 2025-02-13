@@ -8,7 +8,6 @@ use qobuz_player_controls::{
     models,
     tracklist::{TrackListType, Tracklist},
 };
-use std::sync::Arc;
 
 use crate::{
     components::Info,
@@ -16,10 +15,9 @@ use crate::{
     icons::{Backward, Forward, Pause, Play},
     page::Page,
     view::render,
-    AppState,
 };
 
-pub fn routes() -> Router<Arc<AppState>> {
+pub fn routes() -> Router {
     Router::new()
         .route("/", get(index))
         .route("/progress", get(progress_partial))

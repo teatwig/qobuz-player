@@ -6,7 +6,6 @@ use axum::{
 };
 use leptos::prelude::*;
 use qobuz_player_controls::models::{self, AlbumPage, Artist, ArtistPage};
-use std::sync::Arc;
 use tokio::join;
 
 use crate::{
@@ -18,10 +17,9 @@ use crate::{
     icons::Play,
     page::Page,
     view::render,
-    AppState,
 };
 
-pub fn routes() -> Router<Arc<AppState>> {
+pub fn routes() -> Router {
     Router::new()
         .route("/artist/{id}", get(index))
         .route("/artist/{id}/top-tracks", get(top_tracks_partial))

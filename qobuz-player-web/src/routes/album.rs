@@ -6,7 +6,6 @@ use axum::{
 };
 use leptos::{component, prelude::*, IntoView};
 use qobuz_player_controls::models::{AlbumPage, Track};
-use std::sync::Arc;
 use tokio::join;
 
 use crate::{
@@ -18,10 +17,9 @@ use crate::{
     icons::Play,
     page::Page,
     view::render,
-    AppState,
 };
 
-pub fn routes() -> Router<Arc<AppState>> {
+pub fn routes() -> Router {
     Router::new()
         .route("/album/{id}", get(index))
         .route("/album/{id}/tracks", get(album_tracks_partial))

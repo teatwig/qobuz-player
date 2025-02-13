@@ -11,6 +11,7 @@ pub enum Page {
     Queue,
     Favorites,
     Search,
+    Discover,
     None,
 }
 
@@ -40,6 +41,21 @@ fn Navigation(active_page: Page) -> impl IntoView {
                 <QueueList />
                 Queue
             </a>
+            {html! {
+                <a
+                    href="/discover"
+                    class=if active_page == Page::Discover {
+                        "text-blue-500"
+                    } else {
+                        "text-gray-500"
+                    }
+                >
+                    <icons::Megaphone solid=true />
+                    Discover
+                </a>
+            }
+                .attr("preload", "mouseover")
+                .attr("preload-images", "true")}
             {html! {
                 <a
                     href="/favorites/albums"

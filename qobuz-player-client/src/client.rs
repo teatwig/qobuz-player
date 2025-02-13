@@ -5,7 +5,7 @@ use crate::{
         artist::{Artists, ArtistsResponse},
         artist_page::ArtistPage,
         favorites::Favorites,
-        featured::{FeaturedAlbumResponse, FeaturedPlaylistResponse},
+        featured::{FeaturedAlbumsResponse, FeaturedPlaylistsResponse},
         playlist::{Playlist, UserPlaylistsResult},
         release::{Release, ReleaseQuery},
         search_results::SearchAllResults,
@@ -161,12 +161,14 @@ macro_rules! post {
     };
 }
 
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub enum AlbumFeaturedType {
     PressAwards,
     NewReleasesFull,
     Qobuzissims,
 }
 
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub enum PlaylistFeaturedType {
     EditorPicks,
 }
@@ -175,7 +177,7 @@ impl Client {
     pub async fn featured_albums(
         &self,
         featured_type: AlbumFeaturedType,
-    ) -> Result<FeaturedAlbumResponse> {
+    ) -> Result<FeaturedAlbumsResponse> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::AlbumFeatured);
 
         let type_string = match featured_type {
@@ -192,7 +194,7 @@ impl Client {
     pub async fn featured_playlists(
         &self,
         featured_type: PlaylistFeaturedType,
-    ) -> Result<FeaturedPlaylistResponse> {
+    ) -> Result<FeaturedPlaylistsResponse> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::PlaylistFeatured);
 
         let type_string = match featured_type {

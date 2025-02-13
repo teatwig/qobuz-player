@@ -9,17 +9,15 @@ use qobuz_player_controls::{
     models::TrackStatus,
     tracklist::{TrackListType, Tracklist},
 };
-use std::sync::Arc;
 
 use crate::{
     components::list::{List, ListItem},
     html,
     page::Page,
     view::render,
-    AppState,
 };
 
-pub fn routes() -> Router<Arc<AppState>> {
+pub fn routes() -> Router {
     Router::new()
         .route("/queue", get(index))
         .route("/queue/list", get(queue_partial))
