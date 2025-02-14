@@ -51,11 +51,17 @@ pub async fn new(username: &str, password: &str) -> Result<Client> {
 
     let Secrets { secrets, app_id } = get_secrets(&http_client).await?;
 
+    tracing::debug!("Got login secrets");
+
     let base_url = "https://www.qobuz.com/api.json/0.2/".to_string();
 
     let login = login(username, password, &app_id, &base_url, &http_client).await?;
+    tracing::debug!("Logged in");
+
     let active_secret =
         find_active_secret(secrets, &base_url, &http_client, &app_id, &login.user_token).await?;
+
+    tracing::debug!("Found active secrets");
 
     let client = Client {
         client: http_client,
@@ -255,12 +261,12 @@ impl Client {
 
                 match &playlist {
                     Ok(playlist) => {
-                        debug!("appending tracks to playlist");
+                        tracing::debug!("appending tracks to playlist");
                         if let Some(new_tracks) = &playlist.tracks {
                             tracks.items.append(&mut new_tracks.clone().items);
                         }
                     }
-                    Err(error) => error!("{}", error.to_string()),
+                    Err(error) => tracing::error!("{}", error.to_string()),
                 }
             }
         }
@@ -575,7 +581,7 @@ impl Client {
     async fn make_post_call(&self, endpoint: &str, params: HashMap<&str, &str>) -> Result<String> {
         let headers = client_headers(&self.app_id, Some(&self.user_token));
 
-        debug!("calling {} endpoint, with params {params:?}", endpoint);
+        tracing::debug!("calling {} endpoint, with params {params:?}", endpoint);
         let response = self
             .client
             .request(Method::POST, endpoint)
@@ -596,13 +602,13 @@ async fn find_active_secret(
     app_id: &str,
     user_token: &str,
 ) -> Result<String> {
-    debug!("testing secrets: {secrets:?}");
+    tracing::debug!("testing secrets: {secrets:?}");
 
     for (timezone, secret) in secrets.into_iter() {
         let response = track_url(64868955, &secret, base_url, client, app_id, user_token).await;
 
         if response.is_ok() {
-            debug!("found good secret: {}\t{}", timezone, secret);
+            tracing::debug!("found good secret: {}\t{}", timezone, secret);
             let secret_string = secret;
 
             return Ok(secret_string);
@@ -672,7 +678,7 @@ async fn make_get_call(
 ) -> Result<String> {
     let headers = client_headers(app_id, user_token);
 
-    debug!("calling {} endpoint, with params {params:?}", endpoint);
+    tracing::debug!("calling {} endpoint, with params {params:?}", endpoint);
     let request = client.request(Method::GET, endpoint).headers(headers);
 
     if let Some(p) = params {
@@ -687,11 +693,11 @@ async fn make_get_call(
 fn client_headers(app_id: &str, user_token: Option<&str>) -> HeaderMap {
     let mut headers = HeaderMap::new();
 
-    debug!("adding app_id to request headers: {}", app_id);
+    tracing::debug!("adding app_id to request headers: {}", app_id);
     headers.insert("X-App-Id", HeaderValue::from_str(app_id).unwrap());
 
     if let Some(token) = user_token {
-        debug!("adding token to request headers: {}", token);
+        tracing::debug!("adding token to request headers: {}", token);
         headers.insert("X-User-Auth-Token", HeaderValue::from_str(token).unwrap());
     }
 
@@ -722,9 +728,10 @@ async fn login(
 ) -> Result<LoginResult> {
     let endpoint = format!("{}{}", base_url, Endpoint::Login);
 
-    info!(
+    tracing::debug!(
         "logging in with email ({}) and password **HIDDEN** for app_id {}",
-        username, app_id
+        username,
+        app_id
     );
 
     let params = vec![
@@ -736,8 +743,8 @@ async fn login(
     match make_get_call(&endpoint, Some(&params), client, app_id, None).await {
         Ok(response) => {
             let json: Value = serde_json::from_str(response.as_str()).unwrap();
-            info!("Successfully logged in");
-            debug!("{}", json);
+            tracing::info!("Successfully logged in");
+            tracing::debug!("{}", json);
             let mut user_token = json["user_auth_token"].to_string();
             user_token = user_token[1..user_token.len() - 1].to_string();
 
@@ -749,7 +756,7 @@ async fn login(
             })
         }
         Err(err) => {
-            error!("error logging into qobuz: {}", err);
+            tracing::error!("error logging into qobuz: {}", err);
             Err(Error::Login)
         }
     }
@@ -763,7 +770,7 @@ struct Secrets {
 // ported from https://github.com/vitiko98/qobuz-dl/blob/master/qobuz_dl/bundle.py
 // Retrieve the app_id and generate the secrets needed to authenticate
 async fn get_secrets(client: &reqwest::Client) -> Result<Secrets> {
-    debug!("fetching login page");
+    tracing::debug!("fetching login page");
     let play_url = "https://play.qobuz.com";
     let login_page = client.get(format!("{play_url}/login")).send().await?;
 

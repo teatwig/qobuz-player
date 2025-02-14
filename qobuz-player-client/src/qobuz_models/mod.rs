@@ -63,17 +63,17 @@ pub fn parse_url(string_url: &str) -> ParseUrlResult<UrlType> {
     if let Ok(url) = url::Url::parse(string_url) {
         if let (Some(host), Some(mut path)) = (url.host_str(), url.path_segments()) {
             if host == "play.qobuz.com" || host == "open.qobuz.com" {
-                debug!("got a qobuz url");
+                tracing::debug!("got a qobuz url");
 
                 match path.next() {
                     Some("album") => {
-                        debug!("this is an album");
+                        tracing::debug!("this is an album");
                         let id = path.next().unwrap().to_string();
 
                         Ok(UrlType::Album { id })
                     }
                     Some("playlist") => {
-                        debug!("this is a playlist");
+                        tracing::debug!("this is a playlist");
                         let id = path
                             .next()
                             .unwrap()
@@ -83,7 +83,7 @@ pub fn parse_url(string_url: &str) -> ParseUrlResult<UrlType> {
                         Ok(UrlType::Playlist { id })
                     }
                     Some("track") => {
-                        debug!("this is a track");
+                        tracing::debug!("this is a track");
                         let id = path
                             .next()
                             .unwrap()
@@ -93,7 +93,7 @@ pub fn parse_url(string_url: &str) -> ParseUrlResult<UrlType> {
                         Ok(UrlType::Track { id })
                     }
                     None => {
-                        debug!("no path, cannot use path");
+                        tracing::debug!("no path, cannot use path");
                         Err(UrlTypeError::InvalidPath)
                     }
                     _ => Err(UrlTypeError::Unknown),

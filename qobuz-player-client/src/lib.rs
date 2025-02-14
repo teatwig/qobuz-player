@@ -1,9 +1,5 @@
 use snafu::prelude::*;
 
-//extern crate pretty_env_logger;
-#[macro_use]
-extern crate tracing;
-
 pub mod client;
 pub mod qobuz_models;
 
