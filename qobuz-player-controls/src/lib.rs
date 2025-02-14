@@ -128,7 +128,7 @@ static USER_AGENTS: &[&str] = &[
 ];
 
 static CLIENT: OnceLock<Client> = OnceLock::new();
-static CLIENT_INITIATED: OnceLock<Mutex<bool>> = OnceLock::new();
+static CLIENT_INITIATED: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
 static USERNAME: OnceLock<String> = OnceLock::new();
 static PASSWORD: OnceLock<String> = OnceLock::new();
 
@@ -151,9 +151,7 @@ async fn get_client() -> &'static Client {
         return client;
     }
 
-    let initiated_mutex = CLIENT_INITIATED.get_or_init(|| Mutex::new(false));
-
-    let mut inititiated = initiated_mutex.lock().await;
+    let mut inititiated = CLIENT_INITIATED.lock().await;
 
     if !*inititiated {
         let client = init_client().await;
