@@ -6,7 +6,7 @@ use gstreamer::{
     prelude::*, ClockTime, Element, Message, MessageView, SeekFlags, State as GstState,
     StateChangeSuccess, Structure,
 };
-use models::{AlbumPage, ArtistPage};
+use models::{Album, ArtistPage};
 use notification::Notification;
 use qobuz_player_client::client::Client;
 use std::{
@@ -683,7 +683,7 @@ pub async fn similar_artists(artist_id: u32) -> Result<Vec<Artist>> {
 
 #[instrument]
 /// Get album
-pub async fn album(id: &str) -> Result<AlbumPage> {
+pub async fn album(id: &str) -> Result<Album> {
     let client = get_client().await;
     let album = client.album(id).await?;
     Ok(album.into())
@@ -698,7 +698,7 @@ pub async fn track(id: u32) -> Result<Track> {
 
 #[instrument]
 /// Get suggested albums
-pub async fn suggested_albums(album_id: &str) -> Result<Vec<AlbumPage>> {
+pub async fn suggested_albums(album_id: &str) -> Result<Vec<Album>> {
     let client = get_client().await;
     let suggested_albums = client.suggested_albums(album_id).await?;
 
@@ -713,7 +713,7 @@ pub async fn suggested_albums(album_id: &str) -> Result<Vec<AlbumPage>> {
 #[instrument]
 #[cached(size = 1, time = 600)]
 /// Get featured albums
-pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<AlbumPage>> {
+pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<Album>> {
     let client = get_client().await;
     let featured = client.featured_albums(featured_type).await?;
 
@@ -729,7 +729,7 @@ pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<Alb
                 .parse::<u32>()
                 .expect("error converting year");
 
-            AlbumPage {
+            Album {
                 id: value.id,
                 title: value.title,
                 artist: value.artist.into(),
@@ -776,7 +776,7 @@ pub async fn playlist(id: i64) -> Result<Playlist> {
 #[instrument]
 #[cached(size = 10, time = 600)]
 /// Fetch the albums for a specific artist.
-pub async fn artist_albums(artist_id: u32) -> Result<Vec<AlbumPage>> {
+pub async fn artist_albums(artist_id: u32) -> Result<Vec<Album>> {
     let client = get_client().await;
     let albums = client.artist_releases(artist_id, None).await?;
 

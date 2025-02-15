@@ -62,7 +62,7 @@ impl From<QobuzReleaseTrack> for Track {
     }
 }
 
-impl From<Release> for AlbumPage {
+impl From<Release> for Album {
     fn from(s: Release) -> Self {
         let year = chrono::NaiveDate::from_str(&s.dates.original)
             .expect("failed to parse date")
@@ -96,8 +96,8 @@ impl From<Release> for AlbumPage {
     }
 }
 
-impl From<AlbumPage> for Album {
-    fn from(value: AlbumPage) -> Self {
+impl From<Album> for TrackAlbum {
+    fn from(value: Album) -> Self {
         Self {
             id: value.id,
             title: value.title,
@@ -107,7 +107,7 @@ impl From<AlbumPage> for Album {
     }
 }
 
-impl From<AlbumSuggestion> for AlbumPage {
+impl From<AlbumSuggestion> for Album {
     fn from(s: AlbumSuggestion) -> Self {
         let year = chrono::NaiveDate::from_str(&s.dates.original)
             .expect("failed to parse date")
@@ -142,7 +142,7 @@ impl From<AlbumSuggestion> for AlbumPage {
     }
 }
 
-impl From<QobuzAlbum> for AlbumPage {
+impl From<QobuzAlbum> for Album {
     fn from(value: QobuzAlbum) -> Self {
         let year = chrono::NaiveDate::from_str(&value.release_date_original)
             .expect("failed to parse date")
@@ -202,7 +202,7 @@ impl From<QobuzArtistPage> for ArtistPage {
                         id: t.id,
                         number: t.physical_support.track_number,
                         title: t.title,
-                        album: Some(Album {
+                        album: Some(TrackAlbum {
                             id: t.album.id,
                             title: t.album.title,
                             artist: artist.clone(),
@@ -271,7 +271,7 @@ impl From<QobuzTrack> for Track {
         let cover_art = value.album.as_ref().map(|a| a.image.large.clone());
         let cover_art_small = value.album.as_ref().map(|a| a.image.small.clone());
 
-        let album = value.album.map(|a| Album {
+        let album = value.album.map(|a| TrackAlbum {
             id: a.id,
             title: a.title,
             artist: a.artist.into(),
@@ -314,7 +314,7 @@ pub struct Track {
     pub id: u32,
     pub number: u32,
     pub title: String,
-    pub album: Option<Album>,
+    pub album: Option<TrackAlbum>,
     pub artist: Option<Artist>,
     pub duration_seconds: u32,
     pub explicit: bool,
@@ -325,7 +325,7 @@ pub struct Track {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AlbumPage {
+pub struct Album {
     pub id: String,
     pub title: String,
     pub artist: Artist,
@@ -341,7 +341,7 @@ pub struct AlbumPage {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Album {
+pub struct TrackAlbum {
     pub id: String,
     pub title: String,
     pub artist: Artist,
@@ -351,7 +351,7 @@ pub struct Album {
 #[derive(Default, Debug, Clone)]
 pub struct SearchResults {
     pub query: String,
-    pub albums: Vec<AlbumPage>,
+    pub albums: Vec<Album>,
     pub artists: Vec<Artist>,
     pub playlists: Vec<Playlist>,
     pub tracks: Vec<Track>,
@@ -359,7 +359,7 @@ pub struct SearchResults {
 
 #[derive(Default, Debug, Clone)]
 pub struct Favorites {
-    pub albums: Vec<AlbumPage>,
+    pub albums: Vec<Album>,
     pub artists: Vec<Artist>,
     pub playlists: Vec<Playlist>,
 }

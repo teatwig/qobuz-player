@@ -1,5 +1,5 @@
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::models::{AlbumPage, Artist, Playlist, Track};
+use qobuz_player_controls::models::{Album, Artist, Playlist, Track};
 
 use crate::{
     components::Info,
@@ -28,7 +28,7 @@ pub enum AlbumSort {
 }
 
 #[component]
-pub fn list_albums_vertical(mut albums: Vec<AlbumPage>, sort: AlbumSort) -> impl IntoView {
+pub fn list_albums_vertical(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
     match sort {
         AlbumSort::Default => (),
         AlbumSort::Artist => albums.sort_by(|a, b| {
@@ -138,7 +138,7 @@ pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
 }
 
 #[component]
-pub fn list_albums(mut albums: Vec<AlbumPage>, sort: AlbumSort) -> impl IntoView {
+pub fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
     match sort {
         AlbumSort::Default => (),
         AlbumSort::Artist => albums.sort_by(|a, b| {
@@ -170,7 +170,7 @@ pub fn list_albums(mut albums: Vec<AlbumPage>, sort: AlbumSort) -> impl IntoView
 }
 
 #[component]
-fn album(album: AlbumPage) -> impl IntoView {
+fn album(album: Album) -> impl IntoView {
     html! {
         <a
             class="flex gap-4 items-center w-full"

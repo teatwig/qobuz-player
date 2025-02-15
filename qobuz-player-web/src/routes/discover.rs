@@ -1,6 +1,6 @@
 use axum::{response::IntoResponse, routing::get, Router};
 use leptos::prelude::*;
-use qobuz_player_controls::models::{AlbumPage, Playlist};
+use qobuz_player_controls::models::{Album, Playlist};
 use tokio::try_join;
 
 use crate::{
@@ -45,7 +45,7 @@ async fn index() -> impl IntoResponse {
 }
 
 #[component]
-fn album_feature(albums: Vec<AlbumPage>, name: String) -> impl IntoView {
+fn album_feature(albums: Vec<Album>, name: String) -> impl IntoView {
     html! {
         <div class="flex flex-col gap-2">
             <h3 class="text-lg">{name}</h3>

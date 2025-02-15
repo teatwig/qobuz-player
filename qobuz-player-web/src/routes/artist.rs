@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use leptos::prelude::*;
-use qobuz_player_controls::models::{self, AlbumPage, Artist, ArtistPage};
+use qobuz_player_controls::models::{self, Album, Artist, ArtistPage};
 use tokio::join;
 
 use crate::{
@@ -97,7 +97,7 @@ async fn index(Path(id): Path<u32>) -> impl IntoResponse {
 #[component]
 fn artist(
     artist: ArtistPage,
-    albums: Vec<AlbumPage>,
+    albums: Vec<Album>,
     similar_artists: Vec<Artist>,
     is_favorite: bool,
     now_playing_id: Option<u32>,

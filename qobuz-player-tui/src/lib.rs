@@ -16,7 +16,7 @@ use cursive::{
 use futures::executor::block_on;
 use gstreamer::{ClockTime, State as GstState};
 use qobuz_player_controls::{
-    models::{AlbumPage, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
+    models::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
     notification::Notification,
     tracklist::{self, TrackListType},
 };
@@ -319,7 +319,7 @@ fn menubar(s: &mut Cursive) {
     });
 }
 
-fn favorite_albums(favorite_albums: Vec<AlbumPage>) -> LinearLayout {
+fn favorite_albums(favorite_albums: Vec<Album>) -> LinearLayout {
     let mut list_layout = LinearLayout::new(Orientation::Vertical);
 
     let mut album_list = SelectView::new();
@@ -856,7 +856,7 @@ impl CursiveFormat for tracklist::Track {
     }
 }
 
-impl CursiveFormat for AlbumPage {
+impl CursiveFormat for Album {
     fn list_item(&self) -> StyledString {
         let mut style = Style::none();
 
