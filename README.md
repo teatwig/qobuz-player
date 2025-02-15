@@ -5,7 +5,7 @@
 Powered by [Qobuz](https://www.qobuz.com). Requires a paid subscription. This does not allow you to listen for free.
 
 The player includes a terminal ui and a webui. 
-The web interface is ideal for a setup with a single board conputer, e.g. Raspberry Pi, connected to the speaker system and controlled with a smartphone or tablet.
+The web interface is ideal for a setup with a single board computer, e.g. Raspberry Pi, connected to the speaker system and controlled with a smartphone or tablet.
 
 ## Terminal UI screenshot
 ![TUI Screenshot](/qobuz-player.png?raw=true)
@@ -30,7 +30,7 @@ The web interface is ideal for a setup with a single board conputer, e.g. Raspbe
 
 ### Download Release
 
-Download the tar.gz file for your supported OS from the releases page, extract the file and execute `qobuz-player` or copy it to the your `$PATH`.
+Download the tar.gz file for your supported OS from the releases page, extract the file and execute `qobuz-player` or copy it to your `$PATH`.
 
 ### Build from source
 
@@ -86,4 +86,4 @@ Go to `http://<ip>:9888` to view the UI.
 
 ## Credits
 Qobuz-player started as a fork of [hifi.rs](https://github.com/iamdb/hifi.rs) but has since diverged. 
-Qobuz-player is mainly focused on the setup where a single boatd computer is connected to a speaker system.
+Qobuz-player is mainly focused on the setup where a single board computer is connected to a speaker system.
