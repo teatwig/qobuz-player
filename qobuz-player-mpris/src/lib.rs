@@ -148,8 +148,10 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn metadata(&self) -> fdo::Result<Metadata> {
-        let current_track = qobuz_player_controls::current_track().await.unwrap();
-        Ok(track_to_metadata(current_track))
+        match qobuz_player_controls::current_track().await {
+            Ok(current_track) => Ok(track_to_metadata(current_track)),
+            Err(_) => Ok(Metadata::new()),
+        }
     }
 
     async fn volume(&self) -> fdo::Result<Volume> {

@@ -113,6 +113,7 @@ fn album_tracks(
                 now_playing_id=now_playing_id
                 tracks=tracks
                 parent_id=album_id.clone()
+                show_artist=false
             />
         </div>
     }

@@ -29,11 +29,8 @@ pub fn routes() -> Router {
         .route("/playlist/{id}/play/{track_position}", put(play_track))
 }
 
-async fn play_track(Path((id, track_position)): Path<(String, u32)>) -> impl IntoResponse {
-    qobuz_player_controls::play_album(&id, track_position)
-        .await
-        .unwrap();
-    qobuz_player_controls::skip_to_position(track_position, true)
+async fn play_track(Path((id, track_position)): Path<(i64, u32)>) -> impl IntoResponse {
+    qobuz_player_controls::play_playlist(id, track_position)
         .await
         .unwrap();
 }
@@ -103,10 +100,11 @@ fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> 
             hx-get=format!("/playlist/{}/tracks", playlist_id)
         >
             <ListTracks
-                track_number_display=TrackNumberDisplay::Position
+                track_number_display=TrackNumberDisplay::Cover
                 now_playing_id=now_playing_id
                 tracks=tracks
                 parent_id=playlist_id.to_string()
+                show_artist=true
             />
         </div>
     }

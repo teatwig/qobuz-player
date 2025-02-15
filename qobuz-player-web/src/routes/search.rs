@@ -173,10 +173,7 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
             {html! {
                 <a
                     href=format!("albums?query={}", query)
-                    class=format!(
-                        "hover:bg-blue-600 {}",
-                        if tab == Tab::Albums { "bg-blue-800" } else { "" },
-                    )
+                    class=(tab == Tab::Albums).then_some("bg-blue-800")
                 >
 
                     Albums
@@ -187,10 +184,7 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
             {html! {
                 <a
                     href=format!("artists?query={}", query)
-                    class=format!(
-                        "hover:bg-blue-600 {}",
-                        if tab == Tab::Artists { "bg-blue-800" } else { "" },
-                    )
+                    class=(tab == Tab::Artists).then_some("bg-blue-800")
                 >
                     Artists
                 </a>
@@ -200,10 +194,7 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
             {html! {
                 <a
                     href=format!("playlists?query={}", query)
-                    class=format!(
-                        "hover:bg-blue-600 {}",
-                        if tab == Tab::Playlists { "bg-blue-800" } else { "" },
-                    )
+                    class=(tab == Tab::Playlists).then_some("bg-blue-800")
                 >
                     Playlists
                 </a>
@@ -213,10 +204,7 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
             {html! {
                 <a
                     href=format!("tracks?query={}", query)
-                    class=format!(
-                        "hover:bg-blue-600 {}",
-                        if tab == Tab::Tracks { "bg-blue-800" } else { "" },
-                    )
+                    class=(tab == Tab::Tracks).then_some("bg-blue-800")
                 >
                     Tracks
                 </a>

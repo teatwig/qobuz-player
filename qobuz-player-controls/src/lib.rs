@@ -486,9 +486,17 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
     let mut tracklist = TRACKLIST.write().await;
 
     let album = client.album(album_id).await?;
-    tracklist.queue = album
-        .tracks
-        .unwrap_or_default()
+
+    let tracks = album.tracks.unwrap_or_default();
+
+    let unstreambale_tracks_to_index = tracks
+        .items
+        .iter()
+        .take(index as usize)
+        .filter(|t| !t.streamable)
+        .count() as u32;
+
+    tracklist.queue = tracks
         .items
         .into_iter()
         .filter(|t| t.streamable)
@@ -499,7 +507,7 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
         })
         .collect();
 
-    if let Some(track) = skip_to_track(&mut tracklist, index) {
+    if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
         let track_url = client.track_url(track.id).await?;
         PLAYBIN.set_property("uri", track_url);
         play().await?;
@@ -523,10 +531,15 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
     let client = get_client().await;
     let mut tracklist = TRACKLIST.write().await;
 
-    tracklist.queue = client
-        .artist(artist_id)
-        .await?
-        .top_tracks
+    let tracks = client.artist(artist_id).await?.top_tracks;
+
+    let unstreambale_tracks_to_index = tracks
+        .iter()
+        .take(index as usize)
+        .filter(|t| !t.rights.streamable)
+        .count() as u32;
+
+    tracklist.queue = tracks
         .into_iter()
         .map(|t| tracklist::Track {
             id: t.id,
@@ -535,7 +548,7 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
         })
         .collect();
 
-    if let Some(track) = skip_to_track(&mut tracklist, index) {
+    if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
         let track_url = client.track_url(track.id).await?;
         PLAYBIN.set_property("uri", track_url);
         play().await?;
@@ -558,9 +571,16 @@ pub async fn play_playlist(playlist_id: i64, index: u32) -> Result<()> {
 
     let playlist = client.playlist(playlist_id).await?;
 
-    tracklist.queue = playlist
-        .tracks
-        .unwrap_or_default()
+    let tracks = playlist.tracks.unwrap_or_default();
+
+    let unstreambale_tracks_to_index = tracks
+        .items
+        .iter()
+        .take(index as usize)
+        .filter(|t| !t.streamable)
+        .count() as u32;
+
+    tracklist.queue = tracks
         .items
         .into_iter()
         .filter(|t| t.streamable)
@@ -571,7 +591,7 @@ pub async fn play_playlist(playlist_id: i64, index: u32) -> Result<()> {
         })
         .collect();
 
-    if let Some(track) = skip_to_track(&mut tracklist, index) {
+    if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
         let track_url = client.track_url(track.id).await?;
         PLAYBIN.set_property("uri", track_url);
         play().await?;

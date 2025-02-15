@@ -35,39 +35,21 @@ fn favorites(favorites: Favorites, tab: Tab) -> impl IntoView {
 
                 <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors">
                     {html! {
-                        <a
-                            href="albums"
-                            class=format!(
-                                "hover:bg-blue-600 {}",
-                                if tab == Tab::Albums { "bg-blue-800" } else { "" },
-                            )
-                        >
+                        <a href="albums" class=(tab == Tab::Albums).then_some("bg-blue-800")>
                             Albums
                         </a>
                     }
                         .attr("preload", "mouseover")
                         .attr("preload-images", "true")}
                     {html! {
-                        <a
-                            href="artists"
-                            class=format!(
-                                "hover:bg-blue-600 {}",
-                                if tab == Tab::Artists { "bg-blue-800" } else { "" },
-                            )
-                        >
+                        <a href="artists" class=(tab == Tab::Artists).then_some("bg-blue-800")>
                             Artists
                         </a>
                     }
                         .attr("preload", "mouseover")
                         .attr("preload-images", "true")}
                     {html! {
-                        <a
-                            href="playlists"
-                            class=format!(
-                                "hover:bg-blue-600 {}",
-                                if tab == Tab::Playlists { "bg-blue-800" } else { "" },
-                            )
-                        >
+                        <a href="playlists" class=(tab == Tab::Playlists).then_some("bg-blue-800")>
                             Playlists
                         </a>
                     }

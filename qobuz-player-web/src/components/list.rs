@@ -14,11 +14,7 @@ pub fn list(children: Children) -> impl IntoView {
 
 #[component]
 pub fn list_item(children: Children) -> impl IntoView {
-    html! {
-        <li class="w-full text-left border-b border-gray-700 hover:bg-blue-800 *:p-4">
-            {children()}
-        </li>
-    }
+    html! { <li class="w-full text-left border-b border-gray-700 *:p-4">{children()}</li> }
 }
 
 pub enum AlbumSort {
@@ -85,7 +81,6 @@ pub fn list_playlists_vertical(playlists: Vec<Playlist>) -> impl IntoView {
                         </a>
                     }
                         .attr("preload", "mousedown")
-                        .attr("preload-images", "true")
                 })
                 .collect::<Vec<_>>()}
         </div>
@@ -265,8 +260,8 @@ pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum TrackNumberDisplay {
-    Position,
     Number,
+    Cover,
 }
 
 #[component]
@@ -275,6 +270,7 @@ pub fn list_tracks(
     now_playing_id: Option<u32>,
     parent_id: String,
     track_number_display: TrackNumberDisplay,
+    show_artist: bool,
 ) -> impl IntoView {
     html! {
         <List>
@@ -292,31 +288,68 @@ pub fn list_tracks(
                                 class="flex justify-between items-center w-full text-left cursor-pointer disabled:text-gray-500 disabled:cursor-default"
                                 disabled=!track.available
                             >
-                                <span class="flex overflow-hidden gap-4 items-center w-full">
-                                    <span class="w-5 text-center">
+                                <div class="flex overflow-hidden gap-4 items-center w-full">
+                                    <div class=format!(
+                                        "{} flex items-center justify-center",
+                                        if track_number_display == TrackNumberDisplay::Cover {
+                                            "size-12"
+                                        } else {
+                                            "w-5"
+                                        },
+                                    )>
                                         {is_playing
                                             .then_some({
                                                 html! {
-                                                    <span class="text-blue-500 size-4">
+                                                    <div class="text-blue-500 size-5">
                                                         <Play />
-                                                    </span>
+                                                    </div>
                                                 }
                                             })}
                                         {(!is_playing)
                                             .then_some({
                                                 html! {
-                                                    <span class="text-gray-400">
-                                                        {match track_number_display {
-                                                            TrackNumberDisplay::Position => index as u32 + 1,
-                                                            TrackNumberDisplay::Number => track.number,
-                                                        }}
-                                                    </span>
+                                                    {match track_number_display {
+                                                        TrackNumberDisplay::Number => {
+                                                            html! { <span class="text-gray-400">{track.number}</span> }
+                                                                .into_any()
+                                                        }
+                                                        TrackNumberDisplay::Cover => {
+                                                            html! {
+                                                                <div
+                                                                    class="bg-gray-800 bg-center bg-no-repeat bg-cover rounded-md aspect-square size-12"
+                                                                    style=track
+                                                                        .album
+                                                                        .map(|album| {
+                                                                            format!("background-image: url({});", album.image)
+                                                                        })
+                                                                ></div>
+                                                            }
+                                                                .into_any()
+                                                        }
+                                                    }}
                                                 }
                                             })}
-                                    </span>
+                                    </div>
 
-                                    <h2 class="w-full truncate">{track.title}</h2>
-                                </span>
+                                    {match show_artist && track.artist.is_some() {
+                                        true => {
+                                            html! {
+                                                <div class="flex overflow-hidden flex-col">
+                                                    <h2 class="truncate">{track.title}</h2>
+                                                    <h3 class="text-sm text-gray-400 truncate">
+                                                        {track.artist.unwrap().name}
+                                                    </h3>
+                                                </div>
+                                            }
+                                                .into_any()
+                                        }
+                                        false => {
+                                            html! { <h2 class="w-full truncate">{track.title}</h2> }
+                                                .into_any()
+                                        }
+                                    }}
+
+                                </div>
                                 <Info
                                     explicit=track.explicit
                                     hires_available=track.hires_available
@@ -365,8 +398,7 @@ pub fn list_playlists(mut playlists: Vec<Playlist>, sort: PlaylistSort) -> impl 
                                     <p class="w-full text-lg truncate">{playlist.title}</p>
                                 </a>
                             }
-                                .attr("preload", "mousedown")
-                                .attr("preload-images", "true")}
+                                .attr("preload", "mousedown")}
                         </ListItem>
                     }
                 })
