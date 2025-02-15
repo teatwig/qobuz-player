@@ -172,6 +172,7 @@ pub enum AlbumFeaturedType {
     PressAwards,
     NewReleasesFull,
     Qobuzissims,
+    IdealDiscography,
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
@@ -190,6 +191,7 @@ impl Client {
             AlbumFeaturedType::PressAwards => "press-awards",
             AlbumFeaturedType::NewReleasesFull => "new-releases-full",
             AlbumFeaturedType::Qobuzissims => "qobuzissims",
+            AlbumFeaturedType::IdealDiscography => "ideal-discography",
         };
 
         let params = vec![("type", type_string), ("offset", "0"), ("limit", "20")];

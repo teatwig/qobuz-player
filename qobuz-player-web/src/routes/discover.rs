@@ -15,7 +15,7 @@ pub fn routes() -> Router {
 }
 
 async fn index() -> impl IntoResponse {
-    let (press_awards, new_releases, qobuzissims, editor_picks) = try_join!(
+    let (press_awards, new_releases, qobuzissims, ideal_discography, editor_picks) = try_join!(
         qobuz_player_controls::featured_albums(
             qobuz_player_controls::AlbumFeaturedType::PressAwards
         ),
@@ -24,6 +24,9 @@ async fn index() -> impl IntoResponse {
         ),
         qobuz_player_controls::featured_albums(
             qobuz_player_controls::AlbumFeaturedType::Qobuzissims
+        ),
+        qobuz_player_controls::featured_albums(
+            qobuz_player_controls::AlbumFeaturedType::IdealDiscography
         ),
         qobuz_player_controls::featured_playlists(
             qobuz_player_controls::PlaylistFeaturedType::EditorPicks
@@ -38,6 +41,7 @@ async fn index() -> impl IntoResponse {
                 <AlbumFeature albums=press_awards name="Press awards".to_string() />
                 <AlbumFeature albums=new_releases name="New releases".to_string() />
                 <AlbumFeature albums=qobuzissims name="Qobuzissims".to_string() />
+                <AlbumFeature albums=ideal_discography name="Ideal discography".to_string() />
                 <PlaylistFeature playlists=editor_picks name="Featured playlists".to_string() />
             </div>
         </Page>
