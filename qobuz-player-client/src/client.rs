@@ -425,7 +425,6 @@ impl Client {
 
     pub async fn add_favorite_playlist(&self, id: &str) -> Result<SuccessfulResponse> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::FavoritePlaylistAdd);
-        println!("{endpoint}");
         let mut form_data = HashMap::new();
         form_data.insert("playlist_id", id);
 
@@ -434,7 +433,6 @@ impl Client {
 
     pub async fn remove_favorite_playlist(&self, id: &str) -> Result<SuccessfulResponse> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::FavoritePlaylistRemove);
-        println!("{endpoint}");
         let mut form_data = HashMap::new();
         form_data.insert("playlist_id", id);
 

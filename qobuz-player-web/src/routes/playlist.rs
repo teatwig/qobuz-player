@@ -46,12 +46,14 @@ async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
     qobuz_player_controls::add_favorite_playlist(&id)
         .await
         .unwrap();
+    render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
 
 async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
     qobuz_player_controls::remove_favorite_playlist(&id)
         .await
         .unwrap();
+    render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
 
 async fn index(Path(id): Path<i64>) -> impl IntoResponse {

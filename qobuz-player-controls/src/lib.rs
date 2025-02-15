@@ -1,5 +1,5 @@
 use crate::models::{Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
-use cached::proc_macro::cached;
+use cached::{proc_macro::cached, Cached};
 use error::Error;
 use futures::prelude::*;
 use gstreamer::{
@@ -788,6 +788,8 @@ pub async fn artist_albums(artist_id: u32) -> Result<Vec<Album>> {
 pub async fn add_favorite_album(id: &str) -> Result<()> {
     let client = get_client().await;
     client.add_favorite_album(id).await?;
+
+    FAVORITES.lock().await.cache_clear();
     Ok(())
 }
 
@@ -796,6 +798,8 @@ pub async fn add_favorite_album(id: &str) -> Result<()> {
 pub async fn remove_favorite_album(id: &str) -> Result<()> {
     let client = get_client().await;
     client.remove_favorite_album(id).await?;
+
+    FAVORITES.lock().await.cache_clear();
     Ok(())
 }
 
@@ -804,6 +808,8 @@ pub async fn remove_favorite_album(id: &str) -> Result<()> {
 pub async fn add_favorite_artist(id: &str) -> Result<()> {
     let client = get_client().await;
     client.add_favorite_artist(id).await?;
+
+    FAVORITES.lock().await.cache_clear();
     Ok(())
 }
 
@@ -812,6 +818,8 @@ pub async fn add_favorite_artist(id: &str) -> Result<()> {
 pub async fn remove_favorite_artist(id: &str) -> Result<()> {
     let client = get_client().await;
     client.remove_favorite_artist(id).await?;
+
+    FAVORITES.lock().await.cache_clear();
     Ok(())
 }
 
@@ -820,6 +828,8 @@ pub async fn remove_favorite_artist(id: &str) -> Result<()> {
 pub async fn add_favorite_playlist(id: &str) -> Result<()> {
     let client = get_client().await;
     client.add_favorite_playlist(id).await?;
+
+    FAVORITES.lock().await.cache_clear();
     Ok(())
 }
 
@@ -828,6 +838,8 @@ pub async fn add_favorite_playlist(id: &str) -> Result<()> {
 pub async fn remove_favorite_playlist(id: &str) -> Result<()> {
     let client = get_client().await;
     client.remove_favorite_playlist(id).await?;
+
+    FAVORITES.lock().await.cache_clear();
     Ok(())
 }
 

@@ -4,7 +4,7 @@
 .my-indicator {
   opacity: 0;
   transition: opacity 150ms ease-in;
-  transition-delay: 100ms;
+  transition-delay: 200ms;
 }
 .htmx-request.my-indicator {
   opacity: 1;
