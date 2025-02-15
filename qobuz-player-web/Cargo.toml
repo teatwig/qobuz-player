@@ -16,6 +16,5 @@ mime = { workspace = true }
 mime_guess = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 rust-embed = { version = "8.5.0", features = ["axum", "tokio", "mime_guess"] }
-gstreamer = { workspace = true, features = ["serde", "v1_16"] }
 serde = { workspace = true, features = ["derive"] }
 tokio-stream = { workspace = true, features = ["sync"] }

@@ -2829,7 +2829,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "clap",
  "dialoguer",
@@ -2849,7 +2849,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-client"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2865,7 +2865,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-controls"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "cached",
  "chrono",
@@ -2880,23 +2880,18 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-mpris"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
- "chrono",
- "gstreamer",
  "mpris-server",
  "qobuz-player-controls",
- "tokio",
- "tracing",
 ]
 
 [[package]]
 name = "qobuz-player-tui"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "cursive",
  "futures",
- "gstreamer",
  "qobuz-player-controls",
  "tokio",
  "tracing",
@@ -2904,11 +2899,10 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-web"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "axum 0.8.1",
  "futures",
- "gstreamer",
  "leptos",
  "mime",
  "mime_guess",

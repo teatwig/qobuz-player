@@ -14,11 +14,11 @@ use cursive::{
     Cursive, With,
 };
 use futures::executor::block_on;
-use gstreamer::{ClockTime, State as GstState};
 use qobuz_player_controls::{
     models::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
     notification::Notification,
     tracklist::{self, TrackListType},
+    ClockTime, State,
 };
 use tracing::debug;
 
@@ -575,19 +575,13 @@ fn set_current_track(s: &mut Cursive, track: &Track, lt: &TrackListType, current
     }
 }
 
-fn get_state_icon(state: GstState) -> String {
+fn get_state_icon(state: State) -> String {
     match state {
-        GstState::Playing => {
+        State::Playing => {
             format!(" {}", '\u{23f5}')
         }
-        GstState::Paused => {
+        State::Paused => {
             format!(" {}", '\u{23f8}')
-        }
-        GstState::Ready => {
-            format!(" {}", '\u{23f9}')
-        }
-        GstState::Null => {
-            format!(" {}", '\u{23f9}')
         }
         _ => format!(" {}", '\u{23f9}'),
     }
@@ -611,12 +605,12 @@ async fn receive_notifications() {
                             if let Some(mut view) = s.find_name::<TextView>("player_status") {
                                 view.set_content(get_state_icon(status));
                                 match status {
-                                    GstState::Ready => {
+                                    State::Ready => {
                                         s.call_on_name("progress", |progress: &mut ProgressBar| {
                                             progress.set_value(0);
                                         });
                                     }
-                                    GstState::Null => {
+                                    State::Null => {
                                         s.call_on_name("progress", |progress: &mut ProgressBar| {
                                             progress.set_value(0);
                                         });

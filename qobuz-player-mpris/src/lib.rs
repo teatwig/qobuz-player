@@ -3,7 +3,7 @@ use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property, RootInterface,
     Server, Time, TrackId, Volume,
 };
-use qobuz_player_controls::{models::Track, notification::Notification};
+use qobuz_player_controls::{models::Track, notification::Notification, ClockTime, State};
 
 struct MprisPlayer;
 
@@ -93,7 +93,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
-        let clock = gstreamer::ClockTime::from_seconds(offset.as_secs() as u64);
+        let clock = ClockTime::from_seconds(offset.as_secs() as u64);
 
         match qobuz_player_controls::seek(clock, None).await {
             Ok(()) => Ok(()),
@@ -113,11 +113,11 @@ impl PlayerInterface for MprisPlayer {
         let current_status = qobuz_player_controls::current_state();
 
         let status = match current_status {
-            gstreamer::State::VoidPending => PlaybackStatus::Stopped,
-            gstreamer::State::Null => PlaybackStatus::Stopped,
-            gstreamer::State::Ready => PlaybackStatus::Stopped,
-            gstreamer::State::Paused => PlaybackStatus::Paused,
-            gstreamer::State::Playing => PlaybackStatus::Playing,
+            State::VoidPending => PlaybackStatus::Stopped,
+            State::Null => PlaybackStatus::Stopped,
+            State::Ready => PlaybackStatus::Stopped,
+            State::Paused => PlaybackStatus::Paused,
+            State::Playing => PlaybackStatus::Playing,
         };
 
         Ok(status)
@@ -218,11 +218,11 @@ pub async fn init() {
                 Notification::Quit => return,
                 Notification::Status { status } => {
                     let (can_play, can_pause) = match status {
-                        gstreamer::State::VoidPending => (false, false),
-                        gstreamer::State::Null => (false, false),
-                        gstreamer::State::Ready => (false, false),
-                        gstreamer::State::Paused => (true, true),
-                        gstreamer::State::Playing => (true, true),
+                        State::VoidPending => (false, false),
+                        State::Null => (false, false),
+                        State::Ready => (false, false),
+                        State::Paused => (true, true),
+                        State::Playing => (true, true),
                     };
 
                     server

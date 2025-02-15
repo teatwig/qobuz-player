@@ -3,8 +3,7 @@ use cached::{proc_macro::cached, Cached};
 use error::Error;
 use futures::prelude::*;
 use gstreamer::{
-    prelude::*, ClockTime, Element, Message, MessageView, SeekFlags, State as GstState,
-    StateChangeSuccess, Structure,
+    prelude::*, Element, Message, MessageView, SeekFlags, StateChangeSuccess, Structure,
 };
 use models::{Album, ArtistPage};
 use notification::Notification;
@@ -27,6 +26,7 @@ use tokio::{
 use tracing::{debug, instrument};
 use tracklist::{TrackListType, Tracklist};
 
+pub use gstreamer::{ClockTime, State};
 pub use qobuz_player_client::client::{AlbumFeaturedType, PlaylistFeaturedType};
 pub mod error;
 pub mod models;
@@ -257,7 +257,7 @@ pub fn is_ready() -> bool {
 
 #[instrument]
 /// Current player state
-pub fn current_state() -> GstState {
+pub fn current_state() -> State {
     PLAYBIN.current_state()
 }
 
@@ -910,7 +910,7 @@ async fn clock_loop() {
 
     loop {
         interval.tick().await;
-        if current_state() == GstState::Playing {
+        if current_state() == State::Playing {
             if let Some(position) = position() {
                 if position.seconds() != last_position.seconds() {
                     last_position = position;
@@ -1047,11 +1047,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
             }
         }
         MessageView::StateChanged(state_changed) => {
-            let current_player_state = state_changed
-                .current()
-                .to_value()
-                .get::<GstState>()
-                .unwrap();
+            let current_player_state = state_changed.current().to_value().get::<State>().unwrap();
 
             let target_status = TARGET_STATUS.read().await;
 

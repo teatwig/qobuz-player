@@ -73,11 +73,11 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
             match notification {
                 Notification::Status { status } => {
                     let message_data = match status {
-                        gstreamer::State::VoidPending => "pause",
-                        gstreamer::State::Null => "pause",
-                        gstreamer::State::Ready => "pause",
-                        gstreamer::State::Paused => "pause",
-                        gstreamer::State::Playing => "play",
+                        qobuz_player_controls::State::VoidPending => "pause",
+                        qobuz_player_controls::State::Null => "pause",
+                        qobuz_player_controls::State::Ready => "pause",
+                        qobuz_player_controls::State::Paused => "pause",
+                        qobuz_player_controls::State::Playing => "play",
                     };
 
                     let event = ServerSentEvent {

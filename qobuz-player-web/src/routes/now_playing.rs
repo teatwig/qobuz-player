@@ -84,7 +84,7 @@ async fn set_volume(axum::Form(parameters): axum::Form<VolumeParameters>) -> imp
 async fn status_partial() -> impl IntoResponse {
     let status = qobuz_player_controls::current_state();
 
-    if status == gstreamer::State::Playing {
+    if status == qobuz_player_controls::State::Playing {
         render(html! { <PlayPause play=true /> })
     } else {
         render(html! { <PlayPause play=false /> })
@@ -209,7 +209,7 @@ pub fn now_playing(
     current_tracklist: Tracklist,
     current_track: Option<models::Track>,
     position_mseconds: Option<u64>,
-    current_status: gstreamer::State,
+    current_status: qobuz_player_controls::State,
     current_volume: u32,
 ) -> impl IntoView {
     let cover_image = current_track.as_ref().map(|track| track.cover_art.clone());
@@ -329,7 +329,7 @@ pub fn now_playing(
                             hx-swap="innerHTML"
                             class="contents"
                         >
-                            {if current_status != gstreamer::State::Playing {
+                            {if current_status != qobuz_player_controls::State::Playing {
                                 html! { <PlayPause play=false /> }.into_any()
                             } else {
                                 html! { <PlayPause play=true /> }.into_any()

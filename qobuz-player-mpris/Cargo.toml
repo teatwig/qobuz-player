@@ -8,9 +8,5 @@ repository.workspace = true
 [dependencies]
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 
-gstreamer = { workspace = true, features = ["serde", "v1_16"] }
-tracing = { workspace = true }
-chrono = { workspace = true }
 mpris-server = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
 
