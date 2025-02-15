@@ -1,406 +1,296 @@
-use chrono::{DateTime, Duration, Local};
-use gstreamer::{ClockTime, State as GstState};
-use qobuz_player_controls::{
-    models::{Track, TrackStatus},
-    notification::Notification,
+use mpris_server::{
+    zbus::{self, fdo},
+    LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property, RootInterface,
+    Server, Time, TrackId, Volume,
 };
-use std::collections::HashMap;
-use tracing::debug;
-use zbus::{interface, zvariant, Connection, ConnectionBuilder, SignalContext};
+use qobuz_player_controls::{models::Track, notification::Notification};
 
-#[derive(Debug)]
-struct Mpris {}
+struct MprisPlayer;
 
-pub async fn init() {
-    let mpris = Mpris {};
-    let mpris_player = MprisPlayer {
-        status: GstState::Null,
-        total_tracks: 0,
-        position: ClockTime::default(),
-        position_ts: chrono::offset::Local::now(),
-        can_play: true,
-        can_pause: true,
-        can_stop: true,
-        can_next: true,
-        can_previous: true,
-    };
-    let mpris_tracklist = MprisTrackList {};
-
-    let conn = ConnectionBuilder::session()
-        .unwrap()
-        .serve_at("/org/mpris/MediaPlayer2", mpris)
-        .unwrap()
-        .serve_at("/org/mpris/MediaPlayer2", mpris_player)
-        .unwrap()
-        .serve_at("/org/mpris/MediaPlayer2", mpris_tracklist)
-        .unwrap()
-        .name("org.mpris.MediaPlayer2.qobuz-player")
-        .unwrap()
-        .build()
-        .await
-        .expect("There was an error with mpris and I must exit.");
-
-    receive_notifications(&conn).await;
+impl RootInterface for MprisPlayer {
+    async fn identity(&self) -> fdo::Result<String> {
+        Ok("Quboz-player".into())
+    }
+    async fn raise(&self) -> fdo::Result<()> {
+        Err(fdo::Error::NotSupported("Not supported".into()))
+    }
+    async fn quit(&self) -> fdo::Result<()> {
+        match qobuz_player_controls::quit().await {
+            Ok(_) => Ok(()),
+            Err(err) => Err(fdo::Error::Failed(err.to_string())),
+        }
+    }
+    async fn can_quit(&self) -> fdo::Result<bool> {
+        Ok(true)
+    }
+    async fn fullscreen(&self) -> fdo::Result<bool> {
+        Err(fdo::Error::NotSupported("Not supported".into()))
+    }
+    async fn set_fullscreen(&self, _fullscreen: bool) -> zbus::Result<()> {
+        Err(zbus::Error::Unsupported)
+    }
+    async fn can_set_fullscreen(&self) -> fdo::Result<bool> {
+        Ok(false)
+    }
+    async fn can_raise(&self) -> fdo::Result<bool> {
+        Ok(false)
+    }
+    async fn has_track_list(&self) -> fdo::Result<bool> {
+        Ok(false)
+    }
+    async fn desktop_entry(&self) -> fdo::Result<String> {
+        Ok("com.github.sofusa-quboz-player".into())
+    }
+    async fn supported_uri_schemes(&self) -> fdo::Result<Vec<String>> {
+        Ok(vec![])
+    }
+    async fn supported_mime_types(&self) -> fdo::Result<Vec<String>> {
+        Ok(vec![])
+    }
 }
 
-async fn receive_notifications(conn: &Connection) {
+impl PlayerInterface for MprisPlayer {
+    async fn next(&self) -> fdo::Result<()> {
+        match qobuz_player_controls::next().await {
+            Ok(()) => Ok(()),
+            Err(err) => Err(fdo::Error::Failed(err.to_string())),
+        }
+    }
+
+    async fn previous(&self) -> fdo::Result<()> {
+        match qobuz_player_controls::previous().await {
+            Ok(()) => Ok(()),
+            Err(err) => Err(fdo::Error::Failed(err.to_string())),
+        }
+    }
+
+    async fn pause(&self) -> fdo::Result<()> {
+        match qobuz_player_controls::pause().await {
+            Ok(()) => Ok(()),
+            Err(err) => Err(fdo::Error::Failed(err.to_string())),
+        }
+    }
+
+    async fn play_pause(&self) -> fdo::Result<()> {
+        match qobuz_player_controls::play_pause().await {
+            Ok(()) => Ok(()),
+            Err(err) => Err(fdo::Error::Failed(err.to_string())),
+        }
+    }
+
+    async fn stop(&self) -> fdo::Result<()> {
+        match qobuz_player_controls::stop().await {
+            Ok(()) => Ok(()),
+            Err(err) => Err(fdo::Error::Failed(err.to_string())),
+        }
+    }
+
+    async fn play(&self) -> fdo::Result<()> {
+        match qobuz_player_controls::play().await {
+            Ok(()) => Ok(()),
+            Err(err) => Err(fdo::Error::Failed(err.to_string())),
+        }
+    }
+
+    async fn seek(&self, offset: Time) -> fdo::Result<()> {
+        let clock = gstreamer::ClockTime::from_seconds(offset.as_secs() as u64);
+
+        match qobuz_player_controls::seek(clock, None).await {
+            Ok(()) => Ok(()),
+            Err(err) => Err(fdo::Error::Failed(err.to_string())),
+        }
+    }
+
+    async fn set_position(&self, _track_id: TrackId, _position: Time) -> fdo::Result<()> {
+        Err(fdo::Error::NotSupported("Not supported".into()))
+    }
+
+    async fn open_uri(&self, _uri: String) -> fdo::Result<()> {
+        Err(fdo::Error::NotSupported("Not supported".into()))
+    }
+
+    async fn playback_status(&self) -> fdo::Result<PlaybackStatus> {
+        let current_status = qobuz_player_controls::current_state();
+
+        let status = match current_status {
+            gstreamer::State::VoidPending => PlaybackStatus::Stopped,
+            gstreamer::State::Null => PlaybackStatus::Stopped,
+            gstreamer::State::Ready => PlaybackStatus::Stopped,
+            gstreamer::State::Paused => PlaybackStatus::Paused,
+            gstreamer::State::Playing => PlaybackStatus::Playing,
+        };
+
+        Ok(status)
+    }
+
+    async fn loop_status(&self) -> fdo::Result<LoopStatus> {
+        Err(fdo::Error::NotSupported("Not supported".into()))
+    }
+
+    async fn set_loop_status(&self, _loop_status: LoopStatus) -> zbus::Result<()> {
+        Err(zbus::Error::Unsupported)
+    }
+
+    async fn rate(&self) -> fdo::Result<PlaybackRate> {
+        Ok(1.0)
+    }
+
+    async fn set_rate(&self, _rate: PlaybackRate) -> zbus::Result<()> {
+        Err(zbus::Error::Unsupported)
+    }
+
+    async fn shuffle(&self) -> fdo::Result<bool> {
+        Ok(false)
+    }
+
+    async fn set_shuffle(&self, _shuffle: bool) -> zbus::Result<()> {
+        Err(zbus::Error::Unsupported)
+    }
+
+    async fn metadata(&self) -> fdo::Result<Metadata> {
+        let current_track = qobuz_player_controls::current_track().await.unwrap();
+        Ok(track_to_metadata(current_track))
+    }
+
+    async fn volume(&self) -> fdo::Result<Volume> {
+        Ok(qobuz_player_controls::volume())
+    }
+
+    async fn set_volume(&self, volume: Volume) -> zbus::Result<()> {
+        qobuz_player_controls::set_volume(volume);
+        Ok(())
+    }
+
+    async fn position(&self) -> fdo::Result<Time> {
+        let position_mseconds = qobuz_player_controls::position()
+            .map(|position| position.mseconds())
+            .map_or(0, |p| p as i64);
+        let time = Time::from_micros(position_mseconds);
+
+        Ok(time)
+    }
+
+    async fn minimum_rate(&self) -> fdo::Result<PlaybackRate> {
+        Ok(1.0)
+    }
+
+    async fn maximum_rate(&self) -> fdo::Result<PlaybackRate> {
+        Ok(1.0)
+    }
+
+    async fn can_go_next(&self) -> fdo::Result<bool> {
+        Ok(true)
+    }
+
+    async fn can_go_previous(&self) -> fdo::Result<bool> {
+        Ok(true)
+    }
+
+    async fn can_play(&self) -> fdo::Result<bool> {
+        Ok(true)
+    }
+
+    async fn can_pause(&self) -> fdo::Result<bool> {
+        Ok(true)
+    }
+
+    async fn can_seek(&self) -> fdo::Result<bool> {
+        Ok(true)
+    }
+
+    async fn can_control(&self) -> fdo::Result<bool> {
+        Ok(true)
+    }
+}
+
+pub async fn init() {
+    let server = Server::new("com.github.sofusa-quboz-player", MprisPlayer)
+        .await
+        .unwrap();
+
     let mut receiver = qobuz_player_controls::notify_receiver();
-    let object_server = conn.object_server();
 
     loop {
         if let Ok(notification) = receiver.recv().await {
             match notification {
-                Notification::Quit => {
-                    return;
-                }
+                Notification::Quit => return,
                 Notification::Status { status } => {
-                    let iface_ref = object_server
-                        .interface::<_, MprisPlayer>("/org/mpris/MediaPlayer2")
+                    let (can_play, can_pause) = match status {
+                        gstreamer::State::VoidPending => (false, false),
+                        gstreamer::State::Null => (false, false),
+                        gstreamer::State::Ready => (false, false),
+                        gstreamer::State::Paused => (true, true),
+                        gstreamer::State::Playing => (true, true),
+                    };
+
+                    server
+                        .properties_changed([
+                            Property::CanPlay(can_play),
+                            Property::CanPause(can_pause),
+                        ])
                         .await
-                        .expect("failed to get object server");
-
-                    let mut iface = iface_ref.get_mut().await;
-                    iface.status = status;
-
-                    match status {
-                        GstState::Null => {
-                            iface.can_play = true;
-                            iface.can_pause = true;
-                            iface.can_stop = false;
-                        }
-                        GstState::Paused => {
-                            iface.can_play = true;
-                            iface.can_pause = false;
-                            iface.can_stop = true;
-                        }
-                        GstState::Playing => {
-                            iface.position_ts = chrono::offset::Local::now();
-                            iface.can_play = true;
-                            iface.can_pause = true;
-                            iface.can_stop = true;
-                        }
-                        _ => {
-                            iface.can_play = true;
-                            iface.can_pause = true;
-                            iface.can_stop = true;
-                        }
-                    }
-
-                    iface
-                        .playback_status_changed(iface_ref.signal_context())
-                        .await
-                        .expect("failed to signal metadata change");
+                        .unwrap();
                 }
-                Notification::Position { clock } => {
-                    let iface_ref = object_server
-                        .interface::<_, MprisPlayer>("/org/mpris/MediaPlayer2")
-                        .await
-                        .expect("failed to get object server");
-
-                    let mut iface = iface_ref.get_mut().await;
-                    let now = chrono::offset::Local::now();
-                    let diff = now.signed_duration_since(iface.position_ts);
-                    let position_secs = clock.seconds();
-
-                    if diff.num_seconds() != position_secs as i64 {
-                        debug!("mpris clock drift, sending new position");
-                        iface.position_ts =
-                            chrono::offset::Local::now() - Duration::seconds(position_secs as i64);
-
-                        MprisPlayer::seeked(iface_ref.signal_context(), clock.useconds() as i64)
-                            .await
-                            .expect("failed to send seeked signal");
-                    }
-                }
+                Notification::Position { clock: _ } => {}
                 Notification::CurrentTrackList { list } => {
-                    let player_ref = object_server
-                        .interface::<_, MprisPlayer>("/org/mpris/MediaPlayer2")
+                    let current_track = qobuz_player_controls::current_track().await.unwrap();
+                    let metadata = track_to_metadata(current_track);
+
+                    let current_position = list.current_position();
+                    let total_tracks = list.total();
+
+                    let can_previous = current_position != 0;
+                    let can_next = !(total_tracks != 0 && current_position == total_tracks - 1);
+
+                    server
+                        .properties_changed([
+                            Property::Metadata(metadata),
+                            Property::CanGoPrevious(can_previous),
+                            Property::CanGoNext(can_next),
+                        ])
                         .await
-                        .expect("failed to get object server");
-
-                    let list_ref = object_server
-                        .interface::<_, MprisTrackList>("/org/mpris/MediaPlayer2")
-                        .await
-                        .expect("failed to get object server");
-
-                    let mut player_iface = player_ref.get_mut().await;
-
-                    player_iface.total_tracks = list.total();
-
-                    if let Some(current) = list.current_track() {
-                        let current_position = list.current_position();
-                        player_iface.can_previous = current_position != 0;
-
-                        player_iface.can_next = !(player_iface.total_tracks != 0
-                            && current_position == player_iface.total_tracks - 1);
-
-                        let tracks = list
-                            .queue
-                            .iter()
-                            .map(|i| i.title.as_str())
-                            .collect::<Vec<&str>>();
-
-                        MprisTrackList::track_list_replaced(
-                            list_ref.signal_context(),
-                            tracks,
-                            &current.title,
-                        )
-                        .await
-                        .expect("failed to send track list replaced signal");
-                    }
-
-                    player_iface
-                        .metadata_changed(player_ref.signal_context())
-                        .await
-                        .expect("failed to signal metadata change");
+                        .unwrap();
                 }
                 Notification::Error { error: _ } => {}
-                Notification::Volume { volume: _ } => {}
+                Notification::Volume { volume } => {
+                    server
+                        .properties_changed([Property::Volume(volume)])
+                        .await
+                        .unwrap();
+                }
             }
         }
     }
 }
 
-#[interface(name = "org.mpris.MediaPlayer2")]
-impl Mpris {
-    #[zbus(property, name = "CanQuit")]
-    fn can_quit(&self) -> bool {
-        true
-    }
-    #[zbus(property, name = "CanSetFullscreen")]
-    fn can_set_fullscreen(&self) -> bool {
-        false
-    }
-    #[zbus(property, name = "CanRaise")]
-    fn can_raise(&self) -> bool {
-        false
-    }
-    #[zbus(property, name = "SupportedMimeTypes")]
-    fn supported_mime_types(&self) -> Vec<&str> {
-        vec!["audio/mpeg", "audio/x-flac", "audio/flac"]
-    }
-    #[zbus(property, name = "SupportedUriSchemes")]
-    fn supported_uri_schemes(&self) -> Vec<&str> {
-        vec!["http"]
-    }
-    #[zbus(property)]
-    fn identity(&self) -> &str {
-        "qobuz-player"
-    }
-    #[zbus(property)]
-    fn has_track_list(&self) -> bool {
-        true
-    }
-}
+fn track_to_metadata(track: Option<Track>) -> Metadata {
+    let mut metadata = Metadata::new();
+    let duration = track
+        .as_ref()
+        .map(|ct| mpris_server::Time::from_secs(ct.duration_seconds as i64));
+    metadata.set_length(duration);
 
-#[derive(Debug)]
-struct MprisPlayer {
-    status: GstState,
-    position: ClockTime,
-    position_ts: DateTime<Local>,
-    total_tracks: u32,
-    can_play: bool,
-    can_pause: bool,
-    can_stop: bool,
-    can_next: bool,
-    can_previous: bool,
-}
+    // album
+    let (album_title, album_image) = track.as_ref().map_or((None, None), |ct| {
+        ct.album.as_ref().map_or((None, None), |a| {
+            (Some(a.title.clone()), Some(a.image.clone()))
+        })
+    });
 
-#[interface(name = "org.mpris.MediaPlayer2.Player")]
-impl MprisPlayer {
-    async fn play(&self) {
-        if let Err(error) = qobuz_player_controls::play().await {
-            debug!(?error);
-        }
-    }
-    async fn pause(&self) {
-        if let Err(error) = qobuz_player_controls::pause().await {
-            debug!(?error);
-        }
-    }
-    async fn stop(&self) {
-        if let Err(error) = qobuz_player_controls::stop().await {
-            debug!(?error);
-        }
-    }
-    async fn play_pause(&self) {
-        if let Err(error) = qobuz_player_controls::play_pause().await {
-            debug!(?error);
-        }
-    }
-    async fn next(&self) {
-        if let Err(error) = qobuz_player_controls::next().await {
-            debug!(?error);
-        }
-    }
-    async fn previous(&self) {
-        if let Err(error) = qobuz_player_controls::previous().await {
-            debug!(?error);
-        }
-    }
-    #[zbus(property, name = "PlaybackStatus")]
-    async fn playback_status(&self) -> &str {
-        match self.status {
-            GstState::Playing => "Playing",
-            GstState::Paused => "Paused",
-            GstState::Null => "Stopped",
-            GstState::VoidPending => "Stopped",
-            GstState::Ready => "Ready",
-        }
-    }
-    #[zbus(property, name = "LoopStatus")]
-    fn loop_status(&self) -> &str {
-        "None"
-    }
-    #[zbus(property, name = "Rate")]
-    fn rate(&self) -> f64 {
-        1.0
-    }
-    #[zbus(property, name = "Shuffle")]
-    fn shuffle(&self) -> bool {
-        false
-    }
-    #[zbus(property, name = "Metadata")]
-    async fn metadata(&self) -> HashMap<&str, zvariant::Value> {
-        debug!("signal metadata refresh");
-        if let Some(current_track) = qobuz_player_controls::current_track().await.unwrap() {
-            let current_position = qobuz_player_controls::current_tracklist()
-                .await
-                .current_position();
-            track_to_meta(current_track, current_position)
-        } else {
-            HashMap::default()
-        }
-    }
-    #[zbus(property, name = "Volume")]
-    fn volume(&self) -> f64 {
-        1.0
-    }
-    #[zbus(property, name = "Position")]
-    async fn position(&self) -> i64 {
-        self.position.useconds() as i64
-    }
-    #[zbus(signal, name = "Seeked")]
-    async fn seeked(
-        #[zbus(signal_context)] ctxt: &SignalContext<'_>,
-        message: i64,
-    ) -> zbus::Result<()>;
-    #[zbus(property, name = "MinimumRate")]
-    fn minimum_rate(&self) -> f64 {
-        1.0
-    }
-    #[zbus(property, name = "MaximumRate")]
-    fn maximum_rate(&self) -> f64 {
-        1.0
-    }
-    #[zbus(property, name = "CanGoNext")]
-    fn can_go_next(&self) -> bool {
-        self.can_next
-    }
-    #[zbus(property, name = "CanGoPrevious")]
-    fn can_go_previous(&self) -> bool {
-        self.can_previous
-    }
-    #[zbus(property, name = "CanPlay")]
-    fn can_play(&self) -> bool {
-        self.can_play
-    }
-    #[zbus(property, name = "CanPause")]
-    fn can_pause(&self) -> bool {
-        self.can_pause
-    }
-    #[zbus(property, name = "CanStop")]
-    fn can_stop(&self) -> bool {
-        self.can_stop
-    }
-    #[zbus(property, name = "CanSeek")]
-    fn can_seek(&self) -> bool {
-        true
-    }
-    #[zbus(property, name = "CanControl")]
-    fn can_control(&self) -> bool {
-        true
-    }
-}
+    metadata.set_album(album_title);
+    metadata.set_art_url(album_image);
 
-#[derive(Debug)]
-struct MprisTrackList {}
+    // artist
+    let artist_name = track
+        .as_ref()
+        .and_then(|ct| ct.artist.as_ref().map(|a| a.name.clone()));
 
-#[interface(name = "org.mpris.MediaPlayer2.TrackList")]
-impl MprisTrackList {
-    #[zbus(signal, name = "TrackListReplaced")]
-    async fn track_list_replaced(
-        #[zbus(signal_context)] ctxt: &SignalContext<'_>,
-        tracks: Vec<&str>,
-        current: &str,
-    ) -> zbus::Result<()>;
+    metadata.set_artist(artist_name.as_ref().map(|a| vec![a]));
+    metadata.set_album_artist(artist_name.as_ref().map(|a| vec![a]));
 
-    #[zbus(property, name = "Tracks")]
-    async fn tracks(&self) -> Vec<String> {
-        qobuz_player_controls::current_tracklist()
-            .await
-            .queue
-            .iter()
-            .filter(|t| t.status == TrackStatus::Unplayed)
-            .enumerate()
-            .map(|(i, _)| i.to_string())
-            .collect::<Vec<String>>()
-    }
+    // track
+    metadata.set_title(track.as_ref().map(|ct| ct.title.clone()));
+    metadata.set_track_number(track.map(|ct| ct.number as i32));
 
-    #[zbus(property, name = "CanEditTracks")]
-    async fn can_edit_tracks(&self) -> bool {
-        false
-    }
-}
-
-fn track_to_meta<'a>(
-    playlist_track: Track,
-    current_position: u32,
-) -> HashMap<&'a str, zvariant::Value<'a>> {
-    let mut meta = HashMap::new();
-
-    meta.insert(
-        "mpris:trackid",
-        zvariant::Value::new(format!(
-            "/org/qobuz-player/Player/TrackList/{}",
-            playlist_track.id
-        )),
-    );
-    meta.insert(
-        "xesam:title",
-        zvariant::Value::new(playlist_track.title.trim().to_string()),
-    );
-    meta.insert("xesam:trackNumber", zvariant::Value::new(current_position));
-
-    meta.insert(
-        "mpris:length",
-        zvariant::Value::new(
-            ClockTime::from_seconds(playlist_track.duration_seconds as u64).useconds() as i64,
-        ),
-    );
-
-    if let Some(artist) = &playlist_track.artist {
-        meta.insert(
-            "xesam:artist",
-            zvariant::Value::new(artist.name.trim().to_string()),
-        );
-    }
-
-    if let Some(album) = playlist_track.album {
-        meta.insert("mpris:artUrl", zvariant::Value::new(album.image));
-        meta.insert(
-            "xesam:album",
-            zvariant::Value::new(album.title.trim().to_string()),
-        );
-        meta.insert(
-            "xesam:albumArtist",
-            zvariant::Value::new(album.artist.name.trim().to_string()),
-        );
-        meta.insert(
-            "xesam:artist",
-            zvariant::Value::new(album.artist.name.trim().to_string()),
-        );
-    }
-
-    meta
+    metadata
 }

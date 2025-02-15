@@ -33,6 +33,7 @@ leptos = "0.7"
 md5 = "0.7.0"
 mime = "0.3"
 mime_guess = "2.0"
+mpris-server = { git = "https://github.com/SofusA/mpris-server-tokio", branch = "merge", features = ["tokio"] }
 rand = "0.8"
 regex = "1.5"
 reqwest = { version = "0.12", default-features = false }
@@ -45,4 +46,3 @@ tokio-stream = "0.1"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 url = "2.4"
-zbus = { version = "4", default-features = false }

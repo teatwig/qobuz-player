@@ -116,13 +116,13 @@ pub async fn run() -> Result<(), Error> {
             };
 
             if !cli.disable_mpris {
-                tokio::spawn(async move {
+                tokio::spawn(async {
                     qobuz_player_mpris::init().await;
                 });
             }
 
             if cli.web {
-                tokio::spawn(async move { qobuz_player_web::init(cli.interface).await });
+                tokio::spawn(async { qobuz_player_web::init(cli.interface).await });
             }
 
             tokio::spawn(async {
