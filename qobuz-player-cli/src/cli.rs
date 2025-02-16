@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
+use qobuz_player_controls::AudioQuality;
 use snafu::prelude::*;
 
 use crate::database;
@@ -17,11 +18,14 @@ struct Cli {
 
     #[clap(short, long, default_value_t = false)]
     /// Disable the TUI interface.
-    pub disable_tui: bool,
+    disable_tui: bool,
 
     #[clap(long, default_value_t = false)]
     /// Disable the mpris interface.
-    pub disable_mpris: bool,
+    disable_mpris: bool,
+
+    #[clap(short, long)]
+    max_audio_quality: Option<AudioQuality>,
 
     #[clap(short, long, default_value_t = tracing::Level::ERROR)]
     /// Log level
@@ -115,6 +119,8 @@ pub async fn run() -> Result<(), Error> {
                 }
             };
 
+            let max_audio_quality = cli.max_audio_quality.unwrap_or_default();
+
             if !cli.disable_mpris {
                 tokio::spawn(async {
                     qobuz_player_mpris::init().await;
@@ -126,7 +132,9 @@ pub async fn run() -> Result<(), Error> {
             }
 
             tokio::spawn(async {
-                match qobuz_player_controls::player_loop(username, password).await {
+                match qobuz_player_controls::player_loop(username, password, max_audio_quality)
+                    .await
+                {
                     Ok(_) => debug!("player loop exited successfully"),
                     Err(error) => debug!("player loop error {error}"),
                 }

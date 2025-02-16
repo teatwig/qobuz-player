@@ -10,6 +10,8 @@ use qobuz_player_client::qobuz_models::{
 };
 use std::{fmt::Debug, str::FromStr};
 
+use crate::MAX_AUDIO_QUALITY;
+
 pub fn parse_search_results(search_results: SearchAllResults, user_id: i64) -> SearchResults {
     SearchResults {
         query: search_results.query,
@@ -54,7 +56,7 @@ impl From<QobuzReleaseTrack> for Track {
             }),
             duration_seconds: value.duration as u32,
             explicit: value.parental_warning,
-            hires_available: value.rights.streamable,
+            hires_available: hifi_available(value.rights.hires_streamable),
             available: value.rights.streamable,
             cover_art: None,
             cover_art_small: None,
@@ -84,7 +86,7 @@ impl From<Release> for Album {
                 .to_string()
                 .parse::<u32>()
                 .expect("error converting year"),
-            hires_available: s.rights.hires_streamable,
+            hires_available: hifi_available(s.rights.hires_streamable),
             explicit: s.parental_warning,
             total_tracks: s.tracks_count as u32,
             tracks,
@@ -130,7 +132,7 @@ impl From<AlbumSuggestion> for Album {
                 .to_string()
                 .parse::<u32>()
                 .expect("error converting year"),
-            hires_available: s.rights.hires_streamable,
+            hires_available: hifi_available(s.rights.hires_streamable),
             explicit: s.parental_warning,
             total_tracks: s.track_count as u32,
             tracks: Default::default(),
@@ -161,7 +163,7 @@ impl From<QobuzAlbum> for Album {
                 .to_string()
                 .parse::<u32>()
                 .expect("error converting year"),
-            hires_available: value.hires_streamable,
+            hires_available: hifi_available(value.hires_streamable),
             explicit: value.parental_warning,
             available: value.streamable,
             tracks,
@@ -211,7 +213,7 @@ impl From<QobuzArtistPage> for ArtistPage {
                         artist: Some(artist),
                         duration_seconds: t.duration,
                         explicit: t.parental_warning,
-                        hires_available: t.rights.hires_streamable,
+                        hires_available: hifi_available(t.rights.hires_streamable),
                         available: t.rights.streamable,
                         cover_art: Some(album_image_url),
                         cover_art_small: Some(album_image_url_small),
@@ -286,7 +288,7 @@ impl From<QobuzTrack> for Track {
             artist,
             duration_seconds: value.duration as u32,
             explicit: value.parental_warning,
-            hires_available: value.hires_streamable,
+            hires_available: hifi_available(value.hires_streamable),
             available: value.streamable,
             cover_art,
             cover_art_small,
@@ -294,9 +296,16 @@ impl From<QobuzTrack> for Track {
     }
 }
 
-impl From<&QobuzTrack> for Track {
-    fn from(value: &QobuzTrack) -> Self {
-        value.clone().into()
+fn hifi_available(track_has_hires_available: bool) -> bool {
+    if !track_has_hires_available {
+        return false;
+    }
+
+    match MAX_AUDIO_QUALITY.get().unwrap() {
+        qobuz_player_client::client::AudioQuality::Mp3 => false,
+        qobuz_player_client::client::AudioQuality::CD => false,
+        qobuz_player_client::client::AudioQuality::HIFI96 => true,
+        qobuz_player_client::client::AudioQuality::HIFI192 => true,
     }
 }
 

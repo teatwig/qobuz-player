@@ -289,14 +289,7 @@ pub fn list_tracks(
                                 disabled=!track.available
                             >
                                 <div class="flex overflow-hidden gap-4 items-center w-full">
-                                    <div class=format!(
-                                        "{} flex items-center justify-center",
-                                        if track_number_display == TrackNumberDisplay::Cover {
-                                            "size-12"
-                                        } else {
-                                            "w-5"
-                                        },
-                                    )>
+                                    <div class="flex justify-center items-center">
                                         {is_playing
                                             .then_some({
                                                 html! {
@@ -310,7 +303,11 @@ pub fn list_tracks(
                                                 html! {
                                                     {match track_number_display {
                                                         TrackNumberDisplay::Number => {
-                                                            html! { <span class="text-gray-400">{track.number}</span> }
+                                                            html! {
+                                                                <span class="w-5 text-center text-gray-400">
+                                                                    {track.number}
+                                                                </span>
+                                                            }
                                                                 .into_any()
                                                         }
                                                         TrackNumberDisplay::Cover => {

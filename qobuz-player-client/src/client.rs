@@ -15,6 +15,7 @@ use crate::{
     Error, Result,
 };
 use base64::{engine::general_purpose, Engine as _};
+use clap::ValueEnum;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     Method, Response, StatusCode,
@@ -28,12 +29,36 @@ pub struct Client {
     active_secret: String,
     app_id: String,
     base_url: String,
-    client: reqwest::Client,
+    http_client: reqwest::Client,
     user_token: String,
     user_id: i64,
+    max_audio_quality: AudioQuality,
 }
 
-pub async fn new(username: &str, password: &str) -> Result<Client> {
+#[derive(Default, Clone, Debug, ValueEnum)]
+pub enum AudioQuality {
+    Mp3,
+    CD,
+    HIFI96,
+    #[default]
+    HIFI192,
+}
+impl Display for AudioQuality {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            AudioQuality::Mp3 => "5",
+            AudioQuality::CD => "6",
+            AudioQuality::HIFI96 => "7",
+            AudioQuality::HIFI192 => "27",
+        })
+    }
+}
+
+pub async fn new(
+    username: &str,
+    password: &str,
+    max_audio_quality: AudioQuality,
+) -> Result<Client> {
     let mut headers = HeaderMap::new();
     headers.insert(
             "User-Agent",
@@ -64,12 +89,13 @@ pub async fn new(username: &str, password: &str) -> Result<Client> {
     tracing::debug!("Found active secrets");
 
     let client = Client {
-        client: http_client,
+        http_client,
         active_secret,
         user_token: login.user_token,
         user_id: login.user_id,
         app_id,
         base_url,
+        max_audio_quality,
     };
 
     Ok(client)
@@ -376,9 +402,10 @@ impl Client {
             track_id,
             &self.active_secret,
             &self.base_url,
-            &self.client,
+            &self.http_client,
             &self.app_id,
             &self.user_token,
+            &self.max_audio_quality,
         )
         .await
         .map(|u| u.url)
@@ -571,7 +598,7 @@ impl Client {
         make_get_call(
             endpoint,
             params,
-            &self.client,
+            &self.http_client,
             &self.app_id,
             Some(&self.user_token),
         )
@@ -583,7 +610,7 @@ impl Client {
 
         tracing::debug!("calling {} endpoint, with params {params:?}", endpoint);
         let response = self
-            .client
+            .http_client
             .request(Method::POST, endpoint)
             .headers(headers)
             .form(&params)
@@ -605,7 +632,16 @@ async fn find_active_secret(
     tracing::debug!("testing secrets: {secrets:?}");
 
     for (timezone, secret) in secrets.into_iter() {
-        let response = track_url(64868955, &secret, base_url, client, app_id, user_token).await;
+        let response = track_url(
+            64868955,
+            &secret,
+            base_url,
+            client,
+            app_id,
+            user_token,
+            &AudioQuality::Mp3,
+        )
+        .await;
 
         if response.is_ok() {
             tracing::debug!("found good secret: {}\t{}", timezone, secret);
@@ -625,23 +661,28 @@ async fn track_url(
     client: &reqwest::Client,
     app_id: &str,
     user_token: &str,
+    max_audio_quality: &AudioQuality,
 ) -> Result<TrackURL> {
     let endpoint = format!("{}{}", base_url, Endpoint::TrackURL);
     let now = format!("{}", chrono::Utc::now().timestamp());
 
     let sig = format!(
         "trackgetFileUrlformat_id{}intentstreamtrack_id{}{}{}",
-        "27", track_id, now, secret
+        max_audio_quality, track_id, now, secret
     );
+
+    println!("{sig}");
     let hashed_sig = format!("{:x}", md5::compute(sig.as_str()));
 
     let track_id = track_id.to_string();
+
+    let quality_string = max_audio_quality.to_string();
 
     let params = vec![
         ("request_ts", now.as_str()),
         ("request_sig", hashed_sig.as_str()),
         ("track_id", track_id.as_str()),
-        ("format_id", "27"),
+        ("format_id", &quality_string),
         ("intent", "stream"),
     ];
 

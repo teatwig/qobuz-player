@@ -27,7 +27,7 @@ use tracing::{debug, instrument};
 use tracklist::{TrackListType, Tracklist};
 
 pub use gstreamer::{ClockTime, State};
-pub use qobuz_player_client::client::{AlbumFeaturedType, PlaylistFeaturedType};
+pub use qobuz_player_client::client::{AlbumFeaturedType, AudioQuality, PlaylistFeaturedType};
 pub mod error;
 pub mod models;
 pub mod notification;
@@ -131,14 +131,16 @@ static CLIENT: OnceLock<Client> = OnceLock::new();
 static CLIENT_INITIATED: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
 static USERNAME: OnceLock<String> = OnceLock::new();
 static PASSWORD: OnceLock<String> = OnceLock::new();
+pub(crate) static MAX_AUDIO_QUALITY: OnceLock<AudioQuality> = OnceLock::new();
 
 #[instrument]
 async fn init_client() -> Client {
     tracing::info!("Logging in");
     let username = USERNAME.get().unwrap();
     let password = PASSWORD.get().unwrap();
+    let max_audio_quality = MAX_AUDIO_QUALITY.get().unwrap().to_owned();
 
-    let client = qobuz_player_client::client::new(username, password)
+    let client = qobuz_player_client::client::new(username, password, max_audio_quality)
         .await
         .expect("error making client");
 
@@ -953,12 +955,16 @@ pub async fn quit() -> Result<()> {
     Ok(())
 }
 
-#[instrument]
 /// Handles messages from GStreamer, receives player actions from external controls
 /// receives the about-to-finish event and takes necessary action.
-pub async fn player_loop(username: String, password: String) -> Result<()> {
+pub async fn player_loop(
+    username: String,
+    password: String,
+    max_audio_quality: AudioQuality,
+) -> Result<()> {
     USERNAME.set(username).unwrap();
     PASSWORD.set(password).unwrap();
+    MAX_AUDIO_QUALITY.set(max_audio_quality).unwrap();
 
     let mut messages = PLAYBIN.bus().unwrap().stream();
     let mut about_to_finish = TRACK_ABOUT_TO_FINISH.rx.resubscribe();
