@@ -5,7 +5,7 @@ use futures::prelude::*;
 use gstreamer::{
     prelude::*, Element, Message, MessageView, SeekFlags, StateChangeSuccess, Structure,
 };
-use models::{Album, ArtistPage};
+use models::{Album, ArtistPage, TrackAlbum};
 use notification::Notification;
 use qobuz_player_client::client::Client;
 use std::{
@@ -720,7 +720,7 @@ pub async fn track(id: u32) -> Result<Track> {
 
 #[instrument]
 /// Get suggested albums
-pub async fn suggested_albums(album_id: &str) -> Result<Vec<Album>> {
+pub async fn suggested_albums(album_id: &str) -> Result<Vec<TrackAlbum>> {
     let client = get_client().await;
     let suggested_albums = client.suggested_albums(album_id).await?;
 
@@ -728,6 +728,10 @@ pub async fn suggested_albums(album_id: &str) -> Result<Vec<Album>> {
         .albums
         .items
         .into_iter()
+        .map(|x| {
+            let album: Album = x.into();
+            album
+        })
         .map(|x| x.into())
         .collect())
 }
@@ -735,7 +739,7 @@ pub async fn suggested_albums(album_id: &str) -> Result<Vec<Album>> {
 #[instrument]
 #[cached(size = 1, time = 600)]
 /// Get featured albums
-pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<Album>> {
+pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<TrackAlbum>> {
     let client = get_client().await;
     let featured = client.featured_albums(featured_type).await?;
 
@@ -743,28 +747,14 @@ pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<Alb
         .albums
         .items
         .into_iter()
-        .map(|value| {
-            let year = chrono::NaiveDate::from_str(&value.release_date_original)
-                .expect("failed to parse date")
-                .format("%Y")
-                .to_string()
-                .parse::<u32>()
-                .expect("error converting year");
-
-            Album {
-                id: value.id,
-                title: value.title,
-                artist: value.artist.into(),
-                release_year: year,
-                hires_available: value.hires_streamable,
-                explicit: value.parental_warning,
-                total_tracks: value.tracks_count,
-                tracks: vec![],
-                available: value.streamable,
-                cover_art: value.image.large,
-                cover_art_small: value.image.small,
-                duration_seconds: value.duration,
-            }
+        .map(|value| TrackAlbum {
+            id: value.id,
+            title: value.title,
+            artist: value.artist.into(),
+            hires_available: value.hires_streamable,
+            explicit: value.parental_warning,
+            available: value.streamable,
+            image: value.image.large,
         })
         .collect())
 }
@@ -798,7 +788,7 @@ pub async fn playlist(id: i64) -> Result<Playlist> {
 #[instrument]
 #[cached(size = 10, time = 600)]
 /// Fetch the albums for a specific artist.
-pub async fn artist_albums(artist_id: u32) -> Result<Vec<Album>> {
+pub async fn artist_albums(artist_id: u32) -> Result<Vec<TrackAlbum>> {
     let client = get_client().await;
     let albums = client.artist_releases(artist_id, None).await?;
 

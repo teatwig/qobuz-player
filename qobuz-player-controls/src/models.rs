@@ -64,36 +64,20 @@ impl From<QobuzReleaseTrack> for Track {
     }
 }
 
-impl From<Release> for Album {
-    fn from(s: Release) -> Self {
-        let year = chrono::NaiveDate::from_str(&s.dates.original)
-            .expect("failed to parse date")
-            .format("%Y");
-
-        let tracks = s.tracks.map_or(Default::default(), |tracks| {
-            tracks.items.into_iter().map(|t| t.into()).collect()
-        });
-
+impl From<Release> for TrackAlbum {
+    fn from(release: Release) -> Self {
         Self {
-            id: s.id,
-            title: s.title,
+            id: release.id,
+            title: release.title,
             artist: Artist {
-                id: s.artist.id,
-                name: s.artist.name.display,
+                id: release.artist.id,
+                name: release.artist.name.display,
                 ..Default::default()
             },
-            release_year: year
-                .to_string()
-                .parse::<u32>()
-                .expect("error converting year"),
-            hires_available: hifi_available(s.rights.hires_streamable),
-            explicit: s.parental_warning,
-            total_tracks: s.tracks_count as u32,
-            tracks,
-            available: s.rights.streamable,
-            cover_art: s.image.large,
-            cover_art_small: s.image.small,
-            duration_seconds: s.duration.map_or(0, |duration| duration as u32),
+            image: release.image.large,
+            available: release.rights.streamable,
+            hires_available: release.rights.hires_streamable,
+            explicit: release.parental_warning,
         }
     }
 }
@@ -105,6 +89,9 @@ impl From<Album> for TrackAlbum {
             title: value.title,
             artist: value.artist,
             image: value.cover_art,
+            available: value.available,
+            hires_available: value.hires_available,
+            explicit: value.explicit,
         }
     }
 }
@@ -209,6 +196,9 @@ impl From<QobuzArtistPage> for ArtistPage {
                             title: t.album.title,
                             artist: artist.clone(),
                             image: album_image_url.clone(),
+                            available: t.rights.streamable,
+                            hires_available: t.rights.hires_streamable,
+                            explicit: t.parental_warning,
                         }),
                         artist: Some(artist),
                         duration_seconds: t.duration,
@@ -278,6 +268,9 @@ impl From<QobuzTrack> for Track {
             title: a.title,
             artist: a.artist.into(),
             image: a.image.small,
+            available: a.streamable,
+            hires_available: a.hires_streamable,
+            explicit: a.parental_warning,
         });
 
         Self {
@@ -355,6 +348,9 @@ pub struct TrackAlbum {
     pub title: String,
     pub artist: Artist,
     pub image: String,
+    pub available: bool,
+    pub hires_available: bool,
+    pub explicit: bool,
 }
 
 #[derive(Default, Debug, Clone)]

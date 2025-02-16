@@ -13,21 +13,12 @@ pub struct ReleaseQuery {
 pub struct Release {
     pub id: String,
     pub title: String,
-    pub version: Option<String>,
-    pub tracks_count: i64,
     pub artist: Artist,
-    pub artists: Option<Vec<OtherArtists>>,
     pub image: Image,
-    pub label: Label,
-    pub genre: Genre,
-    pub release_type: Option<String>,
-    pub release_tags: Option<Vec<String>>,
     pub duration: Option<i64>,
     pub dates: Dates,
     pub parental_warning: bool,
-    pub audio_info: AudioInfo,
     pub rights: Rights,
-    pub tracks: Option<Tracks>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

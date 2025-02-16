@@ -1,5 +1,5 @@
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::models::{Album, Artist, Playlist, Track};
+use qobuz_player_controls::models::{Album, Artist, Playlist, Track, TrackAlbum};
 
 use crate::{
     components::Info,
@@ -17,27 +17,8 @@ pub fn list_item(children: Children) -> impl IntoView {
     html! { <li class="w-full text-left border-b border-gray-700 *:p-4">{children()}</li> }
 }
 
-pub enum AlbumSort {
-    Default,
-    Artist,
-    ReleaseYear,
-}
-
 #[component]
-pub fn list_albums_vertical(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
-    match sort {
-        AlbumSort::Default => (),
-        AlbumSort::Artist => albums.sort_by(|a, b| {
-            a.artist
-                .name
-                .cmp(&b.artist.name)
-                .then_with(|| b.release_year.cmp(&a.release_year))
-        }),
-        AlbumSort::ReleaseYear => {
-            albums.sort_by_key(|album| album.release_year);
-            albums.reverse();
-        }
-    };
+pub fn list_albums_vertical(albums: Vec<TrackAlbum>) -> impl IntoView {
     html! {
         <div class="flex overflow-scroll gap-4 p-2 w-full">
             {albums
@@ -45,7 +26,7 @@ pub fn list_albums_vertical(mut albums: Vec<Album>, sort: AlbumSort) -> impl Int
                 .map(|album| {
                     html! {
                         <a href=format!("/album/{}", album.id) class="h-full shrink-0 size-32">
-                            <img class="rounded-lg" alt=album.title.clone() src=album.cover_art />
+                            <img class="rounded-lg" alt=album.title.clone() src=album.image />
                             <p class="text-sm truncate">{album.title}</p>
                             <p class="text-sm text-gray-500 truncate">{album.artist.name}</p>
                         </a>
@@ -132,6 +113,11 @@ pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
     }
 }
 
+pub enum AlbumSort {
+    Default,
+    Artist,
+}
+
 #[component]
 pub fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
     match sort {
@@ -142,10 +128,6 @@ pub fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
                 .cmp(&b.artist.name)
                 .then_with(|| b.release_year.cmp(&a.release_year))
         }),
-        AlbumSort::ReleaseYear => {
-            albums.sort_by_key(|album| album.release_year);
-            albums.reverse();
-        }
     };
 
     html! {

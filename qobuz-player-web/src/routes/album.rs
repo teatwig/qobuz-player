@@ -5,12 +5,12 @@ use axum::{
     Router,
 };
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::models::{Album, Track};
+use qobuz_player_controls::models::{Album, Track, TrackAlbum};
 use tokio::join;
 
 use crate::{
     components::{
-        list::{AlbumSort, ListAlbumsVertical, ListTracks, TrackNumberDisplay},
+        list::{ListAlbumsVertical, ListTracks, TrackNumberDisplay},
         parse_duration, ToggleFavorite,
     },
     html,
@@ -122,7 +122,7 @@ fn album_tracks(
 #[component]
 fn album(
     album: Album,
-    suggested_albums: Vec<Album>,
+    suggested_albums: Vec<TrackAlbum>,
     is_favorite: bool,
     now_playing_id: Option<u32>,
 ) -> impl IntoView {
@@ -183,10 +183,7 @@ fn album(
                         html! {
                             <div class="flex flex-col gap-2 w-full">
                                 <h3 class="px-4 text-lg">Album suggestions</h3>
-                                <ListAlbumsVertical
-                                    albums=suggested_albums
-                                    sort=AlbumSort::Default
-                                />
+                                <ListAlbumsVertical albums=suggested_albums />
                             </div>
                         },
                     )

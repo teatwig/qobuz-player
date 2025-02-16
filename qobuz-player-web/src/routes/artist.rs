@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use leptos::prelude::*;
-use qobuz_player_controls::models::{self, Album, Artist, ArtistPage};
+use qobuz_player_controls::models::{self, Artist, ArtistPage, TrackAlbum};
 use tokio::join;
 
 use crate::{
@@ -100,7 +100,7 @@ async fn index(Path(id): Path<u32>) -> impl IntoResponse {
 #[component]
 fn artist(
     artist: ArtistPage,
-    albums: Vec<Album>,
+    albums: Vec<TrackAlbum>,
     similar_artists: Vec<Artist>,
     is_favorite: bool,
     now_playing_id: Option<u32>,
@@ -140,10 +140,7 @@ fn artist(
                 </div>
                 <div class="flex flex-col gap-2">
                     <h3 class="px-4 text-lg">Albums</h3>
-                    <ListAlbumsVertical
-                        albums=albums
-                        sort=crate::components::list::AlbumSort::ReleaseYear
-                    />
+                    <ListAlbumsVertical albums=albums />
                 </div>
                 {if !similar_artists.is_empty() {
                     Some(

@@ -15,7 +15,7 @@ use cursive::{
 };
 use futures::executor::block_on;
 use qobuz_player_controls::{
-    models::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
+    models::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackAlbum, TrackStatus},
     notification::Notification,
     tracklist::{self, TrackListType},
     ClockTime, State,
@@ -865,6 +865,34 @@ impl CursiveFormat for Album {
         title.append_styled(" ", style);
 
         title.append_styled(self.release_year.to_string(), style.combine(Effect::Dim));
+        title.append_plain(" ");
+
+        if self.explicit {
+            title.append_styled("e", style.combine(Effect::Dim));
+        }
+
+        if self.hires_available {
+            title.append_styled("*", style.combine(Effect::Dim));
+        }
+
+        title
+    }
+}
+
+impl CursiveFormat for TrackAlbum {
+    fn list_item(&self) -> StyledString {
+        let mut style = Style::none();
+
+        if !self.available {
+            style = style.combine(Effect::Dim).combine(Effect::Strikethrough);
+        }
+
+        let mut title = StyledString::styled(self.title.as_str(), style.combine(Effect::Bold));
+
+        title.append_styled(" by ", style);
+        title.append_styled(self.artist.name.as_str(), style);
+        title.append_styled(" ", style);
+
         title.append_plain(" ");
 
         if self.explicit {
