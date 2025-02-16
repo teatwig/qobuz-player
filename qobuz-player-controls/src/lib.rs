@@ -674,15 +674,17 @@ pub async fn current_track() -> Result<Option<Track>> {
 }
 
 #[instrument]
-pub async fn search(query: &str) -> Result<SearchResults> {
+#[cached(size = 100, time = 7200)]
+pub async fn search(query: String) -> Result<SearchResults> {
     let client = get_client().await;
     let user_id = client.get_user_id();
 
-    let results = client.search_all(query, 20).await?;
+    let results = client.search_all(&query, 20).await?;
     Ok(models::parse_search_results(results, user_id))
 }
 
 #[instrument]
+#[cached(size = 100, time = 7200)]
 /// Get artist page
 pub async fn artist_page(artist_id: u32) -> Result<ArtistPage> {
     let client = get_client().await;
@@ -691,6 +693,7 @@ pub async fn artist_page(artist_id: u32) -> Result<ArtistPage> {
 }
 
 #[instrument]
+#[cached(size = 100, time = 7200)]
 /// Get similar artists
 pub async fn similar_artists(artist_id: u32) -> Result<Vec<Artist>> {
     let client = get_client().await;
@@ -704,14 +707,16 @@ pub async fn similar_artists(artist_id: u32) -> Result<Vec<Artist>> {
 }
 
 #[instrument]
+#[cached(size = 100, time = 7200)]
 /// Get album
-pub async fn album(id: &str) -> Result<Album> {
+pub async fn album(id: String) -> Result<Album> {
     let client = get_client().await;
-    let album = client.album(id).await?;
+    let album = client.album(&id).await?;
     Ok(album.into())
 }
 
 #[instrument]
+#[cached(size = 500, time = 7200)]
 /// Get track
 pub async fn track(id: u32) -> Result<Track> {
     let client = get_client().await;
@@ -719,10 +724,11 @@ pub async fn track(id: u32) -> Result<Track> {
 }
 
 #[instrument]
+#[cached(size = 100, time = 7200)]
 /// Get suggested albums
-pub async fn suggested_albums(album_id: &str) -> Result<Vec<TrackAlbum>> {
+pub async fn suggested_albums(album_id: String) -> Result<Vec<TrackAlbum>> {
     let client = get_client().await;
-    let suggested_albums = client.suggested_albums(album_id).await?;
+    let suggested_albums = client.suggested_albums(&album_id).await?;
 
     Ok(suggested_albums
         .albums
@@ -737,7 +743,7 @@ pub async fn suggested_albums(album_id: &str) -> Result<Vec<TrackAlbum>> {
 }
 
 #[instrument]
-#[cached(size = 1, time = 600)]
+#[cached(size = 4, time = 7200)]
 /// Get featured albums
 pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<TrackAlbum>> {
     let client = get_client().await;
@@ -760,7 +766,7 @@ pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<Tra
 }
 
 #[instrument]
-#[cached(size = 1, time = 600)]
+#[cached(size = 1, time = 7200)]
 /// Get featured albums
 pub async fn featured_playlists(featured_type: PlaylistFeaturedType) -> Result<Vec<Playlist>> {
     let client = get_client().await;
@@ -776,6 +782,7 @@ pub async fn featured_playlists(featured_type: PlaylistFeaturedType) -> Result<V
 }
 
 #[instrument]
+#[cached(size = 100, time = 7200)]
 /// Get playlist
 pub async fn playlist(id: i64) -> Result<Playlist> {
     let client = get_client().await;
@@ -786,7 +793,7 @@ pub async fn playlist(id: i64) -> Result<Playlist> {
 }
 
 #[instrument]
-#[cached(size = 10, time = 600)]
+#[cached(size = 100, time = 7200)]
 /// Fetch the albums for a specific artist.
 pub async fn artist_albums(artist_id: u32) -> Result<Vec<TrackAlbum>> {
     let client = get_client().await;
@@ -870,7 +877,7 @@ async fn user_playlists(client: &Client) -> Result<Vec<Playlist>> {
 }
 
 #[instrument]
-#[cached(size = 1, time = 600)]
+#[cached(size = 1, time = 7200)]
 /// Get favorites
 pub async fn favorites() -> Result<Favorites> {
     let client = get_client().await;

@@ -55,8 +55,8 @@ async fn play(Path(id): Path<String>) -> impl IntoResponse {
 
 async fn index(Path(id): Path<String>) -> impl IntoResponse {
     let (album, suggested_albums, tracklist, favorites) = join!(
-        qobuz_player_controls::album(&id),
-        qobuz_player_controls::suggested_albums(&id),
+        qobuz_player_controls::album(id.clone()),
+        qobuz_player_controls::suggested_albums(id.clone()),
         qobuz_player_controls::current_tracklist(),
         qobuz_player_controls::favorites()
     );
@@ -82,7 +82,7 @@ async fn index(Path(id): Path<String>) -> impl IntoResponse {
 
 async fn album_tracks_partial(Path(id): Path<String>) -> impl IntoResponse {
     let (album, tracklist) = join!(
-        qobuz_player_controls::album(&id),
+        qobuz_player_controls::album(id),
         qobuz_player_controls::current_tracklist(),
     );
 

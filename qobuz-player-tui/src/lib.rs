@@ -420,7 +420,7 @@ fn search() -> LinearLayout {
             let item = item.to_string();
 
             tokio::spawn(async move {
-                let results = qobuz_player_controls::search(&item).await;
+                let results = qobuz_player_controls::search(item).await;
 
                 SINK.get()
                     .unwrap()

@@ -50,7 +50,7 @@ async fn index(
     let query = parameters
         .query
         .and_then(|s| if s.is_empty() { None } else { Some(s) });
-    let search_results = match &query {
+    let search_results = match query {
         Some(query) => qobuz_player_controls::search(query).await.unwrap(),
         None => SearchResults::default(),
     };
@@ -71,7 +71,7 @@ async fn search(
     let query = parameters
         .query
         .and_then(|s| if s.is_empty() { None } else { Some(s) });
-    let search_results = match &query {
+    let search_results = match query.clone() {
         Some(query) => qobuz_player_controls::search(query).await.unwrap(),
         None => SearchResults::default(),
     };
