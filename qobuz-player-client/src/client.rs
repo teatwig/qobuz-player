@@ -567,19 +567,7 @@ impl Client {
             ("track_size", "1"),
         ];
 
-        let result: Result<ReleaseQuery> = match self.make_get_call(&endpoint, Some(&params)).await
-        {
-            Ok(response) => match serde_json::from_str(response.as_str()) {
-                Ok(item) => Ok(item),
-                Err(error) => Err(Error::DeserializeJSON {
-                    message: error.to_string(),
-                }),
-            },
-            Err(error) => Err(Error::Api {
-                message: error.to_string(),
-            }),
-        };
-
+        let result: Result<ReleaseQuery> = get!(self, &endpoint, Some(&params));
         match result {
             Ok(res) => Ok(res.items),
             Err(err) => Err(err),
