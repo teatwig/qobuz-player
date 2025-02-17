@@ -10,7 +10,7 @@ use qobuz_player_client::qobuz_models::{
 };
 use std::{fmt::Debug, str::FromStr};
 
-use crate::MAX_AUDIO_QUALITY;
+use crate::CONFIGURATION;
 
 pub fn parse_search_results(search_results: SearchAllResults, user_id: i64) -> SearchResults {
     SearchResults {
@@ -294,7 +294,7 @@ fn hifi_available(track_has_hires_available: bool) -> bool {
         return false;
     }
 
-    match MAX_AUDIO_QUALITY.get().unwrap() {
+    match CONFIGURATION.get().unwrap().max_audio_quality {
         qobuz_player_client::client::AudioQuality::Mp3 => false,
         qobuz_player_client::client::AudioQuality::CD => false,
         qobuz_player_client::client::AudioQuality::HIFI96 => true,

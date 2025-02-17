@@ -15,7 +15,6 @@ use crate::{
     Error, Result,
 };
 use base64::{engine::general_purpose, Engine as _};
-use clap::ValueEnum;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     Method, Response, StatusCode,
@@ -35,14 +34,14 @@ pub struct Client {
     max_audio_quality: AudioQuality,
 }
 
-#[derive(Default, Clone, Debug, ValueEnum)]
+#[derive(Clone, Debug, clap::ValueEnum)]
 pub enum AudioQuality {
-    Mp3,
-    CD,
-    HIFI96,
-    #[default]
-    HIFI192,
+    Mp3 = 5,
+    CD = 6,
+    HIFI96 = 7,
+    HIFI192 = 27,
 }
+
 impl Display for AudioQuality {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
@@ -51,6 +50,20 @@ impl Display for AudioQuality {
             AudioQuality::HIFI96 => "7",
             AudioQuality::HIFI192 => "27",
         })
+    }
+}
+
+impl TryFrom<i64> for AudioQuality {
+    type Error = ();
+
+    fn try_from(value: i64) -> std::result::Result<Self, Self::Error> {
+        match value {
+            5 => Ok(AudioQuality::Mp3),
+            6 => Ok(AudioQuality::CD),
+            7 => Ok(AudioQuality::HIFI96),
+            27 => Ok(AudioQuality::HIFI192),
+            _ => Err(()),
+        }
     }
 }
 
@@ -659,7 +672,6 @@ async fn track_url(
         max_audio_quality, track_id, now, secret
     );
 
-    println!("{sig}");
     let hashed_sig = format!("{:x}", md5::compute(sig.as_str()));
 
     let track_id = track_id.to_string();

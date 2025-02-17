@@ -1,3 +1,4 @@
+use qobuz_player_controls::AudioQuality;
 use sqlx::{sqlite::SqliteConnectOptions, Pool, Sqlite, SqlitePool};
 use std::{path::PathBuf, sync::OnceLock};
 use tracing::debug;
@@ -27,10 +28,13 @@ macro_rules! get_one {
 
 static POOL: OnceLock<Pool<Sqlite>> = OnceLock::new();
 
-#[derive(Default, Debug)]
-pub struct ApiConfig {
+pub(crate) struct DatabaseCredentials {
     pub username: Option<String>,
     pub password: Option<String>,
+}
+
+pub(crate) struct DatabaseConfiguration {
+    pub max_audio_quality: i64,
 }
 
 pub async fn init() {
@@ -67,14 +71,15 @@ pub async fn init() {
 
     POOL.set(pool).expect("error setting static pool");
 
-    create_config().await;
+    create_credentials_row().await;
+    create_configuration().await;
 }
 
 pub async fn set_username(username: String) {
     let mut conn = acquire!().unwrap();
     query!(
         r#"
-            UPDATE config
+            UPDATE credentials
             SET username=?1
             WHERE ROWID = 1
             "#,
@@ -84,38 +89,81 @@ pub async fn set_username(username: String) {
 }
 
 pub async fn set_password(password: String) {
+    let md5_pw = format!("{:x}", md5::compute(password));
     let mut conn = acquire!().unwrap();
     query!(
         r#"
-            UPDATE config
+            UPDATE credentials
             SET password=?1
             WHERE ROWID = 1
             "#,
         conn,
-        password
+        md5_pw
     );
 }
 
-pub async fn create_config() {
+pub async fn set_max_audio_quality(quality: AudioQuality) {
+    let mut conn = acquire!().unwrap();
+    let quality_id = quality as i32;
+
+    query!(
+        r#"
+            UPDATE configuration
+            SET max_audio_quality=?1
+            WHERE ROWID = 1
+            "#,
+        conn,
+        quality_id
+    );
+}
+
+async fn create_credentials_row() {
     let mut conn = acquire!().unwrap();
     let rowid = 1;
     query!(
         r#"
-            INSERT OR IGNORE INTO config (ROWID) VALUES (?1);
+            INSERT OR IGNORE INTO credentials (ROWID) VALUES (?1);
             "#,
         conn,
         rowid
     );
 }
-pub async fn get_config() -> ApiConfig {
+
+async fn create_configuration() {
+    let mut conn = acquire!().unwrap();
+    let rowid = 1;
+    query!(
+        r#"
+            INSERT OR IGNORE INTO configuration (ROWID) VALUES (?1);
+            "#,
+        conn,
+        rowid
+    );
+}
+
+pub async fn get_credentials() -> DatabaseCredentials {
     let mut conn = acquire!().unwrap();
 
     get_one!(
         r#"
-            SELECT * FROM config
+            SELECT * FROM credentials
             WHERE ROWID = 1;
             "#,
-        ApiConfig,
+        DatabaseCredentials,
+        conn
+    )
+    .unwrap()
+}
+
+pub async fn get_configuration() -> DatabaseConfiguration {
+    let mut conn = acquire!().unwrap();
+
+    get_one!(
+        r#"
+            SELECT * FROM configuration
+            WHERE ROWID = 1;
+            "#,
+        DatabaseConfiguration,
         conn
     )
     .unwrap()

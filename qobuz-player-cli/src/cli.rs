@@ -56,12 +56,18 @@ enum Commands {
 
 #[derive(Subcommand)]
 pub enum ConfigCommands {
-    /// Save username to database.
+    /// Set username.
     #[clap(value_parser)]
     Username {},
-    /// Save password to database.
+    /// Set password.
     #[clap(value_parser)]
     Password {},
+    /// Set max audio quality.
+    #[clap(value_parser)]
+    MaxAudioQuality {
+        #[clap(value_enum)]
+        quality: AudioQuality,
+    },
 }
 
 #[derive(Debug, Snafu)]
@@ -106,20 +112,20 @@ pub async fn run() -> Result<(), Error> {
     // CLI COMMANDS
     match cli.command {
         Commands::Open {} => {
-            let username = {
-                match cli.username {
-                    Some(username) => username,
-                    None => database::get_config().await.username.unwrap(),
-                }
-            };
-            let password = {
-                match cli.password {
-                    Some(password) => password,
-                    None => database::get_config().await.password.unwrap(),
-                }
-            };
+            let database_credentials = database::get_credentials().await;
+            let database_configuration = database::get_configuration().await;
 
-            let max_audio_quality = cli.max_audio_quality.unwrap_or_default();
+            let username = cli
+                .username
+                .unwrap_or_else(|| database_credentials.username.unwrap());
+
+            let password = cli
+                .password
+                .unwrap_or_else(|| database_credentials.password.unwrap());
+
+            let max_audio_quality = cli
+                .max_audio_quality
+                .unwrap_or_else(|| database_configuration.max_audio_quality.try_into().unwrap());
 
             if !cli.disable_mpris {
                 tokio::spawn(async {
@@ -132,8 +138,11 @@ pub async fn run() -> Result<(), Error> {
             }
 
             tokio::spawn(async {
-                match qobuz_player_controls::player_loop(username, password, max_audio_quality)
-                    .await
+                match qobuz_player_controls::player_loop(
+                    qobuz_player_controls::Credentials { username, password },
+                    qobuz_player_controls::Configuration { max_audio_quality },
+                )
+                .await
                 {
                     Ok(_) => debug!("player loop exited successfully"),
                     Err(error) => debug!("player loop error {error}"),
@@ -173,14 +182,17 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your password (hidden)")
                     .interact()
                 {
-                    let md5_pw = format!("{:x}", md5::compute(password));
-
-                    debug!("saving password to database: {}", md5_pw);
-
-                    database::set_password(md5_pw).await;
+                    database::set_password(password).await;
 
                     println!("Password saved.");
                 }
+                Ok(())
+            }
+            ConfigCommands::MaxAudioQuality { quality } => {
+                database::set_max_audio_quality(quality).await;
+
+                println!("Max audio quality saved.");
+
                 Ok(())
             }
         },

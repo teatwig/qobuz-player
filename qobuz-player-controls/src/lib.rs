@@ -129,20 +129,34 @@ static USER_AGENTS: &[&str] = &[
 
 static CLIENT: OnceLock<Client> = OnceLock::new();
 static CLIENT_INITIATED: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
-static USERNAME: OnceLock<String> = OnceLock::new();
-static PASSWORD: OnceLock<String> = OnceLock::new();
-pub(crate) static MAX_AUDIO_QUALITY: OnceLock<AudioQuality> = OnceLock::new();
+static CREDENTIALS: OnceLock<Credentials> = OnceLock::new();
+
+#[derive(Debug)]
+pub struct Credentials {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug)]
+pub struct Configuration {
+    pub max_audio_quality: AudioQuality,
+}
+
+pub(crate) static CONFIGURATION: OnceLock<Configuration> = OnceLock::new();
 
 #[instrument]
 async fn init_client() -> Client {
     tracing::info!("Logging in");
-    let username = USERNAME.get().unwrap();
-    let password = PASSWORD.get().unwrap();
-    let max_audio_quality = MAX_AUDIO_QUALITY.get().unwrap().to_owned();
+    let credentials = CREDENTIALS.get().unwrap();
+    let configuration = CONFIGURATION.get().unwrap();
 
-    let client = qobuz_player_client::client::new(username, password, max_audio_quality)
-        .await
-        .expect("error making client");
+    let client = qobuz_player_client::client::new(
+        &credentials.username,
+        &credentials.password,
+        configuration.max_audio_quality.clone(),
+    )
+    .await
+    .expect("error making client");
 
     tracing::info!("Done");
     client
@@ -954,14 +968,9 @@ pub async fn quit() -> Result<()> {
 
 /// Handles messages from GStreamer, receives player actions from external controls
 /// receives the about-to-finish event and takes necessary action.
-pub async fn player_loop(
-    username: String,
-    password: String,
-    max_audio_quality: AudioQuality,
-) -> Result<()> {
-    USERNAME.set(username).unwrap();
-    PASSWORD.set(password).unwrap();
-    MAX_AUDIO_QUALITY.set(max_audio_quality).unwrap();
+pub async fn player_loop(credentials: Credentials, configuration: Configuration) -> Result<()> {
+    CREDENTIALS.set(credentials).unwrap();
+    CONFIGURATION.set(configuration).unwrap();
 
     let mut messages = PLAYBIN.bus().unwrap().stream();
     let mut about_to_finish = TRACK_ABOUT_TO_FINISH.rx.resubscribe();
