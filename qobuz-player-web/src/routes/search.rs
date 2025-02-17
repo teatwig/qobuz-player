@@ -55,8 +55,10 @@ async fn index(
         None => SearchResults::default(),
     };
 
+    let current_tracklist = qobuz_player_controls::current_tracklist().await;
+
     let html = html! {
-        <Page active_page=Page::Search>
+        <Page active_page=Page::Search current_tracklist=current_tracklist.list_type>
             <Search search_results=search_results tab=tab />
         </Page>
     };

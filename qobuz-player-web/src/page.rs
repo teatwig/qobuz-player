@@ -3,6 +3,7 @@ use leptos::{component, prelude::*, IntoView};
 use crate::{
     html,
     icons::{self, MagnifyingGlass, PlayCircle, QueueList, Star},
+    routes::controls::Controls,
 };
 
 #[derive(PartialEq)]
@@ -93,7 +94,11 @@ fn Navigation(active_page: Page) -> impl IntoView {
 }
 
 #[component]
-pub fn page(children: Children, active_page: Page) -> impl IntoView {
+pub fn page(
+    children: Children,
+    active_page: Page,
+    current_tracklist: qobuz_player_controls::tracklist::TrackListType,
+) -> impl IntoView {
     let style_url = "/assets/styles.css?version=15";
 
     html! {
@@ -134,6 +139,10 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 </div>
                 <div class="overflow-auto h-full">{children()}</div>
 
+                {(active_page != Page::NowPlaying)
+                    .then(|| {
+                        html! { <Controls current_tracklist=current_tracklist /> }
+                    })}
                 <Navigation active_page=active_page />
             </body>
         </html>

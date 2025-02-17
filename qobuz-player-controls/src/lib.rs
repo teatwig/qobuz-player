@@ -5,7 +5,7 @@ use futures::prelude::*;
 use gstreamer::{
     prelude::*, Element, Message, MessageView, SeekFlags, StateChangeSuccess, Structure,
 };
-use models::{Album, ArtistPage, TrackAlbum};
+use models::{image_to_string, parse_playlist, Album, ArtistPage, TrackAlbum};
 use notification::Notification;
 use qobuz_player_client::client::Client;
 use std::{
@@ -24,7 +24,7 @@ use tokio::{
     },
 };
 use tracing::{debug, instrument};
-use tracklist::{TrackListType, Tracklist};
+use tracklist::{SingleTracklist, TrackListType, Tracklist};
 
 pub use gstreamer::{ClockTime, State};
 pub use qobuz_player_client::client::{AlbumFeaturedType, AudioQuality, PlaylistFeaturedType};
@@ -485,8 +485,13 @@ pub async fn play_track(track_id: u32) -> Result<()> {
         status: TrackStatus::Unplayed,
     };
 
+    tracklist.list_type = TrackListType::Track(SingleTracklist {
+        track_title: track.title.clone(),
+        album_id: full_track_info.album.map(|a| a.id),
+        image: full_track_info.cover_art,
+    });
+
     tracklist.queue = vec![track];
-    tracklist.list_type = TrackListType::Track;
 
     broadcast_track_list(&tracklist).await?;
 
@@ -531,6 +536,7 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
         tracklist.list_type = TrackListType::Album(tracklist::AlbumTracklist {
             title: album.title,
             id: album.id,
+            image: Some(album.image.large),
         });
 
         broadcast_track_list(&tracklist).await?;
@@ -547,7 +553,8 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
     let client = get_client().await;
     let mut tracklist = TRACKLIST.write().await;
 
-    let tracks = client.artist(artist_id).await?.top_tracks;
+    let artist = client.artist(artist_id).await?;
+    let tracks = artist.top_tracks;
 
     let unstreambale_tracks_to_index = tracks
         .iter()
@@ -569,7 +576,11 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
         PLAYBIN.set_property("uri", track_url);
         play().await?;
 
-        tracklist.list_type = TrackListType::Track;
+        tracklist.list_type = TrackListType::TopTracks(tracklist::TopTracklist {
+            artist_name: artist.name.display,
+            id: artist_id,
+            image: artist.images.portrait.map(image_to_string),
+        });
 
         broadcast_track_list(&tracklist).await?;
     };
@@ -586,25 +597,20 @@ pub async fn play_playlist(playlist_id: i64, index: u32) -> Result<()> {
     let mut tracklist = TRACKLIST.write().await;
 
     let playlist = client.playlist(playlist_id).await?;
+    let playlist = parse_playlist(playlist, client.get_user_id());
 
-    let tracks = playlist.tracks.unwrap_or_default();
-
-    let unstreambale_tracks_to_index = tracks
-        .items
+    let unstreambale_tracks_to_index = playlist
+        .tracks
         .iter()
         .take(index as usize)
-        .filter(|t| !t.streamable)
+        .filter(|t| !t.available)
         .count() as u32;
 
-    tracklist.queue = tracks
-        .items
+    tracklist.queue = playlist
+        .tracks
         .into_iter()
-        .filter(|t| t.streamable)
-        .map(|t| tracklist::Track {
-            id: t.id,
-            title: t.title,
-            status: TrackStatus::Unplayed,
-        })
+        .filter(|t| t.available)
+        .map(|t| t.into())
         .collect();
 
     if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
@@ -613,8 +619,9 @@ pub async fn play_playlist(playlist_id: i64, index: u32) -> Result<()> {
         play().await?;
 
         tracklist.list_type = TrackListType::Playlist(tracklist::PlaylistTracklist {
-            title: playlist.name,
+            title: playlist.title,
             id: playlist.id,
+            image: playlist.cover_art,
         });
 
         broadcast_track_list(&tracklist).await?;

@@ -161,7 +161,7 @@ impl From<QobuzAlbum> for Album {
     }
 }
 
-fn image_to_string(value: artist_page::Image) -> String {
+pub fn image_to_string(value: artist_page::Image) -> String {
     format!(
         "https://static.qobuz.com/images/artists/covers/large/{}.{}",
         value.hash, value.format

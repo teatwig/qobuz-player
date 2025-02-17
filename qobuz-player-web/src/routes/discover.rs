@@ -34,8 +34,10 @@ async fn index() -> impl IntoResponse {
     )
     .unwrap();
 
+    let current_tracklist = qobuz_player_controls::current_tracklist().await;
+
     render(html! {
-        <Page active_page=Page::Discover>
+        <Page active_page=Page::Discover current_tracklist=current_tracklist.list_type>
             <div class="flex flex-col gap-8 p-4">
                 <h1 class="text-2xl">Discover</h1>
                 <AlbumFeature albums=press_awards name="Press awards".to_string() />

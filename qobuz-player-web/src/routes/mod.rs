@@ -1,5 +1,6 @@
 pub mod album;
 pub mod artist;
+pub mod controls;
 pub mod discover;
 pub mod favorites;
 pub mod now_playing;

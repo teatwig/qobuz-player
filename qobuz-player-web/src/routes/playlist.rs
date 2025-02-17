@@ -69,8 +69,10 @@ async fn index(Path(id): Path<i64>) -> impl IntoResponse {
         .iter()
         .any(|playlist| playlist.id == id as u32);
 
+    let current_tracklist = qobuz_player_controls::current_tracklist().await;
+
     render(html! {
-        <Page active_page=Page::None>
+        <Page active_page=Page::None current_tracklist=current_tracklist.list_type>
             <Playlist playlist=playlist is_favorite=is_favorite now_playing_id=now_playing_id />
         </Page>
     })

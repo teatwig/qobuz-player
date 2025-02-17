@@ -95,16 +95,32 @@ async fn status_partial() -> impl IntoResponse {
 fn play_pause(play: bool) -> impl IntoView {
     html! {
         <button
-            id="play-pause-button"
-            class="transition-colors cursor-pointer"
+            class="contents transition-colors cursor-pointer"
             hx-swap="none"
-            hx-target="this"
-            hx-put=format!("{}", if play { "pause" } else { "play" })
+            hx-put=format!("{}", if play { "/pause" } else { "/play" })
         >
             {match play {
                 true => html! { <Pause /> }.into_any(),
                 false => html! { <Play /> }.into_any(),
             }}
+        </button>
+    }
+}
+
+#[component]
+pub fn next() -> impl IntoView {
+    html! {
+        <button hx-swap="none" hx-put="/next" class="contents transition-colors cursor-pointer">
+            <Forward />
+        </button>
+    }
+}
+
+#[component]
+pub fn previous() -> impl IntoView {
+    html! {
+        <button hx-swap="none" hx-put="/previous" class="contents transition-colors cursor-pointer">
+            <Backward />
         </button>
     }
 }
@@ -139,7 +155,7 @@ async fn index() -> impl IntoResponse {
     let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
 
     render(html! {
-        <Page active_page=Page::NowPlaying>
+        <Page active_page=Page::NowPlaying current_tracklist=current_tracklist.list_type.clone()>
             <NowPlaying
                 current_tracklist=current_tracklist
                 current_track=current_track
@@ -205,6 +221,21 @@ fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> imp
 }
 
 #[component]
+pub fn state(playing: bool) -> impl IntoView {
+    html! {
+        <div
+            hx-trigger="sse:status"
+            hx-get="/status"
+            hx-swap="innerHTML"
+            hx-target="this"
+            class="contents"
+        >
+            <PlayPause play=playing />
+        </div>
+    }
+}
+
+#[component]
 pub fn now_playing(
     current_tracklist: Tracklist,
     current_track: Option<models::Track>,
@@ -223,22 +254,31 @@ pub fn now_playing(
     let current_position = current_tracklist.current_position();
 
     let (entity_title, entity_link) = match current_tracklist.list_type() {
-        TrackListType::Album(album) => (
-            Some(album.title.clone()),
-            Some(format!("/album/{}", album.id)),
+        TrackListType::Album(tracklist) => (
+            Some(tracklist.title.clone()),
+            Some(format!("/album/{}", tracklist.id)),
         ),
-        TrackListType::Playlist(playlist) => (
-            Some(playlist.title.clone()),
-            Some(format!("/playlist/{}", playlist.id)),
+        TrackListType::Playlist(tracklist) => (
+            Some(tracklist.title.clone()),
+            Some(format!("/playlist/{}", tracklist.id)),
         ),
-        TrackListType::Track => (
-            current_track
+        TrackListType::TopTracks(tracklist) => (None, Some(format!("/artist/{}", tracklist.id))),
+        TrackListType::Track(tracklist) => (
+            None,
+            tracklist
+                .album_id
                 .as_ref()
-                .and_then(|track| track.album.as_ref().map(|album| album.title.clone())),
-            current_track
-                .as_ref()
-                .and_then(|track| track.album.as_ref().map(|album| album.id.clone())),
+                .map(|id| format!("/album/{}", id)),
         ),
+        TrackListType::None => (None, None),
+    };
+
+    let playing = match current_status {
+        qobuz_player_controls::State::VoidPending => false,
+        qobuz_player_controls::State::Null => false,
+        qobuz_player_controls::State::Ready => false,
+        qobuz_player_controls::State::Paused => false,
+        qobuz_player_controls::State::Playing => true,
     };
 
     let (title, artist_name, artist_link, duration_seconds, explicit, hires_available) =
@@ -315,33 +355,9 @@ pub fn now_playing(
 
                 <div class="flex flex-col gap-4">
                     <div class="flex flex-row gap-2 justify-center h-10">
-                        <button
-                            hx-swap="none"
-                            hx-put="previous"
-                            class="transition-colors cursor-pointer"
-                        >
-                            <Backward />
-                        </button>
-
-                        <div
-                            hx-trigger="sse:status"
-                            hx-get="status"
-                            hx-swap="innerHTML"
-                            class="contents"
-                        >
-                            {if current_status != qobuz_player_controls::State::Playing {
-                                html! { <PlayPause play=false /> }.into_any()
-                            } else {
-                                html! { <PlayPause play=true /> }.into_any()
-                            }}
-                        </div>
-                        <button
-                            hx-put="next"
-                            hx-swap="none"
-                            class="transition-colors cursor-pointer"
-                        >
-                            <Forward />
-                        </button>
+                        <Previous />
+                        <State playing=playing />
+                        <Next />
                     </div>
                     <VolumeSlider current_volume=current_volume />
                 </div>

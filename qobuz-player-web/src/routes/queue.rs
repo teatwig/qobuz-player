@@ -34,7 +34,7 @@ async fn index() -> impl IntoResponse {
     let current_tracklist = qobuz_player_controls::current_tracklist().await;
 
     render(html! {
-        <Page active_page=Page::Queue>
+        <Page active_page=Page::Queue current_tracklist=current_tracklist.list_type.clone()>
             <Queue current_tracklist=current_tracklist />
         </Page>
     })
@@ -45,7 +45,9 @@ fn queue(current_tracklist: Tracklist) -> impl IntoView {
     let entity_title = match current_tracklist.list_type() {
         TrackListType::Album(album) => Some(album.title.clone()),
         TrackListType::Playlist(playlist) => Some(playlist.title.clone()),
-        TrackListType::Track => None,
+        TrackListType::TopTracks(artist) => Some(artist.artist_name.clone()),
+        TrackListType::Track(track) => Some(track.track_title.clone()),
+        TrackListType::None => None,
     };
 
     html! {

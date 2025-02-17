@@ -5,20 +5,38 @@ use tracing::instrument;
 pub struct AlbumTracklist {
     pub title: String,
     pub id: String,
+    pub image: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct PlaylistTracklist {
     pub title: String,
-    pub id: i64,
+    pub id: u32,
+    pub image: Option<String>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct TopTracklist {
+    pub artist_name: String,
+    pub id: u32,
+    pub image: Option<String>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct SingleTracklist {
+    pub track_title: String,
+    pub album_id: Option<String>,
+    pub image: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum TrackListType {
     Album(AlbumTracklist),
     Playlist(PlaylistTracklist),
+    TopTracks(TopTracklist),
+    Track(SingleTracklist),
     #[default]
-    Track,
+    None,
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]

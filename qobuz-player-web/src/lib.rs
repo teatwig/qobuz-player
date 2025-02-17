@@ -9,7 +9,7 @@ use futures::stream::Stream;
 use leptos::html::*;
 use leptos::*;
 use qobuz_player_controls::notification::Notification;
-use routes::{album, artist, discover, favorites, now_playing, playlist, queue, search};
+use routes::{album, artist, controls, discover, favorites, now_playing, playlist, queue, search};
 use std::{convert::Infallible, sync::Arc};
 use tokio::sync::broadcast::{self, Sender};
 use tokio_stream::wrappers::BroadcastStream;
@@ -62,6 +62,7 @@ async fn create_router() -> Router {
         .merge(favorites::routes())
         .merge(queue::routes())
         .merge(discover::routes())
+        .merge(controls::routes())
         .route("/assets/{*file}", get(static_handler))
 }
 
