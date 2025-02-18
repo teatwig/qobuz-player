@@ -95,7 +95,7 @@ async fn status_partial() -> impl IntoResponse {
 fn play_pause(play: bool) -> impl IntoView {
     html! {
         <button
-            class="contents transition-colors cursor-pointer"
+            class="transition-colors cursor-pointer"
             hx-swap="none"
             hx-put=format!("{}", if play { "/pause" } else { "/play" })
         >
@@ -110,7 +110,7 @@ fn play_pause(play: bool) -> impl IntoView {
 #[component]
 pub fn next() -> impl IntoView {
     html! {
-        <button hx-swap="none" hx-put="/next" class="contents transition-colors cursor-pointer">
+        <button hx-swap="none" hx-put="/next" class="transition-colors cursor-pointer">
             <Forward />
         </button>
     }
@@ -119,7 +119,7 @@ pub fn next() -> impl IntoView {
 #[component]
 pub fn previous() -> impl IntoView {
     html! {
-        <button hx-swap="none" hx-put="/previous" class="contents transition-colors cursor-pointer">
+        <button hx-swap="none" hx-put="/previous" class="transition-colors cursor-pointer">
             <Backward />
         </button>
     }
@@ -228,7 +228,7 @@ pub fn state(playing: bool) -> impl IntoView {
             hx-get="/status"
             hx-swap="innerHTML"
             hx-target="this"
-            class="contents"
+            class="flex"
         >
             <PlayPause play=playing />
         </div>

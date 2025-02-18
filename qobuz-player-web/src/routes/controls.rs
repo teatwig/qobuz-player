@@ -12,6 +12,15 @@ pub fn routes() -> Router {
     Router::new().route("/controls", get(controls))
 }
 
+#[component]
+pub fn controls(current_tracklist: TrackListType) -> impl IntoView {
+    html! {
+        <div hx-get="/controls" hx-trigger="sse:tracklist" hx-target="this" class="px-2">
+            <ControlsPartial current_tracklist=current_tracklist />
+        </div>
+    }
+}
+
 async fn controls() -> impl IntoResponse {
     let tracklist = qobuz_player_controls::current_tracklist().await;
 
@@ -59,30 +68,25 @@ fn controls_partial(current_tracklist: TrackListType) -> impl IntoView {
             .then(|| {
                 html! {
                     <div class="flex gap-2 justify-between items-center p-2 bg-gray-900 rounded">
-                        <div class="flex overflow-hidden gap-2 items-center">
+                        <div class="flex overflow-hidden gap-2 items-center w-full">
                             {image} <a hx-target="unset" class="truncate" href=entity_link>
                                 {title}
                             </a>
                         </div>
-                        <div class="flex gap-2 items-center h-8 shrink-0">
-                            <span class="hidden md:contents">
+                        <div class="flex gap-4 items-center">
+                            <span class="hidden w-8 md:flex">
                                 <Previous />
                             </span>
-                            <State playing=playing />
-                            <Next />
+                            <span class="flex w-8">
+                                <State playing=playing />
+                            </span>
+                            <span class="flex w-8">
+                                <Next />
+                            </span>
                         </div>
                     </div>
                 }
             })}
-    }
-}
-
-#[component]
-pub fn controls(current_tracklist: TrackListType) -> impl IntoView {
-    html! {
-        <div hx-get="/controls" hx-trigger="sse:tracklist" hx-target="this" class="px-2">
-            <ControlsPartial current_tracklist=current_tracklist />
-        </div>
     }
 }
 
