@@ -133,7 +133,7 @@ pub fn page(
                 <div
                     id="loading-spinner"
                     hx-preserve
-                    class="fixed top-8 right-8 z-10 p-2 rounded pointer-events-none bg-black/20 my-indicator backdrop-blur size-12"
+                    class="fixed top-8 right-8 z-10 p-2 rounded pointer-events-none bg-gray-900/20 my-indicator backdrop-blur size-12"
                 >
                     <icons::ArrowPath />
                 </div>

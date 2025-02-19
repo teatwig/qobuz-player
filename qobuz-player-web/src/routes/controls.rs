@@ -15,7 +15,12 @@ pub fn routes() -> Router {
 #[component]
 pub fn controls(current_tracklist: TrackListType) -> impl IntoView {
     html! {
-        <div hx-get="/controls" hx-trigger="sse:tracklist" hx-target="this" class="px-2">
+        <div
+            hx-get="/controls"
+            hx-trigger="sse:tracklist"
+            hx-target="this"
+            class="fixed bottom-14 px-4 w-full"
+        >
             <ControlsPartial current_tracklist=current_tracklist />
         </div>
     }
@@ -67,7 +72,7 @@ fn controls_partial(current_tracklist: TrackListType) -> impl IntoView {
         {show
             .then(|| {
                 html! {
-                    <div class="flex gap-2 justify-between items-center py-2 px-4 bg-gray-900 rounded">
+                    <div class="flex gap-2 justify-between items-center py-2 px-4 rounded bg-gray-900/70 backdrop-blur">
                         <div class="flex overflow-hidden gap-2 items-center w-full">
                             {image} <a hx-target="unset" class="truncate" href=entity_link>
                                 {title}
