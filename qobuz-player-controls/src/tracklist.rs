@@ -49,16 +49,56 @@ pub struct Tracklist {
 pub struct Track {
     pub id: u32,
     pub title: String,
+    pub number: u32,
+    pub explicit: bool,
+    pub hires_available: bool,
     pub status: TrackStatus,
+    pub image: Option<String>,
+    pub duration_seconds: u32,
+    pub artist_name: Option<String>,
+    pub artist_id: Option<u32>,
+    pub album_title: Option<String>,
+    pub album_id: Option<String>,
 }
 
 impl From<models::Track> for Track {
     fn from(value: models::Track) -> Self {
+        let (artist_name, artist_id) = value
+            .artist
+            .map_or((None, None), |a| (Some(a.name), Some(a.id)));
+
+        let (album_title, album_id) = value
+            .album
+            .map_or((None, None), |a| (Some(a.title), Some(a.id)));
+
         Self {
             id: value.id,
             title: value.title,
+            number: value.number,
+            explicit: value.explicit,
+            hires_available: value.hires_available,
             status: TrackStatus::Unplayed,
+            image: value.cover_art,
+            duration_seconds: value.duration_seconds,
+            artist_name,
+            artist_id,
+            album_title,
+            album_id,
         }
+    }
+}
+
+impl From<qobuz_player_client::qobuz_models::track::Track> for Track {
+    fn from(value: qobuz_player_client::qobuz_models::track::Track) -> Self {
+        let internal_model: models::Track = value.into();
+        internal_model.into()
+    }
+}
+
+impl From<qobuz_player_client::qobuz_models::artist_page::Track> for Track {
+    fn from(value: qobuz_player_client::qobuz_models::artist_page::Track) -> Self {
+        let internal_model: models::Track = value.into();
+        internal_model.into()
     }
 }
 

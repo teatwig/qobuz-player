@@ -3,7 +3,7 @@ use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property, RootInterface,
     Server, Time, TrackId, Volume,
 };
-use qobuz_player_controls::{models::Track, notification::Notification, ClockTime, State};
+use qobuz_player_controls::{notification::Notification, tracklist, ClockTime, State};
 
 struct MprisPlayer;
 
@@ -148,10 +148,14 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn metadata(&self) -> fdo::Result<Metadata> {
-        match qobuz_player_controls::current_track().await {
-            Ok(current_track) => Ok(track_to_metadata(current_track)),
-            Err(_) => Ok(Metadata::new()),
-        }
+        let tracklist = qobuz_player_controls::current_tracklist().await;
+        let current_track = tracklist.current_track();
+
+        if let Some(current_track) = current_track {
+            return Ok(track_to_metadata(current_track));
+        };
+
+        Ok(Metadata::new())
     }
 
     async fn volume(&self) -> fdo::Result<Volume> {
@@ -235,23 +239,27 @@ pub async fn init() {
                 }
                 Notification::Position { clock: _ } => {}
                 Notification::CurrentTrackList { list } => {
-                    let current_track = qobuz_player_controls::current_track().await.unwrap();
-                    let metadata = track_to_metadata(current_track);
+                    let current_tracklist = qobuz_player_controls::current_tracklist().await;
+                    let current_track = current_tracklist.current_track();
 
-                    let current_position = list.current_position();
-                    let total_tracks = list.total();
+                    if let Some(current_track) = current_track {
+                        let metadata = track_to_metadata(current_track);
 
-                    let can_previous = current_position != 0;
-                    let can_next = !(total_tracks != 0 && current_position == total_tracks - 1);
+                        let current_position = list.current_position();
+                        let total_tracks = list.total();
 
-                    server
-                        .properties_changed([
-                            Property::Metadata(metadata),
-                            Property::CanGoPrevious(can_previous),
-                            Property::CanGoNext(can_next),
-                        ])
-                        .await
-                        .unwrap();
+                        let can_previous = current_position != 0;
+                        let can_next = !(total_tracks != 0 && current_position == total_tracks - 1);
+
+                        server
+                            .properties_changed([
+                                Property::Metadata(metadata),
+                                Property::CanGoPrevious(can_previous),
+                                Property::CanGoNext(can_next),
+                            ])
+                            .await
+                            .unwrap();
+                    }
                 }
                 Notification::Error { error: _ } => {}
                 Notification::Volume { volume } => {
@@ -265,34 +273,23 @@ pub async fn init() {
     }
 }
 
-fn track_to_metadata(track: Option<Track>) -> Metadata {
+fn track_to_metadata(track: &tracklist::Track) -> Metadata {
     let mut metadata = Metadata::new();
-    let duration = track
-        .as_ref()
-        .map(|ct| mpris_server::Time::from_secs(ct.duration_seconds as i64));
-    metadata.set_length(duration);
+    let duration = mpris_server::Time::from_secs(track.duration_seconds as i64);
+    metadata.set_length(Some(duration));
 
-    // album
-    let (album_title, album_image) = track.as_ref().map_or((None, None), |ct| {
-        ct.album.as_ref().map_or((None, None), |a| {
-            (Some(a.title.clone()), Some(a.image.clone()))
-        })
-    });
-
-    metadata.set_album(album_title);
-    metadata.set_art_url(album_image);
+    metadata.set_album(track.album_title.clone());
+    metadata.set_art_url(track.image.clone());
 
     // artist
-    let artist_name = track
-        .as_ref()
-        .and_then(|ct| ct.artist.as_ref().map(|a| a.name.clone()));
+    let artist_name = track.artist_name.clone();
 
     metadata.set_artist(artist_name.as_ref().map(|a| vec![a]));
     metadata.set_album_artist(artist_name.as_ref().map(|a| vec![a]));
 
     // track
-    metadata.set_title(track.as_ref().map(|ct| ct.title.clone()));
-    metadata.set_track_number(track.map(|ct| ct.number as i32));
+    metadata.set_title(Some(track.title.clone()));
+    metadata.set_track_number(Some(track.number as i32));
 
     metadata
 }

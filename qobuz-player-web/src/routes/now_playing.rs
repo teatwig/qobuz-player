@@ -4,10 +4,7 @@ use axum::{
     Router,
 };
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::{
-    models,
-    tracklist::{TrackListType, Tracklist},
-};
+use qobuz_player_controls::tracklist::{TrackListType, Tracklist};
 
 use crate::{
     components::Info,
@@ -149,7 +146,8 @@ async fn next() -> impl IntoResponse {
 
 async fn index() -> impl IntoResponse {
     let current_tracklist = qobuz_player_controls::current_tracklist().await;
-    let current_track = qobuz_player_controls::current_track().await.unwrap();
+    let current_track = current_tracklist.current_track().cloned();
+
     let position_mseconds = qobuz_player_controls::position().map(|position| position.mseconds());
     let current_status = qobuz_player_controls::current_state();
     let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
@@ -169,7 +167,7 @@ async fn index() -> impl IntoResponse {
 
 async fn now_playing_partial() -> impl IntoResponse {
     let current_tracklist = qobuz_player_controls::current_tracklist().await;
-    let current_track = qobuz_player_controls::current_track().await.unwrap();
+    let current_track = current_tracklist.current_track().cloned();
     let position_mseconds = qobuz_player_controls::position().map(|position| position.mseconds());
     let current_status = qobuz_player_controls::current_state();
     let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
@@ -187,8 +185,9 @@ async fn now_playing_partial() -> impl IntoResponse {
 
 async fn progress_partial() -> impl IntoResponse {
     let position_mseconds = qobuz_player_controls::position().map(|position| position.mseconds());
-    let current_track = qobuz_player_controls::current_track().await;
-    let duration_seconds = current_track.unwrap().map(|track| track.duration_seconds);
+    let current_tracklist = qobuz_player_controls::current_tracklist().await;
+    let current_track = current_tracklist.current_track().cloned();
+    let duration_seconds = current_track.map(|track| track.duration_seconds);
 
     render(
         html! { <Progress position_seconds=position_mseconds duration_seconds=duration_seconds /> },
@@ -238,20 +237,16 @@ pub fn state(playing: bool) -> impl IntoView {
 #[component]
 pub fn now_playing(
     current_tracklist: Tracklist,
-    current_track: Option<models::Track>,
+    current_track: Option<qobuz_player_controls::tracklist::Track>,
     position_mseconds: Option<u64>,
     current_status: qobuz_player_controls::State,
     current_volume: u32,
 ) -> impl IntoView {
-    let cover_image = current_track
+    let cover_image = current_track.as_ref().and_then(|track| track.image.clone());
+    let artist_name = current_track
         .as_ref()
-        .and_then(|track| track.cover_art.clone());
-    let album_artist_name = current_track
-        .as_ref()
-        .and_then(|track| track.album.as_ref().map(|album| album.artist.name.clone()));
-    let album_artist_id = current_track
-        .as_ref()
-        .and_then(|track| track.album.as_ref().map(|album| album.artist.id));
+        .and_then(|track| track.artist_name.clone());
+    let artist_id = current_track.as_ref().and_then(|track| track.artist_id);
 
     let current_position = current_tracklist.current_position();
 
@@ -268,7 +263,7 @@ pub fn now_playing(
         TrackListType::Track(tracklist) => (
             current_track
                 .as_ref()
-                .and_then(|track| track.album.as_ref().map(|album| album.title.clone())),
+                .and_then(|track| track.album_title.clone()),
             tracklist
                 .album_id
                 .as_ref()
@@ -285,23 +280,17 @@ pub fn now_playing(
         qobuz_player_controls::State::Playing => true,
     };
 
-    let (title, artist_name, artist_link, duration_seconds, explicit, hires_available) =
-        current_track.as_ref().map_or(
-            (String::default(), None, None, None, false, false),
-            |track| {
-                (
-                    track.title.clone(),
-                    album_artist_name
-                        .or(track.album.as_ref().map(|album| album.artist.name.clone())),
-                    album_artist_id
-                        .or(track.album.as_ref().map(|album| album.artist.id))
-                        .map(|id| format!("/artist/{}", id)),
-                    Some(track.duration_seconds),
-                    track.explicit,
-                    track.hires_available,
-                )
-            },
-        );
+    let (title, artist_link, duration_seconds, explicit, hires_available) = current_track
+        .as_ref()
+        .map_or((String::default(), None, None, false, false), |track| {
+            (
+                track.title.clone(),
+                artist_id.map(|id| format!("/artist/{}", id)),
+                Some(track.duration_seconds),
+                track.explicit,
+                track.hires_available,
+            )
+        });
 
     let number_of_tracks = current_tracklist.total();
 

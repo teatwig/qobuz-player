@@ -64,6 +64,28 @@ impl From<QobuzReleaseTrack> for Track {
     }
 }
 
+impl From<qobuz_player_client::qobuz_models::artist_page::Track> for Track {
+    fn from(value: qobuz_player_client::qobuz_models::artist_page::Track) -> Self {
+        Self {
+            id: value.id,
+            number: value.physical_support.track_number,
+            title: value.title,
+            album: None,
+            artist: Some(Artist {
+                id: value.artist.id,
+                name: value.artist.name.display,
+                ..Default::default()
+            }),
+            duration_seconds: value.duration,
+            explicit: value.parental_warning,
+            hires_available: hifi_available(value.rights.hires_streamable),
+            available: value.rights.streamable,
+            cover_art: None,
+            cover_art_small: None,
+        }
+    }
+}
+
 impl From<Release> for TrackAlbum {
     fn from(release: Release) -> Self {
         Self {

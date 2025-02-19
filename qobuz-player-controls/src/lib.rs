@@ -480,17 +480,15 @@ pub async fn play_track(track_id: u32) -> Result<()> {
     let mut tracklist = TRACKLIST.write().await;
 
     let full_track_info: Track = client.track(track_id).await?.into();
-    let track = tracklist::Track {
-        id: full_track_info.id,
-        title: full_track_info.title,
-        status: TrackStatus::Playing,
-    };
 
     tracklist.list_type = TrackListType::Track(SingleTracklist {
-        track_title: track.title.clone(),
-        album_id: full_track_info.album.map(|a| a.id),
-        image: full_track_info.cover_art,
+        track_title: full_track_info.title.clone(),
+        album_id: full_track_info.album.as_ref().map(|a| a.id.clone()),
+        image: full_track_info.cover_art.clone(),
     });
+
+    let mut track: tracklist::Track = full_track_info.into();
+    track.status = TrackStatus::Playing;
 
     tracklist.queue = vec![track];
 
@@ -522,11 +520,7 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
         .items
         .into_iter()
         .filter(|t| t.streamable)
-        .map(|t| tracklist::Track {
-            id: t.id,
-            title: t.title,
-            status: TrackStatus::Unplayed,
-        })
+        .map(|t| t.into())
         .collect();
 
     if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
@@ -565,11 +559,8 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
 
     tracklist.queue = tracks
         .into_iter()
-        .map(|t| tracklist::Track {
-            id: t.id,
-            title: t.title,
-            status: TrackStatus::Unplayed,
-        })
+        .filter(|t| t.rights.streamable)
+        .map(|t| t.into())
         .collect();
 
     if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
@@ -686,20 +677,6 @@ pub fn notify_receiver() -> Receiver<Notification> {
 /// Returns the current track list loaded in the player.
 pub async fn current_tracklist() -> Tracklist {
     TRACKLIST.read().await.clone()
-}
-
-#[instrument]
-/// Returns the current track loaded in the player.
-pub async fn current_track() -> Result<Option<Track>> {
-    let track_id = TRACKLIST.read().await.current_track().map(|t| t.id);
-
-    match track_id {
-        Some(id) => {
-            let client = get_client().await;
-            Ok(Some(client.track(id).await?.into()))
-        }
-        None => Ok(None),
-    }
 }
 
 #[instrument]
