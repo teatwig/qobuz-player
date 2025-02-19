@@ -266,7 +266,9 @@ pub fn now_playing(
         ),
         TrackListType::TopTracks(tracklist) => (None, Some(format!("/artist/{}", tracklist.id))),
         TrackListType::Track(tracklist) => (
-            None,
+            current_track
+                .as_ref()
+                .and_then(|track| track.album.as_ref().map(|album| album.title.clone())),
             tracklist
                 .album_id
                 .as_ref()

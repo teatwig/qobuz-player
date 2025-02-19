@@ -483,7 +483,7 @@ pub async fn play_track(track_id: u32) -> Result<()> {
     let track = tracklist::Track {
         id: full_track_info.id,
         title: full_track_info.title,
-        status: TrackStatus::Unplayed,
+        status: TrackStatus::Playing,
     };
 
     tracklist.list_type = TrackListType::Track(SingleTracklist {
