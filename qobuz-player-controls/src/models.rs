@@ -116,7 +116,26 @@ impl From<QobuzAlbum> for Album {
             .format("%Y");
 
         let tracks = value.tracks.map_or(Default::default(), |tracks| {
-            tracks.items.into_iter().map(|t| t.into()).collect()
+            tracks
+                .items
+                .into_iter()
+                .map(|t| Track {
+                    id: t.id,
+                    title: t.title,
+                    number: t.track_number,
+                    explicit: t.parental_warning,
+                    hires_available: t.hires_streamable,
+                    available: t.streamable,
+                    status: Default::default(),
+                    image: Some(value.image.large.clone()),
+                    image_thumbnail: Some(value.image.small.clone()),
+                    duration_seconds: t.duration,
+                    artist_name: Some(value.artist.name.clone()),
+                    artist_id: Some(value.artist.id),
+                    album_title: Some(value.title.clone()),
+                    album_id: Some(value.id.clone()),
+                })
+                .collect()
         });
 
         Self {
@@ -233,9 +252,9 @@ impl From<QobuzTrack> for Track {
 
         Self {
             id: value.id,
-            number: value.track_number as u32,
+            number: value.track_number,
             title: value.title,
-            duration_seconds: value.duration as u32,
+            duration_seconds: value.duration,
             explicit: value.parental_warning,
             hires_available: hifi_available(value.hires_streamable),
             available: value.streamable,

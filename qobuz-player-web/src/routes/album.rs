@@ -103,10 +103,12 @@ fn album_tracks(
     now_playing_id: Option<u32>,
     album_id: String,
 ) -> impl IntoView {
+    let album_id_clone = album_id.clone();
+
     html! {
         <div
             class="w-full"
-            hx-get=format!("/album/{}/tracks", album_id)
+            hx-get=format!("/album/{}/tracks", album_id_clone)
             hx-trigger="sse:tracklist"
             hx-swap="outerHTML"
         >
@@ -114,8 +116,9 @@ fn album_tracks(
                 track_number_display=TrackNumberDisplay::Number
                 now_playing_id=now_playing_id
                 tracks=tracks
-                parent_id=album_id.clone()
                 show_artist=false
+                dim_played=false
+                api_call=move |index: usize| format!("/album/{}/play/{}", album_id, index)
             />
         </div>
     }

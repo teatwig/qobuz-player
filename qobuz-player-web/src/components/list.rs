@@ -250,9 +250,10 @@ pub enum TrackNumberDisplay {
 pub fn list_tracks(
     tracks: Vec<Track>,
     now_playing_id: Option<u32>,
-    parent_id: String,
     track_number_display: TrackNumberDisplay,
     show_artist: bool,
+    dim_played: bool,
+    #[prop(into)] api_call: Callback<(usize,), String>,
 ) -> impl IntoView {
     html! {
         <List>
@@ -261,17 +262,26 @@ pub fn list_tracks(
                 .enumerate()
                 .map(|(index, track)| {
                     let is_playing = now_playing_id.is_some_and(|id| id == track.id);
-                    let parent_id = parent_id.clone();
                     html! {
                         <ListItem>
                             <button
                                 hx-swap="none"
-                                hx-put=format!("{}/play/{}", parent_id, index)
-                                class="flex justify-between items-center w-full text-left cursor-pointer disabled:text-gray-500 disabled:cursor-default"
+                                hx-put=api_call.run((index,))
+                                class=format!(
+                                    "flex justify-between items-center w-full text-left cursor-pointer disabled:text-gray-500 disabled:cursor-default {}",
+                                    if dim_played { "disabled:text-gray-500" } else { "" },
+                                )
                                 disabled=!track.available
                             >
                                 <div class="flex overflow-hidden gap-4 items-center w-full">
-                                    <div class="flex justify-center items-center">
+                                    <div class=format!(
+                                        "flex justify-center items-center {}",
+                                        if track_number_display == TrackNumberDisplay::Cover {
+                                            "size-12"
+                                        } else {
+                                            ""
+                                        },
+                                    )>
                                         {is_playing
                                             .then_some({
                                                 html! {

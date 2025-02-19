@@ -504,23 +504,16 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
     let client = get_client().await;
     let mut tracklist = TRACKLIST.write().await;
 
-    let album = client.album(album_id).await?;
+    let album: Album = client.album(album_id).await?.into();
 
-    let tracks = album.tracks.unwrap_or_default();
-
-    let unstreambale_tracks_to_index = tracks
-        .items
+    let unstreambale_tracks_to_index = album
+        .tracks
         .iter()
         .take(index as usize)
-        .filter(|t| !t.streamable)
+        .filter(|t| !t.available)
         .count() as u32;
 
-    tracklist.queue = tracks
-        .items
-        .into_iter()
-        .filter(|t| t.streamable)
-        .map(|t| t.into())
-        .collect();
+    tracklist.queue = album.tracks.into_iter().filter(|t| t.available).collect();
 
     if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
         let track_url = client.track_url(track.id).await?;
@@ -530,7 +523,7 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
         tracklist.list_type = TrackListType::Album(tracklist::AlbumTracklist {
             title: album.title,
             id: album.id,
-            image: Some(album.image.large),
+            image: Some(album.image),
         });
 
         broadcast_track_list(&tracklist).await?;
@@ -554,7 +547,7 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
         .map(|track| Track {
             id: track.id,
             title: track.title.clone(),
-            number: track.physical_support.media_number,
+            number: track.physical_support.track_number,
             explicit: track.parental_warning,
             hires_available: track.rights.hires_streamable,
             available: track.rights.streamable,

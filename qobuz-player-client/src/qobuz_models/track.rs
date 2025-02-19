@@ -16,7 +16,7 @@ pub struct Track {
     pub copyright: Option<String>,
     pub displayable: bool,
     pub downloadable: bool,
-    pub duration: i64,
+    pub duration: u32,
     pub hires: bool,
     pub hires_streamable: bool,
     pub id: u32,
@@ -39,7 +39,7 @@ pub struct Track {
     pub streamable: bool,
     pub streamable_at: Option<i64>,
     pub title: String,
-    pub track_number: i64,
+    pub track_number: u32,
     pub version: Option<String>,
 }
 

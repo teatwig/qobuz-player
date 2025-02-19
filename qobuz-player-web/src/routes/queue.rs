@@ -5,13 +5,10 @@ use axum::{
     Router,
 };
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::{
-    models::TrackStatus,
-    tracklist::{TrackListType, Tracklist},
-};
+use qobuz_player_controls::tracklist::{TrackListType, Tracklist};
 
 use crate::{
-    components::list::{List, ListItem},
+    components::list::{List, ListTracks, TrackNumberDisplay},
     html,
     page::Page,
     view::render,
@@ -57,7 +54,7 @@ fn queue(current_tracklist: Tracklist) -> impl IntoView {
             hx-target="#queue-list"
             class="flex flex-col flex-grow gap-4 max-h-full"
         >
-            <div class="p-4 text-center">
+            <div class="sticky top-0 p-4 text-center bg-black/20 backdrop-blur">
                 <p class="text-lg">{entity_title}</p>
             </div>
 
@@ -76,39 +73,19 @@ async fn queue_partial() -> impl IntoResponse {
 
 #[component]
 fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
+    let now_playing_id = current_tracklist.currently_playing();
+    let tracks = current_tracklist.queue;
+
     html! {
         <List>
-            {current_tracklist
-                .queue
-                .into_iter()
-                .enumerate()
-                .map(|(position, track)| {
-                    html! {
-                        <ListItem>
-                            <button
-                                hx-swap="none"
-                                hx-put=format!("/queue/skip-to/{}", position)
-                                class=format!(
-                                    "cursor-pointer flex w-full items-center flex-row gap-4 text-left {}",
-                                    if track.status == TrackStatus::Playing {
-                                        "bg-blue-800"
-                                    } else if track.status == TrackStatus::Played {
-                                        "text-gray-500"
-                                    } else {
-                                        ""
-                                    },
-                                )
-                            >
-                                <span class="w-5 text-center">
-                                    <span class="text-gray-400">{position + 1}</span>
-                                </span>
-
-                                <span class="truncate">{track.title.clone()}</span>
-                            </button>
-                        </ListItem>
-                    }
-                })
-                .collect::<Vec<_>>()}
+            <ListTracks
+                track_number_display=TrackNumberDisplay::Cover
+                now_playing_id=now_playing_id
+                tracks=tracks
+                show_artist=true
+                dim_played=true
+                api_call=|index: usize| format!("/queue/skip-to/{}", index)
+            />
         </List>
     }
 }
