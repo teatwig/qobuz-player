@@ -26,17 +26,26 @@ pub fn routes() -> Router {
         .route("/playlist/{id}/set-favorite", put(set_favorite))
         .route("/playlist/{id}/unset-favorite", put(unset_favorite))
         .route("/playlist/{id}/play", put(play))
+        .route("/playlist/{id}/play/shuffle", put(shuffle))
         .route("/playlist/{id}/play/{track_position}", put(play_track))
 }
 
 async fn play_track(Path((id, track_position)): Path<(i64, u32)>) -> impl IntoResponse {
-    qobuz_player_controls::play_playlist(id, track_position)
+    qobuz_player_controls::play_playlist(id, track_position, false)
         .await
         .unwrap();
 }
 
 async fn play(Path(id): Path<i64>) -> impl IntoResponse {
-    qobuz_player_controls::play_playlist(id, 0).await.unwrap();
+    qobuz_player_controls::play_playlist(id, 0, false)
+        .await
+        .unwrap();
+}
+
+async fn shuffle(Path(id): Path<i64>) -> impl IntoResponse {
+    qobuz_player_controls::play_playlist(id, 0, true)
+        .await
+        .unwrap();
 }
 
 async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
@@ -136,9 +145,11 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
                     </div>
 
                     {
-                        let is_not_owned = !playlist.is_owned;
                         html! {
-                            <div class=is_not_owned.then_some({ "grid grid-cols-2 gap-4" })>
+                            <div class=format!(
+                                "grid {} gap-4",
+                                if playlist.is_owned { "grid-cols-2" } else { "grid-cols-3" },
+                            )>
                                 <button
                                     class="flex gap-2 justify-center items-center py-2 px-4 bg-blue-500 rounded cursor-pointer"
                                     hx-swap="none"
@@ -150,7 +161,18 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
                                     <span>Play</span>
                                 </button>
 
-                                {is_not_owned
+                                <button
+                                    class="flex gap-2 justify-center items-center py-2 px-4 bg-blue-500 rounded cursor-pointer"
+                                    hx-swap="none"
+                                    hx-put=format!("{}/play/shuffle", playlist.id.clone())
+                                >
+                                    <span class="size-6">
+                                        <Play />
+                                    </span>
+                                    <span>Shuffle</span>
+                                </button>
+
+                                {(!playlist.is_owned)
                                     .then_some({
                                         html! {
                                             <ToggleFavorite

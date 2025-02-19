@@ -243,7 +243,9 @@ pub fn now_playing(
     current_status: qobuz_player_controls::State,
     current_volume: u32,
 ) -> impl IntoView {
-    let cover_image = current_track.as_ref().map(|track| track.cover_art.clone());
+    let cover_image = current_track
+        .as_ref()
+        .and_then(|track| track.cover_art.clone());
     let album_artist_name = current_track
         .as_ref()
         .and_then(|track| track.album.as_ref().map(|album| album.artist.name.clone()));

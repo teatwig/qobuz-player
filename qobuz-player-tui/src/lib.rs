@@ -380,9 +380,22 @@ fn favorite_playlists(favorite_playlists: Vec<Playlist>) -> LinearLayout {
         playlist_list.add_item(p.title.clone(), p.id);
     });
 
-    playlist_list.set_on_submit(move |_s: &mut Cursive, item: &u32| {
+    playlist_list.set_on_submit(move |s: &mut Cursive, item: &u32| {
         let item = *item;
-        tokio::spawn(async move { qobuz_player_controls::play_playlist(item as i64, 0).await });
+        let dialog = Dialog::text("Play playlist")
+            .button("Play", move |_s: &mut Cursive| {
+                tokio::spawn(async move {
+                    qobuz_player_controls::play_playlist(item as i64, 0, false).await
+                });
+            })
+            .button("Shuffle", move |_s: &mut Cursive| {
+                tokio::spawn(async move {
+                    qobuz_player_controls::play_playlist(item as i64, 0, true).await
+                });
+            })
+            .dismiss_button("Cancel");
+
+        s.add_layer(dialog);
     });
 
     list_layout.add_child(
@@ -498,11 +511,22 @@ fn load_search_results(item: &str, s: &mut Cursive) {
                         search_results.add_item(p.title.clone(), p.id.to_string())
                     }
 
-                    search_results.set_on_submit(move |_s: &mut Cursive, item: &String| {
+                    search_results.set_on_submit(move |s: &mut Cursive, item: &String| {
                         let item = item.parse::<i64>().expect("failed to parse string");
-                        tokio::spawn(
-                            async move { qobuz_player_controls::play_playlist(item, 0).await },
-                        );
+                        let dialog = Dialog::text("Play playlist")
+                            .button("Play", move |_s: &mut Cursive| {
+                                tokio::spawn(async move {
+                                    qobuz_player_controls::play_playlist(item, 0, false).await
+                                });
+                            })
+                            .button("Shuffle", move |_s: &mut Cursive| {
+                                tokio::spawn(async move {
+                                    qobuz_player_controls::play_playlist(item, 0, true).await
+                                });
+                            })
+                            .dismiss_button("Cancel");
+
+                        s.add_layer(dialog);
                     });
                 }
                 _ => {}

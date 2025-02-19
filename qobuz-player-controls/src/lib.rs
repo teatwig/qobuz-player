@@ -8,6 +8,7 @@ use gstreamer::{
 use models::{image_to_string, parse_playlist, Album, ArtistPage, TrackAlbum};
 use notification::Notification;
 use qobuz_player_client::client::Client;
+use rand::seq::SliceRandom;
 use std::{
     str::FromStr,
     sync::{
@@ -590,7 +591,7 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
 
 #[instrument]
 /// Plays all tracks in a playlist.
-pub async fn play_playlist(playlist_id: i64, index: u32) -> Result<()> {
+pub async fn play_playlist(playlist_id: i64, index: u32, shuffle: bool) -> Result<()> {
     ready().await?;
 
     let client = get_client().await;
@@ -606,12 +607,19 @@ pub async fn play_playlist(playlist_id: i64, index: u32) -> Result<()> {
         .filter(|t| !t.available)
         .count() as u32;
 
-    tracklist.queue = playlist
+    let mut tracks: Vec<tracklist::Track> = playlist
         .tracks
         .into_iter()
         .filter(|t| t.available)
         .map(|t| t.into())
         .collect();
+
+    if shuffle {
+        let mut rng = rand::rng();
+        tracks.shuffle(&mut rng);
+    }
+
+    tracklist.queue = tracks;
 
     if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
         let track_url = client.track_url(track.id).await?;

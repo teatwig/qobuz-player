@@ -67,7 +67,7 @@ fn controls_partial(current_tracklist: TrackListType) -> impl IntoView {
         {show
             .then(|| {
                 html! {
-                    <div class="flex gap-2 justify-between items-center p-2 bg-gray-900 rounded">
+                    <div class="flex gap-2 justify-between items-center py-2 px-4 bg-gray-900 rounded">
                         <div class="flex overflow-hidden gap-2 items-center w-full">
                             {image} <a hx-target="unset" class="truncate" href=entity_link>
                                 {title}
@@ -97,7 +97,7 @@ fn image(url: Option<String>, cicle: bool) -> impl IntoView {
         <div
             class=format!(
                 "bg-gray-800 bg-center bg-no-repeat bg-cover shadow aspect-square size-10 {}",
-                if cicle { "rounded-full" } else { "rounded" },
+                if cicle { "rounded-full" } else { "rounded-md" },
             )
             style=image_style
         ></div>
