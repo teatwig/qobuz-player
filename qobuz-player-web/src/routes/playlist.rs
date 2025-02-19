@@ -130,7 +130,7 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
             <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full">
                 <div class="max-w-sm">
                     <img
-                        src=playlist.cover_art
+                        src=playlist.image
                         alt=playlist.title.clone()
                         class="object-contain rounded-lg size-full aspect-square"
                     />

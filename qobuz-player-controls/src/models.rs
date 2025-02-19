@@ -4,7 +4,7 @@ use qobuz_player_client::qobuz_models::{
     artist::Artist as QobuzArtist,
     artist_page::{self, ArtistPage as QobuzArtistPage},
     playlist::Playlist as QobuzPlaylist,
-    release::{Release, Track as QobuzReleaseTrack},
+    release::Release,
     search_results::SearchAllResults,
     track::Track as QobuzTrack,
 };
@@ -42,50 +42,6 @@ pub fn parse_search_results(search_results: SearchAllResults, user_id: i64) -> S
     }
 }
 
-impl From<QobuzReleaseTrack> for Track {
-    fn from(value: QobuzReleaseTrack) -> Self {
-        Self {
-            id: value.id,
-            number: value.physical_support.track_number,
-            title: value.title,
-            album: None,
-            artist: Some(Artist {
-                id: value.artist.id,
-                name: value.artist.name.display,
-                ..Default::default()
-            }),
-            duration_seconds: value.duration as u32,
-            explicit: value.parental_warning,
-            hires_available: hifi_available(value.rights.hires_streamable),
-            available: value.rights.streamable,
-            cover_art: None,
-            cover_art_small: None,
-        }
-    }
-}
-
-impl From<qobuz_player_client::qobuz_models::artist_page::Track> for Track {
-    fn from(value: qobuz_player_client::qobuz_models::artist_page::Track) -> Self {
-        Self {
-            id: value.id,
-            number: value.physical_support.track_number,
-            title: value.title,
-            album: None,
-            artist: Some(Artist {
-                id: value.artist.id,
-                name: value.artist.name.display,
-                ..Default::default()
-            }),
-            duration_seconds: value.duration,
-            explicit: value.parental_warning,
-            hires_available: hifi_available(value.rights.hires_streamable),
-            available: value.rights.streamable,
-            cover_art: None,
-            cover_art_small: None,
-        }
-    }
-}
-
 impl From<Release> for TrackAlbum {
     fn from(release: Release) -> Self {
         Self {
@@ -110,7 +66,7 @@ impl From<Album> for TrackAlbum {
             id: value.id,
             title: value.title,
             artist: value.artist,
-            image: value.cover_art,
+            image: value.image,
             available: value.available,
             hires_available: value.hires_available,
             explicit: value.explicit,
@@ -146,8 +102,8 @@ impl From<AlbumSuggestion> for Album {
             total_tracks: s.track_count as u32,
             tracks: Default::default(),
             available: s.rights.streamable,
-            cover_art: s.image.large,
-            cover_art_small: s.image.small,
+            image: s.image.large,
+            image_thumbnail: s.image.small,
             duration_seconds: s.duration.map_or(0, |duration| duration as u32),
         }
     }
@@ -176,8 +132,8 @@ impl From<QobuzAlbum> for Album {
             explicit: value.parental_warning,
             available: value.streamable,
             tracks,
-            cover_art: value.image.large,
-            cover_art_small: value.image.small,
+            image: value.image.large,
+            image_thumbnail: value.image.small,
             duration_seconds: value.duration.map_or(0, |duration| duration as u32),
         }
     }
@@ -204,31 +160,21 @@ impl From<QobuzArtistPage> for ArtistPage {
                 .map(|t| {
                     let album_image_url = t.album.image.large;
                     let album_image_url_small = t.album.image.small;
-                    let artist = Artist {
-                        id: value.id,
-                        name: value.name.display.clone(),
-                        image: artist_image_url.clone(),
-                    };
                     Track {
                         id: t.id,
                         number: t.physical_support.track_number,
                         title: t.title,
-                        album: Some(TrackAlbum {
-                            id: t.album.id,
-                            title: t.album.title,
-                            artist: artist.clone(),
-                            image: album_image_url.clone(),
-                            available: t.rights.streamable,
-                            hires_available: t.rights.hires_streamable,
-                            explicit: t.parental_warning,
-                        }),
-                        artist: Some(artist),
-                        duration_seconds: t.duration,
                         explicit: t.parental_warning,
-                        hires_available: hifi_available(t.rights.hires_streamable),
+                        hires_available: t.rights.hires_streamable,
                         available: t.rights.streamable,
-                        cover_art: Some(album_image_url),
-                        cover_art_small: Some(album_image_url_small),
+                        status: Default::default(),
+                        image: Some(album_image_url),
+                        image_thumbnail: Some(album_image_url_small),
+                        duration_seconds: t.duration,
+                        artist_name: Some(value.name.display.clone()),
+                        artist_id: Some(value.id),
+                        album_title: Some(t.album.title),
+                        album_id: Some(t.album.id),
                     }
                 })
                 .collect(),
@@ -251,7 +197,7 @@ pub fn parse_playlist(playlist: QobuzPlaylist, user_id: i64) -> Playlist {
         tracks.items.into_iter().map(|t| t.into()).collect()
     });
 
-    let cover_art = if let Some(image) = playlist.image_rectangle.first() {
+    let image = if let Some(image) = playlist.image_rectangle.first() {
         Some(image.clone())
     } else if let Some(images) = playlist.images300 {
         images.first().cloned()
@@ -265,7 +211,7 @@ pub fn parse_playlist(playlist: QobuzPlaylist, user_id: i64) -> Playlist {
         title: playlist.name,
         duration_seconds: playlist.duration as u32,
         tracks_count: playlist.tracks_count as u32,
-        cover_art,
+        image,
         tracks,
     }
 }
@@ -282,31 +228,24 @@ impl From<QobuzTrack> for Track {
             value.album.as_ref().map(|a| a.clone().artist.into())
         };
 
-        let cover_art = value.album.as_ref().map(|a| a.image.large.clone());
-        let cover_art_small = value.album.as_ref().map(|a| a.image.small.clone());
-
-        let album = value.album.map(|a| TrackAlbum {
-            id: a.id,
-            title: a.title,
-            artist: a.artist.into(),
-            image: a.image.small,
-            available: a.streamable,
-            hires_available: a.hires_streamable,
-            explicit: a.parental_warning,
-        });
+        let image = value.album.as_ref().map(|a| a.image.large.clone());
+        let image_thumbnail = value.album.as_ref().map(|a| a.image.small.clone());
 
         Self {
             id: value.id,
             number: value.track_number as u32,
             title: value.title,
-            album,
-            artist,
             duration_seconds: value.duration as u32,
             explicit: value.parental_warning,
             hires_available: hifi_available(value.hires_streamable),
             available: value.streamable,
-            cover_art,
-            cover_art_small,
+            status: Default::default(),
+            image,
+            image_thumbnail,
+            artist_name: artist.as_ref().map(move |a| a.name.clone()),
+            artist_id: artist.as_ref().map(move |a| a.id),
+            album_title: value.album.as_ref().map(|a| a.title.clone()),
+            album_id: value.album.as_ref().map(|a| a.id.clone()),
         }
     }
 }
@@ -333,19 +272,22 @@ pub enum TrackStatus {
     Unplayable,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct Track {
     pub id: u32,
-    pub number: u32,
     pub title: String,
-    pub album: Option<TrackAlbum>,
-    pub artist: Option<Artist>,
-    pub duration_seconds: u32,
+    pub number: u32,
     pub explicit: bool,
     pub hires_available: bool,
     pub available: bool,
-    pub cover_art: Option<String>,
-    pub cover_art_small: Option<String>,
+    pub status: TrackStatus,
+    pub image: Option<String>,
+    pub image_thumbnail: Option<String>,
+    pub duration_seconds: u32,
+    pub artist_name: Option<String>,
+    pub artist_id: Option<u32>,
+    pub album_title: Option<String>,
+    pub album_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -359,8 +301,8 @@ pub struct Album {
     pub total_tracks: u32,
     pub tracks: Vec<Track>,
     pub available: bool,
-    pub cover_art: String,
-    pub cover_art_small: String,
+    pub image: String,
+    pub image_thumbnail: String,
     pub duration_seconds: u32,
 }
 
@@ -413,6 +355,6 @@ pub struct Playlist {
     pub duration_seconds: u32,
     pub tracks_count: u32,
     pub id: u32,
-    pub cover_art: Option<String>,
+    pub image: Option<String>,
     pub tracks: Vec<Track>,
 }

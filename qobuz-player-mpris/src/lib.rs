@@ -3,7 +3,7 @@ use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property, RootInterface,
     Server, Time, TrackId, Volume,
 };
-use qobuz_player_controls::{notification::Notification, tracklist, ClockTime, State};
+use qobuz_player_controls::{models::Track, notification::Notification, ClockTime, State};
 
 struct MprisPlayer;
 
@@ -273,7 +273,7 @@ pub async fn init() {
     }
 }
 
-fn track_to_metadata(track: &tracklist::Track) -> Metadata {
+fn track_to_metadata(track: &Track) -> Metadata {
     let mut metadata = Metadata::new();
     let duration = mpris_server::Time::from_secs(track.duration_seconds as i64);
     metadata.set_length(Some(duration));

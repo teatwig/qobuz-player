@@ -135,7 +135,7 @@ fn album(
             <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full *:max-w-sm">
                 <div>
                     <img
-                        src=album.cover_art
+                        src=album.image
                         alt=album.title.clone()
                         class="object-contain rounded-lg size-full aspect-square"
                     />

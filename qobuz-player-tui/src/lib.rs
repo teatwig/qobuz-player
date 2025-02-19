@@ -17,7 +17,7 @@ use futures::executor::block_on;
 use qobuz_player_controls::{
     models::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackAlbum, TrackStatus},
     notification::Notification,
-    tracklist::{self, TrackListType},
+    tracklist::TrackListType,
     ClockTime, State,
 };
 use tracing::debug;
@@ -598,9 +598,9 @@ fn set_current_track(s: &mut Cursive, track: &Track, lt: &TrackListType, current
         progress.set_max(track.duration_seconds as usize);
     }
 
-    if let Some(artist) = &track.artist {
+    if let Some(artist) = &track.artist_name {
         s.call_on_name("artist_name", |view: &mut TextView| {
-            view.set_content(artist.name.clone());
+            view.set_content(artist);
         });
     }
 }
@@ -740,7 +740,7 @@ trait CursiveFormat {
     }
 }
 
-impl CursiveFormat for tracklist::Track {
+impl CursiveFormat for Track {
     fn track_list_item(&self) -> StyledString {
         StyledString::styled(self.title.trim(), Style::none())
     }
@@ -803,12 +803,7 @@ impl CursiveFormat for TrackAlbum {
     }
 }
 
-fn set_now_playing(
-    sink: &mut Cursive,
-    title: Option<String>,
-    total: u32,
-    queue: &[tracklist::Track],
-) {
+fn set_now_playing(sink: &mut Cursive, title: Option<String>, total: u32, queue: &[Track]) {
     {
         if let Some(mut list_view) =
             sink.find_name::<ScrollView<SelectView<usize>>>("current_track_list")

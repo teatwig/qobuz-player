@@ -4,7 +4,10 @@ use axum::{
     Router,
 };
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::tracklist::{TrackListType, Tracklist};
+use qobuz_player_controls::{
+    models,
+    tracklist::{TrackListType, Tracklist},
+};
 
 use crate::{
     components::Info,
@@ -237,7 +240,7 @@ pub fn state(playing: bool) -> impl IntoView {
 #[component]
 pub fn now_playing(
     current_tracklist: Tracklist,
-    current_track: Option<qobuz_player_controls::tracklist::Track>,
+    current_track: Option<models::Track>,
     position_mseconds: Option<u64>,
     current_status: qobuz_player_controls::State,
     current_volume: u32,

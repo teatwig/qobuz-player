@@ -144,7 +144,7 @@ fn track(track: models::Track) -> impl IntoView {
             <img
                 class="inline text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
                 alt=track.title.clone()
-                src=track.cover_art_small
+                src=track.image_thumbnail
             />
 
             <div class="overflow-hidden w-full">
@@ -155,9 +155,9 @@ fn track(track: models::Track) -> impl IntoView {
 
                 <h4 class="flex gap-2 text-left text-gray-400">
                     {track
-                        .artist
-                        .map(|artist| {
-                            html! { <span class="truncate">{artist.name}</span> }
+                        .artist_name
+                        .map(|artist_name| {
+                            html! { <span class="truncate">{artist_name}</span> }
                         })}
                 </h4>
             </div>

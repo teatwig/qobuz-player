@@ -188,7 +188,7 @@ fn track(artist_id: u32, track: models::Track, index: usize, is_playing: bool) -
             <img
                 class="inline text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
                 alt=track.title.clone()
-                src=track.album.as_ref().map(|a| a.image.clone())
+                src=track.image
             />
 
             <div class="overflow-hidden w-full">
@@ -207,10 +207,9 @@ fn track(artist_id: u32, track: models::Track, index: usize, is_playing: bool) -
 
                 <h4 class="flex gap-2 text-left text-gray-400">
                     {track
-                        .album
-                        .as_ref()
-                        .map(|album| {
-                            html! { <span class="truncate">{album.title.clone()}</span> }
+                        .album_title
+                        .map(|album_title| {
+                            html! { <span class="truncate">{album_title}</span> }
                         })}
                 </h4>
             </div>

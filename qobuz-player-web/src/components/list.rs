@@ -47,7 +47,7 @@ pub fn list_playlists_vertical(playlists: Vec<Playlist>) -> impl IntoView {
                 .into_iter()
                 .map(|playlist| {
                     let img_src = playlist
-                        .cover_art
+                        .image
                         .map(|image| format!("background-image: url({});", image));
                     html! {
                         <a
@@ -157,7 +157,7 @@ fn album(album: Album) -> impl IntoView {
             <img
                 class="inline text-sm text-gray-500 bg-gray-800 rounded-md aspect-square size-12"
                 alt=album.title.clone()
-                src=album.cover_art_small
+                src=album.image_thumbnail
             />
 
             <div class="overflow-hidden w-full">
@@ -297,9 +297,9 @@ pub fn list_tracks(
                                                                 <div
                                                                     class="bg-gray-800 bg-center bg-no-repeat bg-cover rounded-md aspect-square size-12"
                                                                     style=track
-                                                                        .album
-                                                                        .map(|album| {
-                                                                            format!("background-image: url({});", album.image)
+                                                                        .image
+                                                                        .map(|image| {
+                                                                            format!("background-image: url({});", image)
                                                                         })
                                                                 ></div>
                                                             }
@@ -310,13 +310,13 @@ pub fn list_tracks(
                                             })}
                                     </div>
 
-                                    {match show_artist && track.artist.is_some() {
+                                    {match show_artist && track.artist_name.is_some() {
                                         true => {
                                             html! {
                                                 <div class="flex overflow-hidden flex-col">
                                                     <h2 class="truncate">{track.title}</h2>
                                                     <h3 class="text-sm text-gray-400 truncate">
-                                                        {track.artist.unwrap().name}
+                                                        {track.artist_name.unwrap()}
                                                     </h3>
                                                 </div>
                                             }
@@ -360,7 +360,7 @@ pub fn list_playlists(mut playlists: Vec<Playlist>, sort: PlaylistSort) -> impl 
                 .into_iter()
                 .map(|playlist| {
                     let img_src = playlist
-                        .cover_art
+                        .image
                         .map(|image| format!("background-image: url({});", image));
                     html! {
                         <ListItem>

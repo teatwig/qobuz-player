@@ -426,8 +426,8 @@ pub async fn previous() -> Result<()> {
     skip_to_position(current_position - 1, false).await
 }
 
-fn skip_to_track(tracklist: &mut Tracklist, new_position: u32) -> Option<&tracklist::Track> {
-    let mut new_track: Option<&tracklist::Track> = None;
+fn skip_to_track(tracklist: &mut Tracklist, new_position: u32) -> Option<&Track> {
+    let mut new_track: Option<&Track> = None;
     for queue_item in tracklist.queue.iter_mut().enumerate() {
         let queue_item_position = queue_item.0 as u32;
         match queue_item_position.cmp(&new_position) {
@@ -479,15 +479,14 @@ pub async fn play_track(track_id: u32) -> Result<()> {
 
     let mut tracklist = TRACKLIST.write().await;
 
-    let full_track_info: Track = client.track(track_id).await?.into();
+    let mut track: Track = client.track(track_id).await?.into();
 
     tracklist.list_type = TrackListType::Track(SingleTracklist {
-        track_title: full_track_info.title.clone(),
-        album_id: full_track_info.album.as_ref().map(|a| a.id.clone()),
-        image: full_track_info.cover_art.clone(),
+        track_title: track.title.clone(),
+        album_id: track.album_id.clone(),
+        image: track.image.clone(),
     });
 
-    let mut track: tracklist::Track = full_track_info.into();
     track.status = TrackStatus::Playing;
 
     tracklist.queue = vec![track];
@@ -549,19 +548,34 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
     let mut tracklist = TRACKLIST.write().await;
 
     let artist = client.artist(artist_id).await?;
-    let tracks = artist.top_tracks;
+    let tracks: Vec<_> = artist
+        .top_tracks
+        .iter()
+        .map(|track| Track {
+            id: track.id,
+            title: track.title.clone(),
+            number: track.physical_support.media_number,
+            explicit: track.parental_warning,
+            hires_available: track.rights.hires_streamable,
+            available: track.rights.streamable,
+            status: Default::default(),
+            image: Some(track.album.image.large.clone()),
+            image_thumbnail: Some(track.album.image.small.clone()),
+            duration_seconds: track.duration,
+            artist_name: Some(artist.name.display.clone()),
+            artist_id: Some(artist.id),
+            album_title: Some(track.album.title.clone()),
+            album_id: Some(track.album.id.clone()),
+        })
+        .collect();
 
     let unstreambale_tracks_to_index = tracks
         .iter()
         .take(index as usize)
-        .filter(|t| !t.rights.streamable)
+        .filter(|t| !t.available)
         .count() as u32;
 
-    tracklist.queue = tracks
-        .into_iter()
-        .filter(|t| t.rights.streamable)
-        .map(|t| t.into())
-        .collect();
+    tracklist.queue = tracks.into_iter().filter(|t| t.available).collect();
 
     if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
         let track_url = client.track_url(track.id).await?;
@@ -598,11 +612,10 @@ pub async fn play_playlist(playlist_id: i64, index: u32, shuffle: bool) -> Resul
         .filter(|t| !t.available)
         .count() as u32;
 
-    let mut tracks: Vec<tracklist::Track> = playlist
+    let mut tracks: Vec<Track> = playlist
         .tracks
         .into_iter()
         .filter(|t| t.available)
-        .map(|t| t.into())
         .collect();
 
     if shuffle {
@@ -620,7 +633,7 @@ pub async fn play_playlist(playlist_id: i64, index: u32, shuffle: bool) -> Resul
         tracklist.list_type = TrackListType::Playlist(tracklist::PlaylistTracklist {
             title: playlist.title,
             id: playlist.id,
-            image: playlist.cover_art,
+            image: playlist.image,
         });
 
         broadcast_track_list(&tracklist).await?;
