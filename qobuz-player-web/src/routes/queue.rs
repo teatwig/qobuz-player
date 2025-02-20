@@ -41,25 +41,25 @@ async fn index() -> impl IntoResponse {
 fn queue(current_tracklist: Tracklist) -> impl IntoView {
     let (entity_title, entity_link) = match current_tracklist.list_type() {
         TrackListType::Album(tracklist) => (
-            Some(tracklist.title.clone()),
+            tracklist.title.clone(),
             Some(format!("/album/{}", tracklist.id)),
         ),
         TrackListType::Playlist(tracklist) => (
-            Some(tracklist.title.clone()),
+            tracklist.title.clone(),
             Some(format!("/playlist/{}", tracklist.id)),
         ),
         TrackListType::TopTracks(tracklist) => (
-            Some(tracklist.artist_name.clone()),
+            tracklist.artist_name.clone(),
             Some(format!("/artist/{}", tracklist.id)),
         ),
         TrackListType::Track(tracklist) => (
-            Some(tracklist.track_title.clone()),
+            tracklist.track_title.clone(),
             tracklist
                 .album_id
                 .as_ref()
                 .map(|id| format!("/album/{}", id)),
         ),
-        TrackListType::None => (None, None),
+        TrackListType::None => ("Empty queue".to_string(), None),
     };
 
     html! {
