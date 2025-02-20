@@ -15,9 +15,9 @@ use cursive::{
 };
 use futures::executor::block_on;
 use qobuz_player_controls::{
-    models::{Album, Artist, Favorites, Playlist, SearchResults, Track, TrackAlbum, TrackStatus},
+    models::{Album, AlbumSimple, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
     notification::Notification,
-    tracklist::TrackListType,
+    tracklist::TracklistType,
     ClockTime, State,
 };
 use tracing::debug;
@@ -570,26 +570,26 @@ fn submit_artist(s: &mut Cursive, item: u32) {
     }
 }
 
-fn set_current_track(s: &mut Cursive, track: &Track, lt: &TrackListType, current_position: u32) {
+fn set_current_track(s: &mut Cursive, track: &Track, lt: &TracklistType, current_position: u32) {
     if let (Some(mut track_num), Some(mut track_title), Some(mut progress)) = (
         s.find_name::<TextView>("current_track_number"),
         s.find_name::<TextView>("current_track_title"),
         s.find_name::<ProgressBar>("progress"),
     ) {
         match lt {
-            TrackListType::Album(_) => {
+            TracklistType::Album(_) => {
                 track_num.set_content(format!("{:03}", track.number));
             }
-            TrackListType::Playlist(_) => {
+            TracklistType::Playlist(_) => {
                 track_num.set_content(format!("{:03}", current_position));
             }
-            TrackListType::TopTracks(_) => {
+            TracklistType::TopTracks(_) => {
                 track_num.set_content(format!("{:03}", current_position));
             }
-            TrackListType::Track(_) => {
+            TracklistType::Track(_) => {
                 track_num.set_content(format!("{:03}", current_position));
             }
-            TrackListType::None => {
+            TracklistType::None => {
                 track_num.set_content(format!("{:03}", current_position));
             }
         };
@@ -667,7 +667,7 @@ async fn receive_notifications() {
                 Notification::CurrentTrackList { list } => {
                     let total = list.total();
                     match list.list_type {
-                        TrackListType::Album(tracklist) => {
+                        TracklistType::Album(tracklist) => {
                             if SINK
                                 .get()
                                 .unwrap()
@@ -677,7 +677,7 @@ async fn receive_notifications() {
                                 .is_ok()
                             {}
                         }
-                        TrackListType::Playlist(tracklist) => {
+                        TracklistType::Playlist(tracklist) => {
                             if SINK
                                 .get()
                                 .unwrap()
@@ -687,7 +687,7 @@ async fn receive_notifications() {
                                 .is_ok()
                             {}
                         }
-                        TrackListType::TopTracks(tracklist) => {
+                        TracklistType::TopTracks(tracklist) => {
                             if SINK
                                 .get()
                                 .unwrap()
@@ -702,7 +702,7 @@ async fn receive_notifications() {
                                 .is_ok()
                             {}
                         }
-                        TrackListType::Track(_) => {
+                        TracklistType::Track(_) => {
                             if SINK
                                 .get()
                                 .unwrap()
@@ -712,7 +712,7 @@ async fn receive_notifications() {
                                 .is_ok()
                             {}
                         }
-                        TrackListType::None => {
+                        TracklistType::None => {
                             if SINK
                                 .get()
                                 .unwrap()
@@ -775,7 +775,7 @@ impl CursiveFormat for Album {
     }
 }
 
-impl CursiveFormat for TrackAlbum {
+impl CursiveFormat for AlbumSimple {
     fn list_item(&self) -> StyledString {
         let mut style = Style::none();
 

@@ -5,7 +5,7 @@ use futures::prelude::*;
 use gstreamer::{
     prelude::*, Element, Message, MessageView, SeekFlags, StateChangeSuccess, Structure,
 };
-use models::{image_to_string, parse_playlist, Album, ArtistPage, TrackAlbum};
+use models::{image_to_string, parse_playlist, Album, AlbumSimple, ArtistPage};
 use notification::Notification;
 use qobuz_player_client::client::Client;
 use rand::seq::SliceRandom;
@@ -25,7 +25,7 @@ use tokio::{
     },
 };
 use tracing::{debug, instrument};
-use tracklist::{SingleTracklist, TrackListType, Tracklist};
+use tracklist::{SingleTracklist, Tracklist, TracklistType};
 
 pub use gstreamer::{ClockTime, State};
 pub use qobuz_player_client::client::{AlbumFeaturedType, AudioQuality, PlaylistFeaturedType};
@@ -119,7 +119,6 @@ static TRACK_ABOUT_TO_FINISH: LazyLock<TrackAboutToFinish> = LazyLock::new(|| {
 });
 
 static SHOULD_QUIT: AtomicBool = AtomicBool::new(false);
-static IS_LIVE: AtomicBool = AtomicBool::new(false);
 static TARGET_STATUS: LazyLock<RwLock<gstreamer::State>> =
     LazyLock::new(|| RwLock::new(gstreamer::State::Null));
 static TRACKLIST: LazyLock<RwLock<Tracklist>> = LazyLock::new(|| RwLock::new(Tracklist::new()));
@@ -212,7 +211,6 @@ async fn set_player_state(state: gstreamer::State) -> Result<()> {
         }
         StateChangeSuccess::NoPreroll => {
             tracing::debug!("*** stream is live ***");
-            IS_LIVE.store(true, Ordering::Relaxed);
         }
     }
 
@@ -229,9 +227,9 @@ async fn broadcast_track_list(list: &Tracklist) -> Result<()> {
 #[instrument]
 /// Toggle play and pause.
 pub async fn play_pause() -> Result<()> {
-    if is_playing() {
+    if is_playing().await {
         pause().await?;
-    } else if is_paused() || is_ready() {
+    } else if is_paused().await || is_ready() {
         play().await?;
     }
 
@@ -256,38 +254,32 @@ pub async fn pause() -> Result<()> {
 
 #[instrument]
 /// Is the player paused?
-pub fn is_paused() -> bool {
-    PLAYBIN.current_state() != gstreamer::State::Playing
+pub async fn is_paused() -> bool {
+    *TARGET_STATUS.read().await != gstreamer::State::Playing
 }
 
 #[instrument]
 /// Is the player playing?
-pub fn is_playing() -> bool {
-    PLAYBIN.current_state() == gstreamer::State::Playing
+pub async fn is_playing() -> bool {
+    *TARGET_STATUS.read().await == gstreamer::State::Playing
 }
 
 #[instrument]
 /// Is the player ready?
-pub fn is_ready() -> bool {
+fn is_ready() -> bool {
     PLAYBIN.current_state() == gstreamer::State::Ready
 }
 
 #[instrument]
 /// Current player state
-pub fn current_state() -> State {
-    PLAYBIN.current_state()
+pub async fn current_state() -> State {
+    *TARGET_STATUS.read().await
 }
 
 #[instrument]
 /// Current track position.
 pub fn position() -> Option<ClockTime> {
     PLAYBIN.query_position::<ClockTime>()
-}
-
-#[instrument]
-/// Current track duration.
-pub fn duration() -> Option<ClockTime> {
-    PLAYBIN.query_duration::<ClockTime>()
 }
 
 #[instrument]
@@ -481,7 +473,7 @@ pub async fn play_track(track_id: u32) -> Result<()> {
 
     let mut track: Track = client.track(track_id).await?.into();
 
-    tracklist.list_type = TrackListType::Track(SingleTracklist {
+    tracklist.list_type = TracklistType::Track(SingleTracklist {
         track_title: track.title.clone(),
         album_id: track.album_id.clone(),
         image: track.image.clone(),
@@ -520,7 +512,7 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
         PLAYBIN.set_property("uri", track_url);
         play().await?;
 
-        tracklist.list_type = TrackListType::Album(tracklist::AlbumTracklist {
+        tracklist.list_type = TracklistType::Album(tracklist::AlbumTracklist {
             title: album.title,
             id: album.id,
             image: Some(album.image),
@@ -575,7 +567,7 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
         PLAYBIN.set_property("uri", track_url);
         play().await?;
 
-        tracklist.list_type = TrackListType::TopTracks(tracklist::TopTracklist {
+        tracklist.list_type = TracklistType::TopTracks(tracklist::TopTracklist {
             artist_name: artist.name.display,
             id: artist_id,
             image: artist.images.portrait.map(image_to_string),
@@ -623,7 +615,7 @@ pub async fn play_playlist(playlist_id: i64, index: u32, shuffle: bool) -> Resul
         PLAYBIN.set_property("uri", track_url);
         play().await?;
 
-        tracklist.list_type = TrackListType::Playlist(tracklist::PlaylistTracklist {
+        tracklist.list_type = TracklistType::Playlist(tracklist::PlaylistTracklist {
             title: playlist.title,
             id: playlist.id,
             image: playlist.image,
@@ -738,7 +730,7 @@ pub async fn track(id: u32) -> Result<Track> {
 #[instrument]
 #[cached(size = 100, time = 7200)]
 /// Get suggested albums
-pub async fn suggested_albums(album_id: String) -> Result<Vec<TrackAlbum>> {
+pub async fn suggested_albums(album_id: String) -> Result<Vec<AlbumSimple>> {
     let client = get_client().await;
     let suggested_albums = client.suggested_albums(&album_id).await?;
 
@@ -757,7 +749,7 @@ pub async fn suggested_albums(album_id: String) -> Result<Vec<TrackAlbum>> {
 #[instrument]
 #[cached(size = 4, time = 7200)]
 /// Get featured albums
-pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<TrackAlbum>> {
+pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<AlbumSimple>> {
     let client = get_client().await;
     let featured = client.featured_albums(featured_type).await?;
 
@@ -765,7 +757,7 @@ pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<Tra
         .albums
         .items
         .into_iter()
-        .map(|value| TrackAlbum {
+        .map(|value| AlbumSimple {
             id: value.id,
             title: value.title,
             artist: value.artist.into(),
@@ -807,7 +799,7 @@ pub async fn playlist(id: i64) -> Result<Playlist> {
 #[instrument]
 #[cached(size = 100, time = 7200)]
 /// Fetch the albums for a specific artist.
-pub async fn artist_albums(artist_id: u32) -> Result<Vec<TrackAlbum>> {
+pub async fn artist_albums(artist_id: u32) -> Result<Vec<AlbumSimple>> {
     let client = get_client().await;
     let albums = client.artist_releases(artist_id, None).await?;
 
@@ -921,7 +913,7 @@ async fn clock_loop() {
 
     loop {
         interval.tick().await;
-        if current_state() == State::Playing {
+        if current_state().await == State::Playing {
             if let Some(position) = position() {
                 if position.seconds() != last_position.seconds() {
                     last_position = position;
@@ -941,12 +933,12 @@ pub async fn quit() -> Result<()> {
 
     SHOULD_QUIT.store(true, Ordering::Relaxed);
 
-    if is_playing() {
+    if is_playing().await {
         debug!("pausing player");
         pause().await?;
     }
 
-    if is_paused() {
+    if is_paused().await {
         debug!("readying player");
         ready().await?;
     }
@@ -1016,11 +1008,12 @@ async fn handle_message(msg: &Message) -> Result<()> {
             };
 
             ready().await?;
+            set_target_state(State::Ready).await;
             broadcast_track_list(&tracklist).await?;
         }
         MessageView::StreamStart(_) => {
             tracing::debug!("STREAM START");
-            if is_playing() {
+            if is_playing().await {
                 tracing::debug!("Starting next song");
 
                 let mut tracklist = TRACKLIST.write().await;
@@ -1042,16 +1035,9 @@ async fn handle_message(msg: &Message) -> Result<()> {
                 .send(Notification::Position { clock: position })?;
         }
         MessageView::Buffering(buffering) => {
-            if IS_LIVE.load(Ordering::Relaxed) {
-                debug!("stream is live, ignore buffering");
-                return Ok(());
-            }
             let percent = buffering.percent();
 
-            if percent < 100 && !is_paused() {
-                tracing::info!("Buffering");
-                pause().await?;
-            } else if percent >= 100 && is_paused() {
+            if percent >= 100 && is_paused().await {
                 tracing::info!("Done buffering");
                 play().await?;
             }

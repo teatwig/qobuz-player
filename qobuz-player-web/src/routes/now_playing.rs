@@ -6,7 +6,7 @@ use axum::{
 use leptos::{component, prelude::*, IntoView};
 use qobuz_player_controls::{
     models,
-    tracklist::{TrackListType, Tracklist},
+    tracklist::{Tracklist, TracklistType},
 };
 
 use crate::{
@@ -82,9 +82,9 @@ async fn set_volume(axum::Form(parameters): axum::Form<VolumeParameters>) -> imp
 }
 
 async fn status_partial() -> impl IntoResponse {
-    let status = qobuz_player_controls::current_state();
+    let current_status = futures::executor::block_on(qobuz_player_controls::current_state());
 
-    if status == qobuz_player_controls::State::Playing {
+    if current_status == qobuz_player_controls::State::Playing {
         render(html! { <PlayPause play=true /> })
     } else {
         render(html! { <PlayPause play=false /> })
@@ -152,11 +152,11 @@ async fn index() -> impl IntoResponse {
     let current_track = current_tracklist.current_track().cloned();
 
     let position_mseconds = qobuz_player_controls::position().map(|position| position.mseconds());
-    let current_status = qobuz_player_controls::current_state();
+    let current_status = qobuz_player_controls::current_state().await;
     let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
 
     render(html! {
-        <Page active_page=Page::NowPlaying current_tracklist=current_tracklist.list_type.clone()>
+        <Page active_page=Page::NowPlaying>
             <NowPlaying
                 current_tracklist=current_tracklist
                 current_track=current_track
@@ -172,7 +172,7 @@ async fn now_playing_partial() -> impl IntoResponse {
     let current_tracklist = qobuz_player_controls::current_tracklist().await;
     let current_track = current_tracklist.current_track().cloned();
     let position_mseconds = qobuz_player_controls::position().map(|position| position.mseconds());
-    let current_status = qobuz_player_controls::current_state();
+    let current_status = qobuz_player_controls::current_state().await;
     let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
 
     render(html! {
@@ -254,16 +254,16 @@ pub fn now_playing(
     let current_position = current_tracklist.current_position();
 
     let (entity_title, entity_link) = match current_tracklist.list_type() {
-        TrackListType::Album(tracklist) => (
+        TracklistType::Album(tracklist) => (
             Some(tracklist.title.clone()),
             Some(format!("/album/{}", tracklist.id)),
         ),
-        TrackListType::Playlist(tracklist) => (
+        TracklistType::Playlist(tracklist) => (
             Some(tracklist.title.clone()),
             Some(format!("/playlist/{}", tracklist.id)),
         ),
-        TrackListType::TopTracks(tracklist) => (None, Some(format!("/artist/{}", tracklist.id))),
-        TrackListType::Track(tracklist) => (
+        TracklistType::TopTracks(tracklist) => (None, Some(format!("/artist/{}", tracklist.id))),
+        TracklistType::Track(tracklist) => (
             current_track
                 .as_ref()
                 .and_then(|track| track.album_title.clone()),
@@ -272,7 +272,7 @@ pub fn now_playing(
                 .as_ref()
                 .map(|id| format!("/album/{}", id)),
         ),
-        TrackListType::None => (None, None),
+        TracklistType::None => (None, None),
     };
 
     let playing = match current_status {

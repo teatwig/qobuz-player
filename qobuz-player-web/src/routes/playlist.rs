@@ -63,44 +63,34 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn index(Path(id): Path<i64>) -> impl IntoResponse {
-    let (playlist, tracklist, favorites) = join!(
+    let (playlist, favorites) = join!(
         qobuz_player_controls::playlist(id),
-        qobuz_player_controls::current_tracklist(),
         qobuz_player_controls::favorites()
     );
 
     let playlist = playlist.unwrap();
     let favorites = favorites.unwrap();
 
-    let now_playing_id = tracklist.currently_playing();
     let is_favorite = favorites
         .playlists
         .iter()
         .any(|playlist| playlist.id == id as u32);
 
     render(html! {
-        <Page active_page=Page::None current_tracklist=tracklist.list_type>
-            <Playlist playlist=playlist is_favorite=is_favorite now_playing_id=now_playing_id />
+        <Page active_page=Page::None>
+            <Playlist playlist=playlist is_favorite=is_favorite />
         </Page>
     })
 }
 
 async fn tracks_partial(Path(id): Path<i64>) -> impl IntoResponse {
-    let (playlist, tracklist) = join!(
-        qobuz_player_controls::playlist(id),
-        qobuz_player_controls::current_tracklist(),
-    );
-    let playlist = playlist.unwrap();
+    let playlist = qobuz_player_controls::playlist(id).await.unwrap();
 
-    let now_playing_id = tracklist.currently_playing();
-
-    render(
-        html! { <Tracks now_playing_id=now_playing_id tracks=playlist.tracks playlist_id=playlist.id /> },
-    )
+    render(html! { <Tracks tracks=playlist.tracks playlist_id=playlist.id /> })
 }
 
 #[component]
-fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> impl IntoView {
+fn tracks(tracks: Vec<Track>, playlist_id: u32) -> impl IntoView {
     html! {
         <div
             class="w-full"
@@ -110,7 +100,6 @@ fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> 
         >
             <ListTracks
                 track_number_display=TrackNumberDisplay::Cover
-                now_playing_id=now_playing_id
                 tracks=tracks
                 show_artist=true
                 dim_played=false
@@ -121,7 +110,7 @@ fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> 
 }
 
 #[component]
-fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) -> impl IntoView {
+fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
     let duration = parse_duration(playlist.duration_seconds);
 
     html! {
@@ -186,7 +175,7 @@ fn playlist(playlist: Playlist, is_favorite: bool, now_playing_id: Option<u32>) 
                     }
                 </div>
             </div>
-            <Tracks now_playing_id=now_playing_id tracks=playlist.tracks playlist_id=playlist.id />
+            <Tracks tracks=playlist.tracks playlist_id=playlist.id />
         </div>
     }
 }

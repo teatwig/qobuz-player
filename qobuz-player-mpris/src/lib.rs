@@ -110,7 +110,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn playback_status(&self) -> fdo::Result<PlaybackStatus> {
-        let current_status = qobuz_player_controls::current_state();
+        let current_status = qobuz_player_controls::current_state().await;
 
         let status = match current_status {
             State::VoidPending => PlaybackStatus::Stopped,

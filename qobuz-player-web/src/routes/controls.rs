@@ -1,6 +1,6 @@
 use axum::{response::IntoResponse, routing::get, Router};
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::tracklist::TrackListType;
+use qobuz_player_controls::tracklist::TracklistType;
 
 use crate::{
     html,
@@ -13,23 +13,22 @@ pub fn routes() -> Router {
 }
 
 #[component]
-pub fn controls(current_tracklist: TrackListType) -> impl IntoView {
+pub fn controls() -> impl IntoView {
     html! {
         <div hx-get="/controls" hx-trigger="sse:tracklist" hx-target="this">
-            <ControlsPartial current_tracklist=current_tracklist />
+            <ControlsPartial />
         </div>
     }
 }
 
 async fn controls() -> impl IntoResponse {
-    let tracklist = qobuz_player_controls::current_tracklist().await;
-
-    render(html! { <ControlsPartial current_tracklist=tracklist.list_type /> })
+    render(html! { <ControlsPartial /> })
 }
 
 #[component]
-fn controls_partial(current_tracklist: TrackListType) -> impl IntoView {
-    let current_status = qobuz_player_controls::current_state();
+fn controls_partial() -> impl IntoView {
+    let current_status = futures::executor::block_on(qobuz_player_controls::current_state());
+    let current_tracklist = futures::executor::block_on(qobuz_player_controls::current_tracklist());
 
     let (playing, show) = match current_status {
         qobuz_player_controls::State::VoidPending => (false, false),
@@ -39,28 +38,28 @@ fn controls_partial(current_tracklist: TrackListType) -> impl IntoView {
         qobuz_player_controls::State::Playing => (true, true),
     };
 
-    let (image, title, entity_link) = match current_tracklist {
-        TrackListType::Album(tracklist) => (
+    let (image, title, entity_link) = match current_tracklist.list_type {
+        TracklistType::Album(tracklist) => (
             image(tracklist.image, false).into_any(),
             Some(tracklist.title),
             Some(format!("/album/{}", tracklist.id)),
         ),
-        TrackListType::Playlist(tracklist) => (
+        TracklistType::Playlist(tracklist) => (
             image(tracklist.image, false).into_any(),
             Some(tracklist.title),
             Some(format!("/playlist/{}", tracklist.id)),
         ),
-        TrackListType::TopTracks(tracklist) => (
+        TracklistType::TopTracks(tracklist) => (
             image(tracklist.image, true).into_any(),
             Some(tracklist.artist_name),
             Some(format!("/artist/{}", tracklist.id)),
         ),
-        TrackListType::Track(tracklist) => (
+        TracklistType::Track(tracklist) => (
             image(tracklist.image, false).into_any(),
             Some(tracklist.track_title),
             tracklist.album_id.map(|id| format!("/album/{}", id)),
         ),
-        TrackListType::None => (image(None, false).into_any(), None, None),
+        TracklistType::None => (image(None, false).into_any(), None, None),
     };
 
     html! {

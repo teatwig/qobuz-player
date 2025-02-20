@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::models::{Album, Track, TrackAlbum};
+use qobuz_player_controls::models::{Album, AlbumSimple, Track};
 use tokio::join;
 
 use crate::{
@@ -54,10 +54,9 @@ async fn play(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn index(Path(id): Path<String>) -> impl IntoResponse {
-    let (album, suggested_albums, tracklist, favorites) = join!(
+    let (album, suggested_albums, favorites) = join!(
         qobuz_player_controls::album(id.clone()),
         qobuz_player_controls::suggested_albums(id.clone()),
-        qobuz_player_controls::current_tracklist(),
         qobuz_player_controls::favorites()
     );
 
@@ -65,44 +64,23 @@ async fn index(Path(id): Path<String>) -> impl IntoResponse {
     let suggested_albums = suggested_albums.unwrap();
     let favorites = favorites.unwrap();
 
-    let now_playing_id = tracklist.currently_playing();
     let is_favorite = favorites.albums.iter().any(|album| album.id == id);
 
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-
     render(html! {
-        <Page active_page=Page::None current_tracklist=current_tracklist.list_type>
-            <Album
-                album=album
-                suggested_albums=suggested_albums
-                is_favorite=is_favorite
-                now_playing_id=now_playing_id
-            />
+        <Page active_page=Page::None>
+            <Album album=album suggested_albums=suggested_albums is_favorite=is_favorite />
         </Page>
     })
 }
 
 async fn album_tracks_partial(Path(id): Path<String>) -> impl IntoResponse {
-    let (album, tracklist) = join!(
-        qobuz_player_controls::album(id),
-        qobuz_player_controls::current_tracklist(),
-    );
+    let album = qobuz_player_controls::album(id).await.unwrap();
 
-    let album = album.unwrap();
-
-    let now_playing_id = tracklist.currently_playing();
-
-    render(
-        html! { <AlbumTracks now_playing_id=now_playing_id tracks=album.tracks album_id=album.id /> },
-    )
+    render(html! { <AlbumTracks tracks=album.tracks album_id=album.id /> })
 }
 
 #[component]
-fn album_tracks(
-    tracks: Vec<Track>,
-    now_playing_id: Option<u32>,
-    album_id: String,
-) -> impl IntoView {
+fn album_tracks(tracks: Vec<Track>, album_id: String) -> impl IntoView {
     let album_id_clone = album_id.clone();
 
     html! {
@@ -114,7 +92,6 @@ fn album_tracks(
         >
             <ListTracks
                 track_number_display=TrackNumberDisplay::Number
-                now_playing_id=now_playing_id
                 tracks=tracks
                 show_artist=false
                 dim_played=false
@@ -125,12 +102,7 @@ fn album_tracks(
 }
 
 #[component]
-fn album(
-    album: Album,
-    suggested_albums: Vec<TrackAlbum>,
-    is_favorite: bool,
-    now_playing_id: Option<u32>,
-) -> impl IntoView {
+fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) -> impl IntoView {
     let duration = parse_duration(album.duration_seconds);
 
     html! {
@@ -177,11 +149,7 @@ fn album(
                 </div>
             </div>
             <div class="flex flex-col gap-4 w-full">
-                <AlbumTracks
-                    now_playing_id=now_playing_id
-                    tracks=album.tracks
-                    album_id=album.id.clone()
-                />
+                <AlbumTracks tracks=album.tracks album_id=album.id.clone() />
 
                 {if !suggested_albums.is_empty() {
                     Some(

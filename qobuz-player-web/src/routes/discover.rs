@@ -1,6 +1,6 @@
 use axum::{response::IntoResponse, routing::get, Router};
 use leptos::prelude::*;
-use qobuz_player_controls::models::{Playlist, TrackAlbum};
+use qobuz_player_controls::models::{AlbumSimple, Playlist};
 use tokio::try_join;
 
 use crate::{
@@ -34,10 +34,8 @@ async fn index() -> impl IntoResponse {
     )
     .unwrap();
 
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-
     render(html! {
-        <Page active_page=Page::Discover current_tracklist=current_tracklist.list_type>
+        <Page active_page=Page::Discover>
             <div class="flex flex-col gap-8 p-4">
                 <div class="flex sticky top-0 flex-col flex-grow gap-4 p-4 max-h-full bg-black/80 backdrop-blur">
                     <h1 class="text-2xl">Discover</h1>
@@ -53,7 +51,7 @@ async fn index() -> impl IntoResponse {
 }
 
 #[component]
-fn album_feature(albums: Vec<TrackAlbum>, name: String) -> impl IntoView {
+fn album_feature(albums: Vec<AlbumSimple>, name: String) -> impl IntoView {
     html! {
         <div class="flex flex-col gap-2">
             <h3 class="text-lg">{name}</h3>

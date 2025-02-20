@@ -97,11 +97,7 @@ fn Navigation(active_page: Page) -> impl IntoView {
 }
 
 #[component]
-pub fn page(
-    children: Children,
-    active_page: Page,
-    current_tracklist: qobuz_player_controls::tracklist::TrackListType,
-) -> impl IntoView {
+pub fn page(children: Children, active_page: Page) -> impl IntoView {
     let style_url = "/assets/styles.css?version=15";
 
     html! {
@@ -144,7 +140,7 @@ pub fn page(
                     {children()}
                     {(active_page != Page::NowPlaying)
                         .then(|| {
-                            html! { <Controls current_tracklist=current_tracklist /> }
+                            html! { <Controls /> }
                         })} <Navigation active_page=active_page />
                 </div>
             </body>

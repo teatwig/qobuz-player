@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use leptos::prelude::*;
-use qobuz_player_controls::models::{self, Artist, ArtistPage, TrackAlbum};
+use qobuz_player_controls::models::{self, AlbumSimple, Artist, ArtistPage};
 use tokio::join;
 
 use crate::{
@@ -84,10 +84,8 @@ async fn index(Path(id): Path<u32>) -> impl IntoResponse {
 
     let is_favorite = favorites.artists.iter().any(|artist| artist.id == id);
 
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-
     render(html! {
-        <Page active_page=Page::None current_tracklist=current_tracklist.list_type>
+        <Page active_page=Page::None>
             <Artist
                 artist=artist
                 albums=albums
@@ -102,7 +100,7 @@ async fn index(Path(id): Path<u32>) -> impl IntoResponse {
 #[component]
 fn artist(
     artist: ArtistPage,
-    albums: Vec<TrackAlbum>,
+    albums: Vec<AlbumSimple>,
     similar_artists: Vec<Artist>,
     is_favorite: bool,
     now_playing_id: Option<u32>,

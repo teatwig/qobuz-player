@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::tracklist::{TrackListType, Tracklist};
+use qobuz_player_controls::tracklist::{Tracklist, TracklistType};
 
 use crate::{
     components::list::{List, ListTracks, TrackNumberDisplay},
@@ -31,7 +31,7 @@ async fn index() -> impl IntoResponse {
     let current_tracklist = qobuz_player_controls::current_tracklist().await;
 
     render(html! {
-        <Page active_page=Page::Queue current_tracklist=current_tracklist.list_type.clone()>
+        <Page active_page=Page::Queue>
             <Queue current_tracklist=current_tracklist />
         </Page>
     })
@@ -40,26 +40,26 @@ async fn index() -> impl IntoResponse {
 #[component]
 fn queue(current_tracklist: Tracklist) -> impl IntoView {
     let (entity_title, entity_link) = match current_tracklist.list_type() {
-        TrackListType::Album(tracklist) => (
+        TracklistType::Album(tracklist) => (
             tracklist.title.clone(),
             Some(format!("/album/{}", tracklist.id)),
         ),
-        TrackListType::Playlist(tracklist) => (
+        TracklistType::Playlist(tracklist) => (
             tracklist.title.clone(),
             Some(format!("/playlist/{}", tracklist.id)),
         ),
-        TrackListType::TopTracks(tracklist) => (
+        TracklistType::TopTracks(tracklist) => (
             tracklist.artist_name.clone(),
             Some(format!("/artist/{}", tracklist.id)),
         ),
-        TrackListType::Track(tracklist) => (
+        TracklistType::Track(tracklist) => (
             tracklist.track_title.clone(),
             tracklist
                 .album_id
                 .as_ref()
                 .map(|id| format!("/album/{}", id)),
         ),
-        TrackListType::None => ("Empty queue".to_string(), None),
+        TracklistType::None => ("Empty queue".to_string(), None),
     };
 
     html! {
@@ -87,14 +87,12 @@ async fn queue_partial() -> impl IntoResponse {
 
 #[component]
 fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
-    let now_playing_id = current_tracklist.currently_playing();
     let tracks = current_tracklist.queue;
 
     html! {
         <List>
             <ListTracks
                 track_number_display=TrackNumberDisplay::Cover
-                now_playing_id=now_playing_id
                 tracks=tracks
                 show_artist=true
                 dim_played=true

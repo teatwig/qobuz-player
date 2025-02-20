@@ -30,7 +30,7 @@ pub struct SingleTracklist {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub enum TrackListType {
+pub enum TracklistType {
     Album(AlbumTracklist),
     Playlist(PlaylistTracklist),
     TopTracks(TopTracklist),
@@ -42,7 +42,7 @@ pub enum TrackListType {
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct Tracklist {
     pub queue: Vec<Track>,
-    pub list_type: TrackListType,
+    pub list_type: TracklistType,
 }
 
 impl Tracklist {
@@ -73,7 +73,7 @@ impl Tracklist {
     }
 
     #[instrument(skip(self))]
-    pub fn list_type(&self) -> &TrackListType {
+    pub fn list_type(&self) -> &TracklistType {
         &self.list_type
     }
 

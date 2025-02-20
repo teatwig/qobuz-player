@@ -42,7 +42,7 @@ pub fn parse_search_results(search_results: SearchAllResults, user_id: i64) -> S
     }
 }
 
-impl From<Release> for TrackAlbum {
+impl From<Release> for AlbumSimple {
     fn from(release: Release) -> Self {
         Self {
             id: release.id,
@@ -60,7 +60,7 @@ impl From<Release> for TrackAlbum {
     }
 }
 
-impl From<Album> for TrackAlbum {
+impl From<Album> for AlbumSimple {
     fn from(value: Album) -> Self {
         Self {
             id: value.id,
@@ -326,7 +326,7 @@ pub struct Album {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TrackAlbum {
+pub struct AlbumSimple {
     pub id: String,
     pub title: String,
     pub artist: Artist,

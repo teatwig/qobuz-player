@@ -1,5 +1,5 @@
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::models::{Album, Artist, Playlist, Track, TrackAlbum};
+use qobuz_player_controls::models::{Album, AlbumSimple, Artist, Playlist, Track};
 
 use crate::{
     components::Info,
@@ -18,7 +18,7 @@ pub fn list_item(children: Children) -> impl IntoView {
 }
 
 #[component]
-pub fn list_albums_vertical(albums: Vec<TrackAlbum>) -> impl IntoView {
+pub fn list_albums_vertical(albums: Vec<AlbumSimple>) -> impl IntoView {
     html! {
         <div class="flex overflow-scroll gap-4 p-2 w-full">
             {albums
@@ -249,12 +249,14 @@ pub enum TrackNumberDisplay {
 #[component]
 pub fn list_tracks(
     tracks: Vec<Track>,
-    now_playing_id: Option<u32>,
     track_number_display: TrackNumberDisplay,
     show_artist: bool,
     dim_played: bool,
     #[prop(into)] api_call: Callback<(usize,), String>,
 ) -> impl IntoView {
+    let current_tracklist = futures::executor::block_on(qobuz_player_controls::current_tracklist());
+    let now_playing_id = current_tracklist.currently_playing();
+
     html! {
         <List>
             {tracks

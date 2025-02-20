@@ -18,10 +18,9 @@ pub fn routes() -> Router {
 
 async fn index(Path(tab): Path<Tab>) -> impl IntoResponse {
     let favorites = qobuz_player_controls::favorites().await.unwrap();
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
 
     render(html! {
-        <Page active_page=Page::Favorites current_tracklist=current_tracklist.list_type>
+        <Page active_page=Page::Favorites>
             <Favorites favorites=favorites tab=tab />
         </Page>
     })
