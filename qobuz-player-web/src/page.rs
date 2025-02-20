@@ -19,7 +19,10 @@ pub enum Page {
 #[component]
 fn Navigation(active_page: Page) -> impl IntoView {
     html! {
-        <nav class="flex justify-evenly w-full p-safe *:flex *:h-[3.25rem] *:w-20 *:flex-col *:items-center *:overflow-visible *:text-nowrap *:px-4 *:py-1 *:text-[10px] *:font-medium *:transition-colors">
+        <div class="p-safe">
+            <div class="h-12"></div>
+        </div>
+        <nav class="flex fixed bottom-0 justify-evenly w-full backdrop-blur bg-black/80 p-safe *:flex *:h-[3.25rem] *:w-20 *:flex-col *:items-center *:overflow-visible *:text-nowrap *:px-4 *:py-1 *:text-[10px] *:font-medium *:transition-colors">
             {html! {
                 <a
                     href="/"
@@ -137,13 +140,13 @@ pub fn page(
                 >
                     <icons::ArrowPath />
                 </div>
-                <div class="overflow-auto h-full">{children()}</div>
-
-                {(active_page != Page::NowPlaying)
-                    .then(|| {
-                        html! { <Controls current_tracklist=current_tracklist /> }
-                    })}
-                <Navigation active_page=active_page />
+                <div class="overflow-auto h-full">
+                    {children()}
+                    {(active_page != Page::NowPlaying)
+                        .then(|| {
+                            html! { <Controls current_tracklist=current_tracklist /> }
+                        })} <Navigation active_page=active_page />
+                </div>
             </body>
         </html>
     }

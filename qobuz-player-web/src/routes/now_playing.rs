@@ -299,7 +299,7 @@ pub fn now_playing(
 
     html! {
         <div
-            class="flex flex-col gap-4 p-4 mx-auto h-full"
+            class="flex flex-col gap-4 p-4 mx-auto h-[calc(100%-4rem)]"
             style="max-width: calc(600px + 2rem)"
             hx-get="/now-playing"
             hx-trigger="sse:tracklist"

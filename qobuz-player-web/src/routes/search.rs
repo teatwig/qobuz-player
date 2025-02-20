@@ -222,8 +222,8 @@ fn tab_bar(query: String, tab: Tab) -> impl IntoView {
 fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
     let query = search_results.query.clone();
     html! {
-        <div class="flex flex-col h-full">
-            <div class="flex flex-col flex-grow gap-4 p-4 max-h-full">
+        <div class="flex flex-col">
+            <div class="flex sticky top-0 flex-col flex-grow gap-4 p-4 max-h-full bg-black/80 backdrop-blur">
                 <div class="flex flex-row gap-4 items-center" id="search-form">
                     <input
                         id="query"

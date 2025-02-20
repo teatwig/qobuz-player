@@ -39,7 +39,9 @@ async fn index() -> impl IntoResponse {
     render(html! {
         <Page active_page=Page::Discover current_tracklist=current_tracklist.list_type>
             <div class="flex flex-col gap-8 p-4">
-                <h1 class="text-2xl">Discover</h1>
+                <div class="flex sticky top-0 flex-col flex-grow gap-4 p-4 max-h-full bg-black/80 backdrop-blur">
+                    <h1 class="text-2xl">Discover</h1>
+                </div>
                 <AlbumFeature albums=press_awards name="Press awards".to_string() />
                 <AlbumFeature albums=new_releases name="New releases".to_string() />
                 <AlbumFeature albums=qobuzissims name="Qobuzissims".to_string() />

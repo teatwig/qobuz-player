@@ -39,27 +39,41 @@ async fn index() -> impl IntoResponse {
 
 #[component]
 fn queue(current_tracklist: Tracklist) -> impl IntoView {
-    let entity_title = match current_tracklist.list_type() {
-        TrackListType::Album(album) => Some(album.title.clone()),
-        TrackListType::Playlist(playlist) => Some(playlist.title.clone()),
-        TrackListType::TopTracks(artist) => Some(artist.artist_name.clone()),
-        TrackListType::Track(track) => Some(track.track_title.clone()),
-        TrackListType::None => None,
+    let (entity_title, entity_link) = match current_tracklist.list_type() {
+        TrackListType::Album(tracklist) => (
+            Some(tracklist.title.clone()),
+            Some(format!("/album/{}", tracklist.id)),
+        ),
+        TrackListType::Playlist(tracklist) => (
+            Some(tracklist.title.clone()),
+            Some(format!("/playlist/{}", tracklist.id)),
+        ),
+        TrackListType::TopTracks(tracklist) => (
+            Some(tracklist.artist_name.clone()),
+            Some(format!("/artist/{}", tracklist.id)),
+        ),
+        TrackListType::Track(tracklist) => (
+            Some(tracklist.track_title.clone()),
+            tracklist
+                .album_id
+                .as_ref()
+                .map(|id| format!("/album/{}", id)),
+        ),
+        TrackListType::None => (None, None),
     };
 
     html! {
-        <div
-            hx-get="/queue/list"
-            hx-trigger="sse:tracklist"
-            hx-target="#queue-list"
-            class="flex flex-col flex-grow gap-4 max-h-full"
-        >
-            <div class="sticky top-0 p-4 text-center bg-black/20 backdrop-blur">
-                <p class="text-lg">{entity_title}</p>
-            </div>
+        <div hx-get="/queue/list" hx-trigger="sse:tracklist" hx-target="#queue-list">
+            <div class="flex flex-col gap-4 p-4">
+                <div class="sticky top-0 p-4 bg-black/20 backdrop-blur">
+                    <a hx-target="unset" href=entity_link class="text-2xl">
+                        {entity_title}
+                    </a>
+                </div>
 
-            <div id="queue-list">
-                <QueueList current_tracklist=current_tracklist />
+                <div id="queue-list">
+                    <QueueList current_tracklist=current_tracklist />
+                </div>
             </div>
         </div>
     }

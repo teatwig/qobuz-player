@@ -277,7 +277,7 @@ pub fn list_tracks(
                                     <div class=format!(
                                         "flex justify-center items-center {}",
                                         if track_number_display == TrackNumberDisplay::Cover {
-                                            "size-12"
+                                            "size-12 aspect-square"
                                         } else {
                                             ""
                                         },
