@@ -119,6 +119,7 @@ static TRACK_ABOUT_TO_FINISH: LazyLock<TrackAboutToFinish> = LazyLock::new(|| {
 });
 
 static SHOULD_QUIT: AtomicBool = AtomicBool::new(false);
+static IS_LIVE: AtomicBool = AtomicBool::new(false);
 static TARGET_STATUS: LazyLock<RwLock<gstreamer::State>> =
     LazyLock::new(|| RwLock::new(gstreamer::State::Null));
 static TRACKLIST: LazyLock<RwLock<Tracklist>> = LazyLock::new(|| RwLock::new(Tracklist::new()));
@@ -211,6 +212,7 @@ async fn set_player_state(state: gstreamer::State) -> Result<()> {
         }
         StateChangeSuccess::NoPreroll => {
             tracing::debug!("*** stream is live ***");
+            IS_LIVE.store(true, Ordering::Relaxed);
         }
     }
 
@@ -1035,9 +1037,19 @@ async fn handle_message(msg: &Message) -> Result<()> {
                 .send(Notification::Position { clock: position })?;
         }
         MessageView::Buffering(buffering) => {
-            let percent = buffering.percent();
+            if IS_LIVE.load(Ordering::Relaxed) {
+                debug!("stream is live, ignore buffering");
 
-            if percent >= 100 && is_paused().await {
+                return Ok(());
+            }
+
+            let percent = buffering.percent();
+            let is_paused = is_paused().await;
+
+            if percent < 100 && !is_paused {
+                tracing::info!("Buffering");
+                set_player_state(gstreamer::State::Paused).await?;
+            } else if percent >= 100 && is_paused {
                 tracing::info!("Done buffering");
                 play().await?;
             }

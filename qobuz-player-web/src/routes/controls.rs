@@ -15,7 +15,13 @@ pub fn routes() -> Router {
 #[component]
 pub fn controls() -> impl IntoView {
     html! {
-        <div hx-get="/controls" hx-trigger="sse:tracklist" hx-target="this">
+        <div
+            hx-get="/controls"
+            hx-trigger="sse:tracklist"
+            hx-target="this"
+            hx-preserve
+            id="controls"
+        >
             <ControlsPartial />
         </div>
     }
