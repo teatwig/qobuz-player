@@ -6,7 +6,7 @@
       {
         "name": "max_audio_quality",
         "ordinal": 0,
-        "type_info": "Int64"
+        "type_info": "Integer"
       }
     ],
     "parameters": {
