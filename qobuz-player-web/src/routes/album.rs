@@ -108,13 +108,11 @@ fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) ->
     html! {
         <div class="flex flex-col justify-center items-center sm:p-4">
             <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full *:max-w-sm">
-                <div>
-                    <img
-                        src=album.image
-                        alt=album.title.clone()
-                        class="object-contain rounded-lg size-full aspect-square"
-                    />
-                </div>
+                <img
+                    src=album.image
+                    alt=album.title.clone()
+                    class="object-contain rounded-lg size-full aspect-square"
+                />
 
                 <div class="flex flex-col flex-grow gap-4 items-center w-full">
                     <div class="flex flex-col gap-2 justify-center items-center w-full text-center">

@@ -73,8 +73,8 @@ fn controls_partial() -> impl IntoView {
             .then(|| {
                 html! {
                     <div class="h-16"></div>
-                    <div class="fixed bottom-14 px-4 w-full p-safe">
-                        <div class="flex gap-2 justify-between items-center py-2 px-4 rounded-md bg-gray-900/70 backdrop-blur">
+                    <div class="fixed right-0 left-0 bottom-14 px-safe-offset-2 py-safe">
+                        <div class="flex gap-2 justify-between items-center p-2 rounded-md bg-gray-900/70 backdrop-blur">
                             <a
                                 class="flex overflow-hidden gap-2 items-center w-full"
                                 hx-target="unset"

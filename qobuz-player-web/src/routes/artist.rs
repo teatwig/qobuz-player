@@ -110,7 +110,7 @@ fn artist(
         .map(|image| format!("background-image: url({});", image));
 
     html! {
-        <div class="flex flex-col h-full">
+        <div class="flex flex-col">
             <div class="flex flex-col gap-4 items-center p-4">
                 <div
                     class="bg-gray-800 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-32"

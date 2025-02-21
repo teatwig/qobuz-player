@@ -2,9 +2,7 @@ use crate::models::{Artist, Favorites, Playlist, SearchResults, Track, TrackStat
 use cached::{proc_macro::cached, Cached};
 use error::Error;
 use futures::prelude::*;
-use gstreamer::{
-    prelude::*, Element, Message, MessageView, SeekFlags, StateChangeSuccess, Structure,
-};
+use gstreamer::{prelude::*, Element, Message, MessageView, SeekFlags, Structure};
 use models::{image_to_string, parse_playlist, Album, AlbumSimple, ArtistPage};
 use notification::Notification;
 use qobuz_player_client::client::Client;
@@ -200,20 +198,7 @@ async fn set_target_state(state: gstreamer::State) {
 #[instrument]
 /// Sets the player to a specific state.
 async fn set_player_state(state: gstreamer::State) -> Result<()> {
-    let ret = PLAYBIN.set_state(state)?;
-
-    match ret {
-        StateChangeSuccess::Success => {
-            tracing::debug!("*** successful state change ***");
-        }
-        StateChangeSuccess::Async => {
-            tracing::debug!("*** async state change ***");
-        }
-        StateChangeSuccess::NoPreroll => {
-            tracing::debug!("*** stream is live ***");
-        }
-    }
-
+    PLAYBIN.set_state(state)?;
     Ok(())
 }
 

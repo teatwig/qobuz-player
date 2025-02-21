@@ -299,15 +299,13 @@ pub fn now_playing(
 
     html! {
         <div
-            class="flex flex-col gap-4 p-4 mx-auto h-[calc(100%-4rem)]"
-            style="max-width: calc(600px + 2rem)"
+            class="flex flex-col gap-4 p-4 mx-auto"
+            style="max-width: calc(600px + 2rem); height: calc(100% - 4rem - env(safe-area-inset-bottom))"
             hx-get="/now-playing"
             hx-trigger="sse:tracklist"
             hx-swap="outerHTML"
         >
-
-            <div class="flex overflow-hidden justify-center w-full h-full aspect-square max-h-max">
-
+            <div class="flex overflow-hidden justify-center size-full aspect-square max-h-fit">
                 {if let Some(cover_image_url) = cover_image {
                     html! { <img src=cover_image_url alt=title.clone() class="rounded-lg" /> }
                         .into_any()
