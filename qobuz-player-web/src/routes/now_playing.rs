@@ -306,7 +306,7 @@ pub fn now_playing(
             hx-swap="outerHTML"
         >
 
-            <div class="flex overflow-hidden justify-center w-full aspect-square">
+            <div class="flex overflow-hidden justify-center w-full h-full aspect-square max-h-max">
 
                 {if let Some(cover_image_url) = cover_image {
                     html! { <img src=cover_image_url alt=title.clone() class="rounded-lg" /> }

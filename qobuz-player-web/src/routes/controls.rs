@@ -75,11 +75,14 @@ fn controls_partial() -> impl IntoView {
                     <div class="h-16"></div>
                     <div class="fixed bottom-14 px-4 w-full p-safe">
                         <div class="flex gap-2 justify-between items-center py-2 px-4 rounded-md bg-gray-900/70 backdrop-blur">
-                            <div class="flex overflow-hidden gap-2 items-center w-full">
-                                {image} <a hx-target="unset" class="truncate" href=entity_link>
-                                    {title}
-                                </a>
-                            </div>
+                            <a
+                                class="flex overflow-hidden gap-2 items-center w-full"
+                                hx-target="unset"
+                                href=entity_link
+                            >
+                                {image}
+                                <span class="truncate">{title}</span>
+                            </a>
                             <div class="flex gap-4 items-center">
                                 <span class="hidden w-8 sm:flex">
                                     <Previous />
