@@ -10,6 +10,7 @@ use tokio::join;
 
 use crate::{
     components::{
+        button_class,
         list::{ListAlbumsVertical, ListTracks, TrackNumberDisplay},
         parse_duration, ToggleFavorite,
     },
@@ -111,7 +112,7 @@ fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) ->
                 <img
                     src=album.image
                     alt=album.title.clone()
-                    class="object-contain rounded-lg size-full aspect-square"
+                    class="object-contain rounded-lg size-full"
                 />
 
                 <div class="flex flex-col flex-grow gap-4 items-center w-full">
@@ -132,7 +133,7 @@ fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) ->
 
                     <div class="grid grid-cols-2 gap-4">
                         <button
-                            class="flex gap-2 justify-center items-center py-2 px-4 bg-blue-500 rounded cursor-pointer"
+                            class=button_class()
                             hx-swap="none"
                             hx-put=format!("{}/play", album.id.clone())
                         >

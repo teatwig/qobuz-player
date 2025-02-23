@@ -10,6 +10,7 @@ use tokio::join;
 
 use crate::{
     components::{
+        button_class,
         list::{ListTracks, TrackNumberDisplay},
         parse_duration, ToggleFavorite,
     },
@@ -120,7 +121,7 @@ fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
                     <img
                         src=playlist.image
                         alt=playlist.title.clone()
-                        class="object-contain rounded-lg size-full aspect-square"
+                        class="object-contain rounded-lg size-full"
                     />
                 </div>
 
@@ -135,11 +136,11 @@ fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
                     {
                         html! {
                             <div class=format!(
-                                "grid {} gap-4",
-                                if playlist.is_owned { "grid-cols-2" } else { "grid-cols-3" },
+                                "grid grid-cols-2 {} gap-4",
+                                if playlist.is_owned { "sm:grid-cols-2" } else { "sm:grid-cols-3" },
                             )>
                                 <button
-                                    class="flex gap-2 justify-center items-center py-2 px-4 bg-blue-500 rounded cursor-pointer"
+                                    class=button_class()
                                     hx-swap="none"
                                     hx-put=format!("{}/play", playlist.id.clone())
                                 >
@@ -150,7 +151,7 @@ fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
                                 </button>
 
                                 <button
-                                    class="flex gap-2 justify-center items-center py-2 px-4 bg-blue-500 rounded cursor-pointer"
+                                    class=button_class()
                                     hx-swap="none"
                                     hx-put=format!("{}/play/shuffle", playlist.id.clone())
                                 >
@@ -163,10 +164,12 @@ fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
                                 {(!playlist.is_owned)
                                     .then_some({
                                         html! {
-                                            <ToggleFavorite
-                                                id=playlist.id.to_string()
-                                                is_favorite=is_favorite
-                                            />
+                                            <div class="col-span-2 sm:col-span-1">
+                                                <ToggleFavorite
+                                                    id=playlist.id.to_string()
+                                                    is_favorite=is_favorite
+                                                />
+                                            </div>
                                         }
                                     })}
 

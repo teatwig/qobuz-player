@@ -52,7 +52,6 @@
             pkgs.cargo-machete
             pkgs.cargo-outdated
             pkgs.sqlx-cli
-            pkgs.helix
           ];
 
           DATABASE_URL = "sqlite:///tmp/data.db";
