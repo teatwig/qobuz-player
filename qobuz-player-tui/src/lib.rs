@@ -433,8 +433,7 @@ fn search() -> LinearLayout {
             let item = item.to_string();
 
             tokio::spawn(async move {
-                let results = qobuz_player_controls::search(item).await;
-
+                let results = qobuz_player_controls::search(item).await.unwrap();
                 SINK.get()
                     .unwrap()
                     .send(Box::new(move |s| {
@@ -732,16 +731,11 @@ async fn receive_notifications() {
 }
 
 trait CursiveFormat {
-    fn list_item(&self) -> StyledString {
-        StyledString::new()
-    }
-    fn track_list_item(&self) -> StyledString {
-        StyledString::new()
-    }
+    fn list_item(&self) -> StyledString;
 }
 
 impl CursiveFormat for Track {
-    fn track_list_item(&self) -> StyledString {
+    fn list_item(&self) -> StyledString {
         StyledString::styled(self.title.trim(), Style::none())
     }
 }
@@ -815,7 +809,7 @@ fn set_now_playing(sink: &mut Cursive, title: Option<String>, total: u32, queue:
                 .filter(|t| t.status == TrackStatus::Unplayed)
                 .enumerate()
                 .for_each(|(i, t)| {
-                    list_view.get_inner_mut().add_item(t.track_list_item(), i);
+                    list_view.get_inner_mut().add_item(t.list_item(), i);
                 });
         }
         if let Some(mut total_tracks) = sink.find_name::<TextView>("total_tracks") {
