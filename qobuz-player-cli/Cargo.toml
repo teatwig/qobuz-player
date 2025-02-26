@@ -6,12 +6,16 @@ edition.workspace = true
 license-file.workspace = true
 repository.workspace = true
 
+[features]
+gpio = []
+
 [dependencies]
 qobuz-player-client = { version = "*", path = "../qobuz-player-client" }
-qobuz-player-controls= { version = "*", path = "../qobuz-player-controls" }
+qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 qobuz-player-mpris = { version = "*", path = "../qobuz-player-mpris" }
 qobuz-player-web = { version = "*", path = "../qobuz-player-web" }
 qobuz-player-tui = { version = "*", path = "../qobuz-player-tui" }
+qobuz-player-gpio = { version = "*", path = "../qobuz-player-gpio" }
 
 clap = { workspace = true, features = ["derive", "env"] }
 dialoguer = { workspace = true, features = ["fuzzy-select"] }

@@ -2827,6 +2827,7 @@ dependencies = [
  "md5",
  "qobuz-player-client",
  "qobuz-player-controls",
+ "qobuz-player-gpio",
  "qobuz-player-mpris",
  "qobuz-player-tui",
  "qobuz-player-web",
@@ -2865,6 +2866,16 @@ dependencies = [
  "qobuz-player-client",
  "rand 0.9.0",
  "snafu",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "qobuz-player-gpio"
+version = "0.2.8"
+dependencies = [
+ "qobuz-player-controls",
+ "rppal",
  "tokio",
  "tracing",
 ]
@@ -3222,6 +3233,15 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rppal"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1ce3b019009cff02cb6b0e96e7cc2e5c5b90187dc1a490f8ef1521d0596b026"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

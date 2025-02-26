@@ -35,6 +35,11 @@ struct Cli {
     /// Start web server with websocket API and embedded UI.
     web: bool,
 
+    #[cfg(feature = "gpio")]
+    #[clap(long, default_value_t = false)]
+    /// Enable gpio interface for raspberry pi. Pin 16 (gpio-23) will be high when playing.
+    gpio: bool,
+
     #[clap(long, default_value = "0.0.0.0:9888")]
     /// Specify a different interface and port for the web server to listen on.
     interface: String,
@@ -134,7 +139,16 @@ pub async fn run() -> Result<(), Error> {
             }
 
             if cli.web {
-                tokio::spawn(async { qobuz_player_web::init(cli.interface).await });
+                tokio::spawn(async {
+                    qobuz_player_web::init(cli.interface).await;
+                });
+            }
+
+            #[cfg(feature = "gpio")]
+            if cli.gpio {
+                tokio::spawn(async {
+                    qobuz_player_gpio::init().await;
+                });
             }
 
             tokio::spawn(async {

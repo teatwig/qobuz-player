@@ -193,6 +193,11 @@ pub async fn stop() -> Result<()> {
 async fn set_target_state(state: gstreamer::State) {
     let mut target_status = TARGET_STATUS.write().await;
     *target_status = state;
+
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Status { status: state })
+        .unwrap();
 }
 
 #[instrument]
@@ -1041,19 +1046,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
                 play().await?;
             }
         }
-        MessageView::StateChanged(state_changed) => {
-            let current_player_state = state_changed.current().to_value().get::<State>().unwrap();
-
-            let target_status = TARGET_STATUS.read().await;
-
-            if *target_status == current_player_state {
-                tracing::debug!("player state changed {:?}", current_player_state);
-
-                BROADCAST_CHANNELS.tx.send(Notification::Status {
-                    status: current_player_state,
-                })?;
-            }
-        }
+        MessageView::StateChanged(_) => {}
         MessageView::ClockLost(_) => {
             tracing::warn!("clock lost, restarting playback");
             pause().await?;
