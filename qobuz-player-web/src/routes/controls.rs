@@ -37,7 +37,7 @@ fn controls_partial() -> impl IntoView {
     let current_tracklist = futures::executor::block_on(qobuz_player_controls::current_tracklist());
 
     let (playing, show) = match current_status {
-        tracklist::Status::Stopped => (false, true),
+        tracklist::Status::Stopped => (false, false),
         tracklist::Status::Paused => (false, true),
         tracklist::Status::Playing => (true, true),
     };

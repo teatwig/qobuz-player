@@ -65,6 +65,7 @@ static PLAYBIN: LazyLock<Element> = LazyLock::new(|| {
             } else {
                 USER_AGENTS[1]
             };
+
             element.set_property("user-agent", ua);
             element.set_property("compress", true);
             element.set_property("retries", 10);
@@ -128,6 +129,10 @@ static USER_AGENTS: &[&str] = &[
 static CLIENT: OnceLock<Client> = OnceLock::new();
 static CLIENT_INITIATED: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
 static CREDENTIALS: OnceLock<Credentials> = OnceLock::new();
+
+const TRACK_URL_LIFE_SPAN: chrono::Duration = chrono::Duration::minutes(20);
+static CURRENT_TRACK_URL_TIME: LazyLock<RwLock<chrono::DateTime<chrono::Utc>>> =
+    LazyLock::new(|| RwLock::new(chrono::Utc::now()));
 
 #[derive(Debug)]
 pub struct Credentials {
@@ -229,9 +234,25 @@ pub async fn play_pause() -> Result<()> {
 #[instrument]
 /// Play the player.
 pub async fn play() -> Result<()> {
+    if chrono::Utc::now() - *CURRENT_TRACK_URL_TIME.read().await > TRACK_URL_LIFE_SPAN {
+        let client = get_client().await;
+        if let Some(track_id) = current_tracklist().await.currently_playing() {
+            ready().await?;
+            let track_url = track_url(client, track_id).await?;
+            query_track_url(&track_url).await?;
+        }
+    }
+
     set_target_state(tracklist::Status::Playing).await;
     set_player_state(gstreamer::State::Playing).await?;
     Ok(())
+}
+
+#[instrument]
+async fn track_url(client: &Client, track_id: u32) -> Result<String, qobuz_player_client::Error> {
+    let mut time = CURRENT_TRACK_URL_TIME.write().await;
+    *time = chrono::Utc::now();
+    client.track_url(track_id).await
 }
 
 #[instrument]
@@ -384,14 +405,14 @@ pub async fn skip_to_position(new_position: u32, force: bool) -> Result<()> {
     let client = get_client().await;
 
     if let Some(next_track) = skip_to_track(&mut tracklist, new_position) {
-        let next_track_url = client.track_url(next_track.id).await?;
+        let next_track_url = track_url(client, next_track.id).await?;
         query_track_url(&next_track_url).await?;
     } else if let Some(first_track) = tracklist.queue.first_mut() {
         first_track.status = TrackStatus::Playing;
-        let first_track_url = client.track_url(first_track.id).await?;
+        let first_track_url = track_url(client, first_track.id).await?;
 
         PLAYBIN.set_property("uri", first_track_url);
-    };
+    }
 
     broadcast_track_list(&tracklist).await?;
 
@@ -465,7 +486,7 @@ pub async fn play_track(track_id: u32) -> Result<()> {
     ready().await?;
 
     let client = get_client().await;
-    let track_url = client.track_url(track_id).await?;
+    let track_url = track_url(client, track_id).await?;
     query_track_url(&track_url).await?;
 
     let mut tracklist = TRACKLIST.write().await;
@@ -507,7 +528,7 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
     tracklist.queue = album.tracks.into_iter().filter(|t| t.available).collect();
 
     if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
-        let track_url = client.track_url(track.id).await?;
+        let track_url = track_url(client, track.id).await?;
         query_track_url(&track_url).await?;
 
         tracklist.list_type = TracklistType::Album(tracklist::AlbumTracklist {
@@ -517,7 +538,7 @@ pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
         });
 
         broadcast_track_list(&tracklist).await?;
-    };
+    }
 
     Ok(())
 }
@@ -561,7 +582,7 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
     tracklist.queue = tracks.into_iter().filter(|t| t.available).collect();
 
     if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
-        let track_url = client.track_url(track.id).await?;
+        let track_url = track_url(client, track.id).await?;
         query_track_url(&track_url).await?;
 
         tracklist.list_type = TracklistType::TopTracks(tracklist::TopTracklist {
@@ -571,7 +592,7 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
         });
 
         broadcast_track_list(&tracklist).await?;
-    };
+    }
 
     Ok(())
 }
@@ -608,7 +629,7 @@ pub async fn play_playlist(playlist_id: i64, index: u32, shuffle: bool) -> Resul
     tracklist.queue = tracks;
 
     if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
-        let track_url = client.track_url(track.id).await?;
+        let track_url = track_url(client, track.id).await?;
         query_track_url(&track_url).await?;
 
         tracklist.list_type = TracklistType::Playlist(tracklist::PlaylistTracklist {
@@ -618,7 +639,7 @@ pub async fn play_playlist(playlist_id: i64, index: u32, shuffle: bool) -> Resul
         });
 
         broadcast_track_list(&tracklist).await?;
-    };
+    }
 
     Ok(())
 }
@@ -626,11 +647,11 @@ pub async fn play_playlist(playlist_id: i64, index: u32, shuffle: bool) -> Resul
 #[instrument]
 /// In response to the about-to-finish signal,
 /// prepare the next track by downloading the stream url.
-async fn prep_next_track() -> Result<()> {
+async fn prep_next_track() {
     tracing::info!("Prepping for next track");
 
     let client = get_client().await;
-    let mut tracklist = TRACKLIST.write().await;
+    let tracklist = TRACKLIST.read().await;
 
     let total_tracks = tracklist.total();
     let current_position = tracklist.current_position();
@@ -647,18 +668,16 @@ async fn prep_next_track() -> Result<()> {
 
     let next_track = tracklist
         .queue
-        .iter_mut()
+        .iter()
         .enumerate()
         .find(|t| t.0 as u32 == current_position + 1)
         .map(|t| t.1);
 
     if let Some(next_track) = next_track {
-        if let Ok(url) = client.track_url(next_track.id).await {
+        if let Ok(url) = track_url(client, next_track.id).await {
             PLAYBIN.set_property("uri", url);
-        };
-    };
-
-    Ok(())
+        }
+    }
 }
 
 #[instrument]
@@ -972,14 +991,14 @@ pub async fn player_loop(credentials: Credentials, configuration: Configuration)
         select! {
              Ok(almost_done) = about_to_finish.recv()=> {
                 if almost_done {
-                     prep_next_track().await.unwrap();
+                     prep_next_track().await;
                 }
             }
             Some(msg) = messages.next() => {
                     match handle_message(&msg).await {
                         Ok(_) => {},
                         Err(error) => tracing:: debug!(?error),
-                    };
+                    }
             }
         }
     }
@@ -994,14 +1013,14 @@ async fn handle_message(msg: &Message) -> Result<()> {
 
             if let Some(last_track) = tracklist.queue.last_mut() {
                 last_track.status = TrackStatus::Played;
-            };
+            }
 
             if let Some(first_track) = tracklist.queue.first_mut() {
                 first_track.status = TrackStatus::Playing;
                 let client = get_client().await;
                 let track_url = client.track_url(first_track.id).await?;
                 PLAYBIN.set_property("uri", track_url);
-            };
+            }
 
             ready().await?;
             set_target_state(tracklist::Status::Paused).await;
