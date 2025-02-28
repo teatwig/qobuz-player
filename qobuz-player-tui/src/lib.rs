@@ -17,8 +17,8 @@ use futures::executor::block_on;
 use qobuz_player_controls::{
     models::{Album, AlbumSimple, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
     notification::Notification,
-    tracklist::TracklistType,
-    ClockTime, State,
+    tracklist::{self, TracklistType},
+    ClockTime,
 };
 use tracing::debug;
 
@@ -604,15 +604,11 @@ fn set_current_track(s: &mut Cursive, track: &Track, lt: &TracklistType, current
     }
 }
 
-fn get_state_icon(state: State) -> String {
+fn get_state_icon(state: tracklist::Status) -> String {
     match state {
-        State::Playing => {
-            format!(" {}", '\u{23f5}')
-        }
-        State::Paused => {
-            format!(" {}", '\u{23f8}')
-        }
-        _ => format!(" {}", '\u{23f9}'),
+        tracklist::Status::Playing => format!(" {}", '\u{23f5}'),
+        tracklist::Status::Paused => format!(" {}", '\u{23f8}'),
+        tracklist::Status::Stopped => format!(" {}", '\u{23f9}'),
     }
 }
 
@@ -633,18 +629,10 @@ async fn receive_notifications() {
                         .send(Box::new(move |s| {
                             if let Some(mut view) = s.find_name::<TextView>("player_status") {
                                 view.set_content(get_state_icon(status));
-                                match status {
-                                    State::Ready => {
-                                        s.call_on_name("progress", |progress: &mut ProgressBar| {
-                                            progress.set_value(0);
-                                        });
-                                    }
-                                    State::Null => {
-                                        s.call_on_name("progress", |progress: &mut ProgressBar| {
-                                            progress.set_value(0);
-                                        });
-                                    }
-                                    _ => {}
+                                if status == tracklist::Status::Stopped {
+                                    s.call_on_name("progress", |progress: &mut ProgressBar| {
+                                        progress.set_value(0);
+                                    });
                                 }
                             }
                         }))

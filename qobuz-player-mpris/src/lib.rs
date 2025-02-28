@@ -3,7 +3,7 @@ use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property, RootInterface,
     Server, Time, TrackId, Volume,
 };
-use qobuz_player_controls::{models::Track, notification::Notification, ClockTime, State};
+use qobuz_player_controls::{models::Track, notification::Notification, tracklist, ClockTime};
 
 struct MprisPlayer;
 
@@ -113,11 +113,9 @@ impl PlayerInterface for MprisPlayer {
         let current_status = qobuz_player_controls::current_state().await;
 
         let status = match current_status {
-            State::VoidPending => PlaybackStatus::Stopped,
-            State::Null => PlaybackStatus::Stopped,
-            State::Ready => PlaybackStatus::Stopped,
-            State::Paused => PlaybackStatus::Paused,
-            State::Playing => PlaybackStatus::Playing,
+            tracklist::Status::Stopped => PlaybackStatus::Stopped,
+            tracklist::Status::Paused => PlaybackStatus::Paused,
+            tracklist::Status::Playing => PlaybackStatus::Playing,
         };
 
         Ok(status)
@@ -222,11 +220,9 @@ pub async fn init() {
                 Notification::Quit => return,
                 Notification::Status { status } => {
                     let (can_play, can_pause) = match status {
-                        State::VoidPending => (false, false),
-                        State::Null => (false, false),
-                        State::Ready => (false, false),
-                        State::Paused => (true, true),
-                        State::Playing => (true, true),
+                        tracklist::Status::Stopped => (false, false),
+                        tracklist::Status::Paused => (true, true),
+                        tracklist::Status::Playing => (true, true),
                     };
 
                     server

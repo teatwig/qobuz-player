@@ -21,23 +21,15 @@ async fn receive_notifications() {
                     return;
                 }
                 Notification::Status { status } => match status {
-                    qobuz_player_controls::State::VoidPending => {
+                    qobuz_player_controls::tracklist::Status::Stopped => {
                         pin.set_low();
                         tracing::info!("Gpio low");
                     }
-                    qobuz_player_controls::State::Null => {
+                    qobuz_player_controls::tracklist::Status::Paused => {
                         pin.set_low();
                         tracing::info!("Gpio low");
                     }
-                    qobuz_player_controls::State::Ready => {
-                        pin.set_low();
-                        tracing::info!("Gpio low");
-                    }
-                    qobuz_player_controls::State::Paused => {
-                        pin.set_low();
-                        tracing::info!("Gpio low");
-                    }
-                    qobuz_player_controls::State::Playing => {
+                    qobuz_player_controls::tracklist::Status::Playing => {
                         pin.set_high();
                         tracing::info!("Gpio high");
                     }

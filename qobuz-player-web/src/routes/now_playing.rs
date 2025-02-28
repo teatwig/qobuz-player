@@ -6,7 +6,7 @@ use axum::{
 use leptos::{component, prelude::*, IntoView};
 use qobuz_player_controls::{
     models,
-    tracklist::{Tracklist, TracklistType},
+    tracklist::{self, Tracklist, TracklistType},
 };
 
 use crate::{
@@ -84,7 +84,7 @@ async fn set_volume(axum::Form(parameters): axum::Form<VolumeParameters>) -> imp
 async fn status_partial() -> impl IntoResponse {
     let current_status = futures::executor::block_on(qobuz_player_controls::current_state());
 
-    if current_status == qobuz_player_controls::State::Playing {
+    if current_status == tracklist::Status::Playing {
         render(html! { <PlayPause play=true /> })
     } else {
         render(html! { <PlayPause play=false /> })
@@ -242,7 +242,7 @@ pub fn now_playing(
     current_tracklist: Tracklist,
     current_track: Option<models::Track>,
     position_mseconds: Option<u64>,
-    current_status: qobuz_player_controls::State,
+    current_status: tracklist::Status,
     current_volume: u32,
 ) -> impl IntoView {
     let cover_image = current_track.as_ref().and_then(|track| track.image.clone());
@@ -276,11 +276,9 @@ pub fn now_playing(
     };
 
     let playing = match current_status {
-        qobuz_player_controls::State::VoidPending => false,
-        qobuz_player_controls::State::Null => false,
-        qobuz_player_controls::State::Ready => false,
-        qobuz_player_controls::State::Paused => false,
-        qobuz_player_controls::State::Playing => true,
+        tracklist::Status::Stopped => false,
+        tracklist::Status::Paused => false,
+        tracklist::Status::Playing => true,
     };
 
     let (title, artist_link, duration_seconds, explicit, hires_available) = current_track

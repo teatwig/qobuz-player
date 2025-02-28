@@ -45,13 +45,19 @@ pub struct Tracklist {
     pub list_type: TracklistType,
 }
 
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
+pub enum Status {
+    Playing,
+    Paused,
+    #[default]
+    Stopped,
+}
+
 impl Tracklist {
     pub fn new() -> Self {
-        Self {
-            queue: Default::default(),
-            list_type: Default::default(),
-        }
+        Default::default()
     }
+
     pub fn total(&self) -> u32 {
         self.queue.len() as u32
     }

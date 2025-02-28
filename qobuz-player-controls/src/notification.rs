@@ -1,10 +1,13 @@
-use gstreamer::{ClockTime, State};
+use gstreamer::ClockTime;
 
-use crate::{error, tracklist::Tracklist};
+use crate::{
+    error,
+    tracklist::{self, Tracklist},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Notification {
-    Status { status: State },
+    Status { status: tracklist::Status },
     Position { clock: ClockTime },
     CurrentTrackList { list: Tracklist },
     Quit,

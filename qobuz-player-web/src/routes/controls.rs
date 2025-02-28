@@ -1,6 +1,6 @@
 use axum::{response::IntoResponse, routing::get, Router};
 use leptos::{component, prelude::*, IntoView};
-use qobuz_player_controls::tracklist::TracklistType;
+use qobuz_player_controls::tracklist::{self, TracklistType};
 
 use crate::{
     html,
@@ -37,11 +37,9 @@ fn controls_partial() -> impl IntoView {
     let current_tracklist = futures::executor::block_on(qobuz_player_controls::current_tracklist());
 
     let (playing, show) = match current_status {
-        qobuz_player_controls::State::VoidPending => (false, false),
-        qobuz_player_controls::State::Null => (false, false),
-        qobuz_player_controls::State::Ready => (false, true),
-        qobuz_player_controls::State::Paused => (false, true),
-        qobuz_player_controls::State::Playing => (true, true),
+        tracklist::Status::Stopped => (false, true),
+        tracklist::Status::Paused => (false, true),
+        tracklist::Status::Playing => (true, true),
     };
 
     let (image, title, entity_link) = match current_tracklist.list_type {

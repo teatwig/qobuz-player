@@ -8,7 +8,7 @@ use axum::{
 use futures::stream::Stream;
 use leptos::html::*;
 use leptos::*;
-use qobuz_player_controls::notification::Notification;
+use qobuz_player_controls::{notification::Notification, tracklist};
 use routes::{album, artist, controls, discover, favorites, now_playing, playlist, queue, search};
 use std::{convert::Infallible, sync::Arc};
 use tokio::sync::broadcast::{self, Sender};
@@ -74,11 +74,9 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
             match notification {
                 Notification::Status { status } => {
                     let message_data = match status {
-                        qobuz_player_controls::State::VoidPending => "pause",
-                        qobuz_player_controls::State::Null => "pause",
-                        qobuz_player_controls::State::Ready => "pause",
-                        qobuz_player_controls::State::Paused => "pause",
-                        qobuz_player_controls::State::Playing => "play",
+                        tracklist::Status::Stopped => "pause",
+                        tracklist::Status::Paused => "pause",
+                        tracklist::Status::Playing => "play",
                     };
 
                     let event = ServerSentEvent {

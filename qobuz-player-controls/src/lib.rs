@@ -25,7 +25,7 @@ use tokio::{
 use tracing::instrument;
 use tracklist::{SingleTracklist, Tracklist, TracklistType};
 
-pub use gstreamer::{ClockTime, State};
+pub use gstreamer::ClockTime;
 pub use qobuz_player_client::client::{AlbumFeaturedType, AudioQuality, PlaylistFeaturedType};
 pub mod error;
 pub mod models;
@@ -117,8 +117,8 @@ static TRACK_ABOUT_TO_FINISH: LazyLock<TrackAboutToFinish> = LazyLock::new(|| {
 });
 
 static SHOULD_QUIT: AtomicBool = AtomicBool::new(false);
-static TARGET_STATUS: LazyLock<RwLock<gstreamer::State>> =
-    LazyLock::new(|| RwLock::new(gstreamer::State::Null));
+static TARGET_STATUS: LazyLock<RwLock<tracklist::Status>> =
+    LazyLock::new(|| RwLock::new(Default::default()));
 static TRACKLIST: LazyLock<RwLock<Tracklist>> = LazyLock::new(|| RwLock::new(Tracklist::new()));
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
@@ -190,7 +190,7 @@ pub async fn stop() -> Result<()> {
     set_player_state(gstreamer::State::Null).await
 }
 
-async fn set_target_state(state: gstreamer::State) {
+async fn set_target_state(state: tracklist::Status) {
     let mut target_status = TARGET_STATUS.write().await;
     *target_status = state;
 
@@ -229,7 +229,7 @@ pub async fn play_pause() -> Result<()> {
 #[instrument]
 /// Play the player.
 pub async fn play() -> Result<()> {
-    set_target_state(gstreamer::State::Playing).await;
+    set_target_state(tracklist::Status::Playing).await;
     set_player_state(gstreamer::State::Playing).await?;
     Ok(())
 }
@@ -237,43 +237,43 @@ pub async fn play() -> Result<()> {
 #[instrument]
 async fn query_track_url(track_url: &str) -> Result<()> {
     PLAYBIN.set_property("uri", track_url);
-    set_player_state(State::Playing).await?;
+    set_player_state(gstreamer::State::Playing).await?;
     Ok(())
 }
 
 #[instrument]
 /// Pause the player.
 pub async fn pause() -> Result<()> {
-    set_target_state(State::Paused).await;
-    set_player_state(State::Paused).await?;
+    set_target_state(tracklist::Status::Paused).await;
+    set_player_state(gstreamer::State::Paused).await?;
     Ok(())
 }
 
 #[instrument]
 /// Is the player paused?
 pub async fn is_paused() -> bool {
-    *TARGET_STATUS.read().await != State::Playing
+    *TARGET_STATUS.read().await != tracklist::Status::Playing
 }
 
 #[instrument]
 /// Is the player playing?
 pub async fn is_playing() -> bool {
-    *TARGET_STATUS.read().await == State::Playing
+    *TARGET_STATUS.read().await == tracklist::Status::Playing
 }
 
 async fn is_player_playing() -> bool {
-    PLAYBIN.current_state() == State::Playing
+    PLAYBIN.current_state() == gstreamer::State::Playing
 }
 
 #[instrument]
 /// Is the player ready?
 fn is_player_ready() -> bool {
-    PLAYBIN.current_state() == State::Ready
+    PLAYBIN.current_state() == gstreamer::State::Ready
 }
 
 #[instrument]
 /// Current player state
-pub async fn current_state() -> State {
+pub async fn current_state() -> tracklist::Status {
     *TARGET_STATUS.read().await
 }
 
@@ -909,7 +909,7 @@ async fn clock_loop() {
 
     loop {
         interval.tick().await;
-        if current_state().await == State::Playing {
+        if current_state().await == tracklist::Status::Playing {
             if let Some(position) = position() {
                 if position.seconds() != last_position.seconds() {
                     last_position = position;
@@ -1004,7 +1004,7 @@ async fn handle_message(msg: &Message) -> Result<()> {
             };
 
             ready().await?;
-            set_target_state(State::Ready).await;
+            set_target_state(tracklist::Status::Paused).await;
             broadcast_track_list(&tracklist).await?;
         }
         MessageView::StreamStart(_) => {
