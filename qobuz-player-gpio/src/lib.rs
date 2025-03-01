@@ -2,7 +2,6 @@ use qobuz_player_controls::notification::Notification;
 use rppal::gpio::Gpio;
 
 pub async fn init() {
-    tracing::info!("Initiating gpio");
     tokio::spawn(async { receive_notifications().await });
 }
 

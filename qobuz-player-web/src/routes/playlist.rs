@@ -31,19 +31,19 @@ pub fn routes() -> Router {
         .route("/playlist/{id}/play/{track_position}", put(play_track))
 }
 
-async fn play_track(Path((id, track_position)): Path<(i64, u32)>) -> impl IntoResponse {
+async fn play_track(Path((id, track_position)): Path<(u32, u32)>) -> impl IntoResponse {
     qobuz_player_controls::play_playlist(id, track_position, false)
         .await
         .unwrap();
 }
 
-async fn play(Path(id): Path<i64>) -> impl IntoResponse {
+async fn play(Path(id): Path<u32>) -> impl IntoResponse {
     qobuz_player_controls::play_playlist(id, 0, false)
         .await
         .unwrap();
 }
 
-async fn shuffle(Path(id): Path<i64>) -> impl IntoResponse {
+async fn shuffle(Path(id): Path<u32>) -> impl IntoResponse {
     qobuz_player_controls::play_playlist(id, 0, true)
         .await
         .unwrap();
@@ -63,7 +63,7 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
 
-async fn index(Path(id): Path<i64>) -> impl IntoResponse {
+async fn index(Path(id): Path<u32>) -> impl IntoResponse {
     let (playlist, favorites) = join!(
         qobuz_player_controls::playlist(id),
         qobuz_player_controls::favorites()
@@ -72,10 +72,7 @@ async fn index(Path(id): Path<i64>) -> impl IntoResponse {
     let playlist = playlist.unwrap();
     let favorites = favorites.unwrap();
 
-    let is_favorite = favorites
-        .playlists
-        .iter()
-        .any(|playlist| playlist.id == id as u32);
+    let is_favorite = favorites.playlists.iter().any(|playlist| playlist.id == id);
 
     render(html! {
         <Page active_page=Page::None>
@@ -84,7 +81,7 @@ async fn index(Path(id): Path<i64>) -> impl IntoResponse {
     })
 }
 
-async fn tracks_partial(Path(id): Path<i64>) -> impl IntoResponse {
+async fn tracks_partial(Path(id): Path<u32>) -> impl IntoResponse {
     let playlist = qobuz_player_controls::playlist(id).await.unwrap();
 
     render(html! { <Tracks tracks=playlist.tracks playlist_id=playlist.id /> })

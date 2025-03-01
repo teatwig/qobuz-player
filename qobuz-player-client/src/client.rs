@@ -260,7 +260,7 @@ impl Client {
         get!(self, &endpoint, Some(&params))
     }
 
-    pub async fn playlist(&self, playlist_id: i64) -> Result<Playlist> {
+    pub async fn playlist(&self, playlist_id: u32) -> Result<Playlist> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::Playlist);
         let id_string = playlist_id.to_string();
         let params = vec![
