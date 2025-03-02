@@ -23,8 +23,29 @@ pub fn parse_duration(seconds: u32) -> Duration {
 }
 
 pub fn button_class() -> String {
-    "flex gap-2 justify-center items-center py-2 px-4 w-full bg-blue-500 rounded cursor-pointer active:bg-blue-700"
+    "flex gap-2 justify-center items-center py-2 px-4 w-full bg-blue-500 rounded cursor-pointer active:bg-blue-700 whitespace-nowrap"
         .into()
+}
+
+#[component]
+pub fn button_group(children: ChildrenFragment) -> impl IntoView {
+    let nodes = children()
+        .nodes
+        .into_iter()
+        .filter(|n| n.html_len() > 10)
+        .collect::<Vec<_>>();
+
+    let node_count = nodes.len();
+    let even = node_count % 2 == 0;
+
+    let breakpoint_style = match (even, node_count > 2) {
+        (true, true) => "sm:grid-cols-2",
+        (true, false) => "sm:grid-cols-2",
+        (false, true) => "sm:grid-cols-3 *:last:col-span-2",
+        (false, false) => "sm:grid-cols-2",
+    };
+
+    html! { <div class=format!("grid grid-cols-2 {} gap-4", breakpoint_style)>{nodes}</div> }
 }
 
 #[component]

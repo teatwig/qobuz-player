@@ -12,10 +12,10 @@ use crate::{
     components::{
         button_class,
         list::{ListTracks, TrackNumberDisplay},
-        parse_duration, ToggleFavorite,
+        parse_duration, ButtonGroup, ToggleFavorite,
     },
     html,
-    icons::Play,
+    icons::{Link, Play},
     page::Page,
     view::render,
 };
@@ -29,6 +29,7 @@ pub fn routes() -> Router {
         .route("/playlist/{id}/play", put(play))
         .route("/playlist/{id}/play/shuffle", put(shuffle))
         .route("/playlist/{id}/play/{track_position}", put(play_track))
+        .route("/playlist/{id}/link", put(link))
 }
 
 async fn play_track(Path((id, track_position)): Path<(u32, u32)>) -> impl IntoResponse {
@@ -41,6 +42,10 @@ async fn play(Path(id): Path<u32>) -> impl IntoResponse {
     qobuz_player_controls::play_playlist(id, 0, false)
         .await
         .unwrap();
+}
+
+async fn link(Path(id): Path<u32>) -> impl IntoResponse {
+    qobuz_player_rfid::link_playlist(id).await;
 }
 
 async fn shuffle(Path(id): Path<u32>) -> impl IntoResponse {
@@ -110,6 +115,7 @@ fn tracks(tracks: Vec<Track>, playlist_id: u32) -> impl IntoView {
 #[component]
 fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
     let duration = parse_duration(playlist.duration_seconds);
+    let rfid = qobuz_player_rfid::is_initiated();
 
     html! {
         <div class="flex flex-col justify-center items-center sm:p-4">
@@ -132,10 +138,7 @@ fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
 
                     {
                         html! {
-                            <div class=format!(
-                                "grid grid-cols-2 {} gap-4",
-                                if playlist.is_owned { "sm:grid-cols-2" } else { "sm:grid-cols-3" },
-                            )>
+                            <ButtonGroup>
                                 <button
                                     class=button_class()
                                     hx-swap="none"
@@ -161,16 +164,30 @@ fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
                                 {(!playlist.is_owned)
                                     .then_some({
                                         html! {
-                                            <div class="col-span-2 sm:col-span-1">
-                                                <ToggleFavorite
-                                                    id=playlist.id.to_string()
-                                                    is_favorite=is_favorite
-                                                />
-                                            </div>
+                                            <ToggleFavorite
+                                                id=playlist.id.to_string()
+                                                is_favorite=is_favorite
+                                            />
                                         }
                                     })}
 
-                            </div>
+                                {rfid
+                                    .then_some(
+                                        html! {
+                                            <button
+                                                class=button_class()
+                                                hx-swap="none"
+                                                hx-put=format!("{}/link", playlist.id.clone())
+                                            >
+                                                <span class="size-6">
+                                                    <Link />
+                                                </span>
+                                                <span>Link RFID</span>
+                                            </button>
+                                        },
+                                    )}
+
+                            </ButtonGroup>
                         }
                     }
                 </div>

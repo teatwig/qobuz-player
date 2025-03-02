@@ -12,10 +12,10 @@ use crate::{
     components::{
         button_class,
         list::{ListAlbumsVertical, ListTracks, TrackNumberDisplay},
-        parse_duration, ToggleFavorite,
+        parse_duration, ButtonGroup, ToggleFavorite,
     },
     html,
-    icons::Play,
+    icons::{Link, Play},
     page::Page,
     view::render,
 };
@@ -28,6 +28,7 @@ pub fn routes() -> Router {
         .route("/album/{id}/unset-favorite", put(unset_favorite))
         .route("/album/{id}/play", put(play))
         .route("/album/{id}/play/{track_position}", put(play_track))
+        .route("/album/{id}/link", put(link))
 }
 
 async fn play_track(Path((id, track_position)): Path<(String, u32)>) -> impl IntoResponse {
@@ -52,6 +53,10 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
 
 async fn play(Path(id): Path<String>) -> impl IntoResponse {
     qobuz_player_controls::play_album(&id, 0).await.unwrap();
+}
+
+async fn link(Path(id): Path<String>) -> impl IntoResponse {
+    qobuz_player_rfid::link_album(id).await;
 }
 
 async fn index(Path(id): Path<String>) -> impl IntoResponse {
@@ -106,6 +111,10 @@ fn album_tracks(tracks: Vec<Track>, album_id: String) -> impl IntoView {
 fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) -> impl IntoView {
     let duration = parse_duration(album.duration_seconds);
 
+    let album_id_clone_1 = album.id.clone();
+    let album_id_clone_2 = album.id.clone();
+    let rfid = qobuz_player_rfid::is_initiated();
+
     html! {
         <div class="flex flex-col justify-center items-center sm:p-4">
             <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full *:max-w-sm">
@@ -131,11 +140,11 @@ fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) ->
                         </span>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
+                    <ButtonGroup>
                         <button
                             class=button_class()
                             hx-swap="none"
-                            hx-put=format!("{}/play", album.id.clone())
+                            hx-put=format!("{}/play", album_id_clone_1)
                         >
                             <span class="size-6">
                                 <Play />
@@ -144,11 +153,27 @@ fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) ->
                         </button>
 
                         <ToggleFavorite id=album.id.clone() is_favorite=is_favorite />
-                    </div>
+
+                        {rfid
+                            .then_some(
+                                html! {
+                                    <button
+                                        class=button_class()
+                                        hx-swap="none"
+                                        hx-put=format!("{}/link", album_id_clone_1)
+                                    >
+                                        <span class="size-6">
+                                            <Link />
+                                        </span>
+                                        <span>Link RFID</span>
+                                    </button>
+                                },
+                            )}
+                    </ButtonGroup>
                 </div>
             </div>
             <div class="flex flex-col gap-4 w-full">
-                <AlbumTracks tracks=album.tracks album_id=album.id.clone() />
+                <AlbumTracks tracks=album.tracks album_id=album_id_clone_2 />
 
                 {if !suggested_albums.is_empty() {
                     Some(

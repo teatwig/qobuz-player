@@ -26,9 +26,9 @@ struct Cli {
     #[clap(short, long)]
     max_audio_quality: Option<AudioQuality>,
 
-    #[clap(short, long, default_value_t = tracing::Level::ERROR)]
+    #[clap(short, long)]
     /// Log level
-    verbosity: tracing::Level,
+    verbosity: Option<tracing::Level>,
 
     #[clap(short, long, default_value_t = false)]
     /// Start web server with websocket API and embedded UI.
@@ -105,7 +105,6 @@ impl From<qobuz_player_controls::error::Error> for Error {
 }
 
 pub async fn run() -> Result<(), Error> {
-    // PARSE CLI ARGS
     let cli = Cli::parse();
 
     tracing_subscriber::fmt()
@@ -114,16 +113,12 @@ pub async fn run() -> Result<(), Error> {
         .compact()
         .init();
 
-    // INIT DB
     qobuz_player_database::init().await;
 
-    // CLI COMMANDS
     match cli.command {
         Commands::Open {} => {
             let database_credentials = qobuz_player_database::get_credentials().await;
             let database_configuration = qobuz_player_database::get_configuration().await;
-
-            let mut enable_tui = !cli.disable_tui;
 
             let username = cli.username.unwrap_or_else(|| {
                 database_credentials
@@ -161,13 +156,6 @@ pub async fn run() -> Result<(), Error> {
                 });
             }
 
-            if cli.rfid {
-                enable_tui = false;
-                tokio::spawn(async {
-                    qobuz_player_rfid::init().await;
-                });
-            }
-
             tokio::spawn(async {
                 match qobuz_player_controls::player_loop(
                     qobuz_player_controls::Credentials { username, password },
@@ -180,7 +168,9 @@ pub async fn run() -> Result<(), Error> {
                 }
             });
 
-            if enable_tui {
+            if cli.rfid {
+                qobuz_player_rfid::init().await;
+            } else if !cli.disable_tui {
                 qobuz_player_tui::init().await;
 
                 debug!("tui exited, quitting");

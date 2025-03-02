@@ -12,4 +12,4 @@ qobuz-player-database = { version = "*", path = "../qobuz-player-database" }
 tokio = { workspace = true, features = ["full"] }
 sqlx = { workspace = true, features = ["runtime-tokio-rustls", "sqlite", "migrate", "macros"] }
 tracing = { workspace = true }
-dialoguer = { workspace = true }
+cursive = { workspace = true } 

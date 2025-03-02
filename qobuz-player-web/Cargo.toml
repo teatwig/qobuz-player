@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
+qobuz-player-rfid = { version = "*", path = "../qobuz-player-rfid" }
 
 axum = { workspace = true, features = ["ws"] }
 futures = { workspace = true }
