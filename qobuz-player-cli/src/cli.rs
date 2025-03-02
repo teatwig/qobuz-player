@@ -3,8 +3,6 @@ use dialoguer::{Input, Password};
 use qobuz_player_controls::AudioQuality;
 use snafu::prelude::*;
 
-use crate::database;
-
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
@@ -20,6 +18,7 @@ struct Cli {
     /// Disable the TUI interface.
     disable_tui: bool,
 
+    #[cfg(target_os = "linux")]
     #[clap(long, default_value_t = false)]
     /// Disable the mpris interface.
     disable_mpris: bool,
@@ -34,6 +33,10 @@ struct Cli {
     #[clap(short, long, default_value_t = false)]
     /// Start web server with websocket API and embedded UI.
     web: bool,
+
+    #[clap(long, default_value_t = false)]
+    /// Enable rfid interface.
+    rfid: bool,
 
     #[cfg(feature = "gpio")]
     #[clap(long, default_value_t = false)]
@@ -112,26 +115,33 @@ pub async fn run() -> Result<(), Error> {
         .init();
 
     // INIT DB
-    database::init().await;
+    qobuz_player_database::init().await;
 
     // CLI COMMANDS
     match cli.command {
         Commands::Open {} => {
-            let database_credentials = database::get_credentials().await;
-            let database_configuration = database::get_configuration().await;
+            let database_credentials = qobuz_player_database::get_credentials().await;
+            let database_configuration = qobuz_player_database::get_configuration().await;
 
-            let username = cli
-                .username
-                .unwrap_or_else(|| database_credentials.username.unwrap());
+            let mut enable_tui = !cli.disable_tui;
 
-            let password = cli
-                .password
-                .unwrap_or_else(|| database_credentials.password.unwrap());
+            let username = cli.username.unwrap_or_else(|| {
+                database_credentials
+                    .username
+                    .expect("No username. Set with config or arguments")
+            });
+
+            let password = cli.password.unwrap_or_else(|| {
+                database_credentials
+                    .password
+                    .expect("No username. Set with config or arguments")
+            });
 
             let max_audio_quality = cli
                 .max_audio_quality
                 .unwrap_or_else(|| database_configuration.max_audio_quality.try_into().unwrap());
 
+            #[cfg(target_os = "linux")]
             if !cli.disable_mpris {
                 tokio::spawn(async {
                     qobuz_player_mpris::init().await;
@@ -151,6 +161,13 @@ pub async fn run() -> Result<(), Error> {
                 });
             }
 
+            if cli.rfid {
+                enable_tui = false;
+                tokio::spawn(async {
+                    qobuz_player_rfid::init().await;
+                });
+            }
+
             tokio::spawn(async {
                 match qobuz_player_controls::player_loop(
                     qobuz_player_controls::Credentials { username, password },
@@ -163,7 +180,7 @@ pub async fn run() -> Result<(), Error> {
                 }
             });
 
-            if !(cli.disable_tui) {
+            if enable_tui {
                 qobuz_player_tui::init().await;
 
                 debug!("tui exited, quitting");
@@ -185,7 +202,7 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your username / email")
                     .interact_text()
                 {
-                    database::set_username(username).await;
+                    qobuz_player_database::set_username(username).await;
 
                     println!("Username saved.");
                 }
@@ -196,14 +213,14 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your password (hidden)")
                     .interact()
                 {
-                    database::set_password(password).await;
+                    qobuz_player_database::set_password(password).await;
 
                     println!("Password saved.");
                 }
                 Ok(())
             }
             ConfigCommands::MaxAudioQuality { quality } => {
-                database::set_max_audio_quality(quality).await;
+                qobuz_player_database::set_max_audio_quality(quality).await;
 
                 println!("Max audio quality saved.");
 

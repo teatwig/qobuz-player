@@ -599,7 +599,7 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
 
 #[instrument]
 /// Plays all tracks in a playlist.
-pub async fn play_playlist(playlist_id: i64, index: u32, shuffle: bool) -> Result<()> {
+pub async fn play_playlist(playlist_id: u32, index: u32, shuffle: bool) -> Result<()> {
     ready().await?;
 
     let client = get_client().await;
@@ -803,7 +803,7 @@ pub async fn featured_playlists(featured_type: PlaylistFeaturedType) -> Result<V
 #[instrument]
 #[cached(size = 100, time = 7200)]
 /// Get playlist
-pub async fn playlist(id: i64) -> Result<Playlist> {
+pub async fn playlist(id: u32) -> Result<Playlist> {
     let client = get_client().await;
     let user_id = client.get_user_id();
     let playlist = client.playlist(id).await?;

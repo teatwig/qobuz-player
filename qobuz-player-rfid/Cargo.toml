@@ -1,16 +1,15 @@
 [package]
-name = "qobuz-player-gpio"
+name = "qobuz-player-rfid"
 version.workspace = true
 edition.workspace = true
 license-file.workspace = true
 repository.workspace = true
 
-[features]
-gpio = ["rppal"]
-
 [dependencies]
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
+qobuz-player-database = { version = "*", path = "../qobuz-player-database" }
 
 tokio = { workspace = true, features = ["full"] }
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "sqlite", "migrate", "macros"] }
 tracing = { workspace = true }
-rppal = { version = "0.22", optional = true }
+dialoguer = { workspace = true }

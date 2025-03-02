@@ -384,14 +384,14 @@ fn favorite_playlists(favorite_playlists: Vec<Playlist>) -> LinearLayout {
         let item = *item;
         let dialog = Dialog::text("Play playlist")
             .button("Play", move |_s: &mut Cursive| {
-                tokio::spawn(async move {
-                    qobuz_player_controls::play_playlist(item as i64, 0, false).await
-                });
+                tokio::spawn(
+                    async move { qobuz_player_controls::play_playlist(item, 0, false).await },
+                );
             })
             .button("Shuffle", move |_s: &mut Cursive| {
-                tokio::spawn(async move {
-                    qobuz_player_controls::play_playlist(item as i64, 0, true).await
-                });
+                tokio::spawn(
+                    async move { qobuz_player_controls::play_playlist(item, 0, true).await },
+                );
             })
             .dismiss_button("Cancel");
 
@@ -511,7 +511,7 @@ fn load_search_results(item: &str, s: &mut Cursive) {
                     }
 
                     search_results.set_on_submit(move |s: &mut Cursive, item: &String| {
-                        let item = item.parse::<i64>().expect("failed to parse string");
+                        let item = item.parse::<u32>().expect("failed to parse string");
                         let dialog = Dialog::text("Play playlist")
                             .button("Play", move |_s: &mut Cursive| {
                                 tokio::spawn(async move {

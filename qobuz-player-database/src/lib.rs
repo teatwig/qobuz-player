@@ -28,12 +28,16 @@ macro_rules! get_one {
 
 static POOL: OnceLock<Pool<Sqlite>> = OnceLock::new();
 
-pub(crate) struct DatabaseCredentials {
+pub async fn get_pool() -> sqlx::pool::PoolConnection<Sqlite> {
+    acquire!().unwrap()
+}
+
+pub struct DatabaseCredentials {
     pub username: Option<String>,
     pub password: Option<String>,
 }
 
-pub(crate) struct DatabaseConfiguration {
+pub struct DatabaseConfiguration {
     pub max_audio_quality: i64,
 }
 

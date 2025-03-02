@@ -2823,16 +2823,15 @@ version = "0.2.8"
 dependencies = [
  "clap",
  "dialoguer",
- "dirs",
- "md5",
  "qobuz-player-client",
  "qobuz-player-controls",
+ "qobuz-player-database",
  "qobuz-player-gpio",
  "qobuz-player-mpris",
+ "qobuz-player-rfid",
  "qobuz-player-tui",
  "qobuz-player-web",
  "snafu",
- "sqlx",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -2871,6 +2870,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "qobuz-player-database"
+version = "0.2.8"
+dependencies = [
+ "dirs",
+ "md5",
+ "qobuz-player-controls",
+ "sqlx",
+ "tracing",
+]
+
+[[package]]
 name = "qobuz-player-gpio"
 version = "0.2.8"
 dependencies = [
@@ -2886,6 +2896,18 @@ version = "0.2.8"
 dependencies = [
  "mpris-server",
  "qobuz-player-controls",
+]
+
+[[package]]
+name = "qobuz-player-rfid"
+version = "0.2.8"
+dependencies = [
+ "dialoguer",
+ "qobuz-player-controls",
+ "qobuz-player-database",
+ "sqlx",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
