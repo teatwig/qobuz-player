@@ -8,5 +8,4 @@ repository.workspace = true
 [dependencies]
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 
-mpris-server = { workspace = true }
-
+mpris-server = { git = "https://github.com/SofusA/mpris-server-tokio", branch = "tokio-feature", features = ["tokio"] }

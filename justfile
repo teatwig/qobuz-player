@@ -6,6 +6,14 @@ detected_target := if os() == "linux" {
   } else {
     error("unknown os and/or arch")
   }
+} else if os() == "macos" {
+  if arch() == "x86_64" {
+    "x86_64-apple-darwin"
+  } else if arch() == "aarch64" {
+    "aarch64-apple-darwin"
+  } else {
+    error("unsupported os and/or arch")
+  }
 } else {
   error("unsupported os and/or arch")
 }
@@ -32,15 +40,8 @@ build-bin-debug target=detected_target:
 install-deps target=detected_target:
   #!/usr/bin/env sh
   if ! just check-deps; then
-    {{ if target == "x86_64-unknown-linux-gnu" { "just install-deps-linux-x86_64" } else if target == "aarch64-unknown-linux-gnu" { "just install-deps-linux-aarch64" } else { error("unsupported arch") } }}
+    {{ if target == "x86_64-unknown-linux-gnu" { "just install-deps-linux-x86_64" } else if target == "aarch64-unknown-linux-gnu" { "just install-deps-linux-aarch64" } else if target == "aarch64-apple-darwin" { "just install-deps-macos" } else { error("unsupported arch") } }}
     echo "Dependencies installed successfully for {{target}}"
-  fi
-
-check-rustup:
-  #!/usr/bin/env sh
-  if ! [ -x "$(command -v rustup)" ]; then
-    echo 'Error: rustup is not installed.' >&2
-    exit 1
   fi
 
 add-target target=detected_target:
@@ -53,7 +54,7 @@ install-sqlx:
   cargo install sqlx-cli --force
 
 reset-database:
-  touch $(echo $DATABASE_URL | sed -e "s/sqlite:\/\///g") && cargo sqlx database reset --source {{invocation_directory()}}/qobuz-player-cli/migrations -y
+  touch $(echo $DATABASE_URL | sed -e "s/sqlite:\/\///g") && cargo sqlx database reset --source {{invocation_directory()}}/qobuz-player-database/migrations -y
 
 build-tailwind:
   cd qobuz-player-web && npm install && npm run build
@@ -109,4 +110,13 @@ install-deps-linux-aarch64:
   else
     echo "distro not supported for aarch64-unknown-linux-gnu"
     exit 1
+  fi
+
+[macos]
+install-deps-macos:
+  #!/usr/bin/env sh
+  if [ -x "$(command -v brew)" ]; then
+    brew install gstreamer
+  else
+    echo "Homebrew command not found."
   fi

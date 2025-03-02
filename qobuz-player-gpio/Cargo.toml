@@ -5,9 +5,12 @@ edition.workspace = true
 license-file.workspace = true
 repository.workspace = true
 
+[features]
+gpio = ["rppal"]
+
 [dependencies]
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
-rppal = { version = "0.22" }
+rppal = { version = "0.22", optional = true }

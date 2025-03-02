@@ -18,6 +18,7 @@ struct Cli {
     /// Disable the TUI interface.
     disable_tui: bool,
 
+    #[cfg(target_os = "linux")]
     #[clap(long, default_value_t = false)]
     /// Disable the mpris interface.
     disable_mpris: bool,
@@ -140,6 +141,7 @@ pub async fn run() -> Result<(), Error> {
                 .max_audio_quality
                 .unwrap_or_else(|| database_configuration.max_audio_quality.try_into().unwrap());
 
+            #[cfg(target_os = "linux")]
             if !cli.disable_mpris {
                 tokio::spawn(async {
                     qobuz_player_mpris::init().await;

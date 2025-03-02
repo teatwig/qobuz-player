@@ -1,13 +1,12 @@
 [package]
 name = "qobuz-player"
-
 version.workspace = true
 edition.workspace = true
 license-file.workspace = true
 repository.workspace = true
 
 [features]
-gpio = []
+gpio = ["qobuz-player-gpio/gpio"]
 
 [dependencies]
 qobuz-player-client = { version = "*", path = "../qobuz-player-client" }
@@ -15,9 +14,10 @@ qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 qobuz-player-mpris = { version = "*", path = "../qobuz-player-mpris" }
 qobuz-player-web = { version = "*", path = "../qobuz-player-web" }
 qobuz-player-tui = { version = "*", path = "../qobuz-player-tui" }
-qobuz-player-gpio = { version = "*", path = "../qobuz-player-gpio" }
 qobuz-player-rfid = { version = "*", path = "../qobuz-player-rfid" }
 qobuz-player-database = { version = "*", path = "../qobuz-player-database" }
+
+qobuz-player-gpio = { version = "*", path = "../qobuz-player-gpio", optional = true }
 
 clap = { workspace = true, features = ["derive", "env"] }
 dialoguer = { workspace = true, features = ["fuzzy-select"] }
