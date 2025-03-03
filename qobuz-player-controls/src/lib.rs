@@ -235,11 +235,15 @@ pub async fn play_pause() -> Result<()> {
 /// Play the player.
 pub async fn play() -> Result<()> {
     if chrono::Utc::now() - *CURRENT_TRACK_URL_TIME.read().await > TRACK_URL_LIFE_SPAN {
+        let current_position = PLAYBIN.query_position::<ClockTime>().unwrap_or_default();
+
         let client = get_client().await;
         if let Some(track_id) = current_tracklist().await.currently_playing() {
             ready().await?;
             let track_url = track_url(client, track_id).await?;
             query_track_url(&track_url).await?;
+
+            seek(current_position, None).await?;
         }
     }
 
