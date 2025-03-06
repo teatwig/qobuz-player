@@ -39,10 +39,10 @@ pub fn button_group(children: ChildrenFragment) -> impl IntoView {
     let even = node_count % 2 == 0;
 
     let breakpoint_style = match (even, node_count > 2) {
-        (true, true) => "sm:grid-cols-2",
-        (true, false) => "sm:grid-cols-2",
-        (false, true) => "sm:grid-cols-3 *:last:col-span-2",
-        (false, false) => "sm:grid-cols-2",
+        (true, true) => "",
+        (true, false) => "",
+        (false, true) => "grid-cols-2 *:last:col-span-2",
+        (false, false) => "",
     };
 
     html! { <div class=format!("grid grid-cols-2 {} gap-4", breakpoint_style)>{nodes}</div> }

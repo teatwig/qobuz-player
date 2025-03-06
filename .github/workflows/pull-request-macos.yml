@@ -5,11 +5,8 @@ on:
       - "**.rs"
       - "**/Cargo.lock"
       - "**/Cargo.toml"
-      - "**/package.json"
     branches:
       - main
-env:
-  CLICOLOR_FORCE: 1
 jobs:
   pre-merge:
     name: Pre-merge checks
@@ -17,6 +14,17 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-      - uses: extractions/setup-just@v1
-      - name: Build player
-        run: just build-player aarch64-apple-darwin
+
+      - name: Install dependencies
+        run: brew install gstreamer
+
+      - name: npm install
+        working-directory: qobuz-player-web
+        run: npm install
+
+      - name: Build styles
+        working-directory: qobuz-player-web
+        run: npm run build
+
+      - name: Build player ${{ matrix.arch }} 
+        run: cargo build --release
