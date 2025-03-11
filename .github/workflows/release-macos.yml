@@ -27,7 +27,7 @@ jobs:
         run: npm run build
 
       - name: Build player ${{ matrix.arch }} 
-        run: cargo build --release
+        run: cargo build --release --target aarch64-apple-darwin
 
       - name: Tar qobuz-player-aarch64-apple-darwin.tar.gz
         run: tar -cvf qobuz-player-aarch64-apple-darwin.tar.gz -C ./target/aarch64-apple-darwin/release/ qobuz-player

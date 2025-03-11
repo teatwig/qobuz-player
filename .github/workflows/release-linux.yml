@@ -38,7 +38,7 @@ jobs:
         run: npm run build
 
       - name: Build player ${{ matrix.arch }} 
-        run: cargo build --release
+        run: cargo build --release --target ${{ matrix.arch }}-unknown-linux-gnu
 
       - name: Tar qobuz-player-${{ matrix.arch }}-unknown-linux-gnu.tar.gz
         run: tar -cvf qobuz-player-${{ matrix.arch }}-unknown-linux-gnu.tar.gz -C ./target/${{ matrix.arch }}-unknown-linux-gnu/release/ qobuz-player

@@ -225,10 +225,17 @@ pub async fn init() {
                         tracklist::Status::Playing => (true, true),
                     };
 
+                    let playback_status = match status {
+                        tracklist::Status::Playing => PlaybackStatus::Playing,
+                        tracklist::Status::Paused => PlaybackStatus::Paused,
+                        tracklist::Status::Stopped => PlaybackStatus::Stopped,
+                    };
+
                     server
                         .properties_changed([
                             Property::CanPlay(can_play),
                             Property::CanPause(can_pause),
+                            Property::PlaybackStatus(playback_status),
                         ])
                         .await
                         .unwrap();
