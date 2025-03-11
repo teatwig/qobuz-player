@@ -7,6 +7,8 @@ on:
   push:
     tags:
       - v[0-9]+.*
+env:
+  CLICOLOR_FORCE: 1
 jobs:
   create-build-upload:
     name: Build, package and publish
@@ -15,31 +17,25 @@ jobs:
       fail-fast: true
       matrix:
         arch: [x86_64, aarch64]
+    container:
+      image: rust:latest
+      env:
+        PKG_CONFIG_ALLOW_CROSS: 1
+        PKG_CONFIG_PATH: /usr/lib/${{ matrix.arch }}-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}
+        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        AR_aarch64_unknown_linux_gnu: aarch64-linux-gnu-ar
+        CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+        CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++ 
+    env:
+      RUST_BACKTRACE: full
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-          target: ${{ matrix.arch }}-unknown-linux-gnu
+      - uses: extractions/setup-just@v1
 
-      - name: Install dependencies
-        run: sudo apt update && sudo apt install -y librust-glib-dev librust-gstreamer-dev npm
-
-      - name: npm install
-        working-directory: qobuz-player-web
-        run: npm install
-
-      - name: Build styles
-        working-directory: qobuz-player-web
-        run: npm run build
-
-      - name: Build player ${{ matrix.arch }} 
-        run: cargo build --release --target ${{ matrix.arch }}-unknown-linux-gnu
+      - name: Build player ${{ matrix.arch }}-unknown-linux-gnu
+        run: just build-player ${{ matrix.arch }}-unknown-linux-gnu
 
       - name: Tar qobuz-player-${{ matrix.arch }}-unknown-linux-gnu.tar.gz
         run: tar -cvf qobuz-player-${{ matrix.arch }}-unknown-linux-gnu.tar.gz -C ./target/${{ matrix.arch }}-unknown-linux-gnu/release/ qobuz-player

@@ -32,10 +32,6 @@ The web interface is ideal for a setup with a single board computer, e.g. Raspbe
 
 Download the tar.gz file for your supported OS from the releases page, extract the file and execute `qobuz-player` or copy it to your `$PATH`.
 
-### Build from source
-
-On Debian, Arch and Fedora, `just build-player` should make a reasonable effort to install the necessary dependencies needed to build the app and then build it.
-
 ## Get started
 
 Run `qobuz-player --help` or `qobuz-player <subcommand> --help` to see all available options.
