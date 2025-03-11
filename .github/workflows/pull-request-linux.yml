@@ -5,11 +5,8 @@ on:
       - "**.rs"
       - "**/Cargo.lock"
       - "**/Cargo.toml"
-      - "**/package.json"
     branches:
       - main
-env:
-  CLICOLOR_FORCE: 1
 jobs:
   pre-merge:
     name: Pre-merge checks
@@ -18,20 +15,27 @@ jobs:
       matrix:
         arch: [x86_64, aarch64]
     runs-on: ubuntu-latest
-    container:
-      image: rust:latest
-      env:
-        PKG_CONFIG_ALLOW_CROSS: 1
-        PKG_CONFIG_PATH: /usr/lib/${{ matrix.arch }}-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}
-        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        AR_aarch64_unknown_linux_gnu: aarch64-linux-gnu-ar
-        CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
-        CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++ 
-    env:
-      RUST_BACKTRACE: full
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-      - uses: extractions/setup-just@v1
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y librust-glib-dev librust-gstreamer-dev npm
+
+      - name: npm install
+        working-directory: qobuz-player-web
+        run: npm install
+
+      - name: Build styles
+        working-directory: qobuz-player-web
+        run: npm run build
+
       - name: Build player ${{ matrix.arch }} 
-        run: just build-player ${{ matrix.arch }}-unknown-linux-gnu
+        run: cargo build --release

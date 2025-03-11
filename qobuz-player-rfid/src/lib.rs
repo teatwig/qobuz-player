@@ -78,6 +78,17 @@ pub async fn link_album(id: String) {
         )
     }))
     .unwrap();
+
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+        let sink = SINK.get().unwrap();
+        sink.send(Box::new(move |s| {
+            s.pop_layer();
+            s.add_layer(scan_dialog());
+        }))
+        .unwrap();
+    });
 }
 
 fn submit_link_album(s: &mut Cursive, rfid_id: &str, id: String) {
