@@ -25,6 +25,7 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
+          target: ${{ matrix.arch }}-unknown-linux-gnu
 
       - name: Install dependencies
         run: sudo apt update && sudo apt install -y librust-glib-dev librust-gstreamer-dev npm
