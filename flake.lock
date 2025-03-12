@@ -1,20 +1,5 @@
 {
   "nodes": {
-    "crane": {
-      "locked": {
-        "lastModified": 1741481578,
-        "narHash": "sha256-JBTSyJFQdO3V8cgcL08VaBUByEU6P5kXbTJN6R0PFQo=",
-        "owner": "ipetkov",
-        "repo": "crane",
-        "rev": "bb1c9567c43e4434f54e9481eb4b8e8e0d50f0b5",
-        "type": "github"
-      },
-      "original": {
-        "owner": "ipetkov",
-        "repo": "crane",
-        "type": "github"
-      }
-    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -35,23 +20,22 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1741310760,
-        "narHash": "sha256-aizILFrPgq/W53Jw8i0a1h1GZAAKtlYOrG/A5r46gVM=",
+        "lastModified": 1741513245,
+        "narHash": "sha256-7rTAMNTY1xoBwz0h7ZMtEcd8LELk9R5TzBPoHuhNSCk=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "de0fe301211c267807afd11b12613f5511ff7433",
+        "rev": "e3e32b642a31e6714ec1b712de8c91a3352ce7e1",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixpkgs-unstable",
+        "ref": "nixos-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
     },
     "root": {
       "inputs": {
-        "crane": "crane",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs"
       }

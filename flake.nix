@@ -1,61 +1,36 @@
 {
-  description = "Build a cargo project without extra checks";
+  description = "Qobuz player";
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    crane.url = "github:ipetkov/crane";
-    flake-utils.url = "github:numtide/flake-utils";
-  };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs.flake-utils.url = "github:numtide/flake-utils";
 
-  outputs = { self, nixpkgs, crane, flake-utils, ... }:
+  outputs = { 
+    self, 
+    nixpkgs,
+    flake-utils,
+  }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
-
-        craneLib = crane.mkLib pkgs;
-
-        commonArgs = {
-          src = craneLib.cleanCargoSource ./.;
-          strictDeps = true;
-
+        pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
+      in
+      {
+        devShell = pkgs.mkShell {
           buildInputs = [
             pkgs.gst_all_1.gstreamer
             pkgs.gst_all_1.gst-plugins-base
             pkgs.glib
-          ];
-
-          nativeBuildInputs = [
             pkgs.pkg-config
-          ];
-        };
-
-        qobuz-player = craneLib.buildPackage (commonArgs // {
-          cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-        });
-      in
-      {
-        checks = {
-          inherit qobuz-player;
-        };
-
-        packages.default = qobuz-player;
-
-        apps.default = flake-utils.lib.mkApp {
-          drv = qobuz-player;
-        };
-
-        devShells.default = craneLib.devShell {
-          # Inherit inputs from checks.
-          checks = self.checks.${system};
-
-          packages = [
             pkgs.cargo-machete
             pkgs.cargo-outdated
             pkgs.sqlx-cli
           ];
 
-          DATABASE_URL = "sqlite:///tmp/data.db";
-          RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+          shellHook =
+            ''
+              export DATABASE_URL="sqlite:///tmp/data.db";
+              export RUST_SRC_PATH="${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+            '';
         };
-      });
+      }
+    );
 }
