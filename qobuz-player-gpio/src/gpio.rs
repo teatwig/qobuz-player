@@ -35,7 +35,7 @@ async fn receive_notifications() {
                 },
                 Notification::Position { clock: _ } => {}
                 Notification::CurrentTrackList { list: _ } => {}
-                Notification::Error { error: _ } => {}
+                Notification::Message { message: _ } => {}
                 Notification::Volume { volume: _ } => {}
             }
         }
