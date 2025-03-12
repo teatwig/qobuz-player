@@ -1,13 +1,13 @@
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     OnceLock,
+    atomic::{AtomicBool, Ordering},
 };
 
 use cursive::{
+    Cursive,
     reexports::crossbeam_channel::Sender,
     view::Nameable,
     views::{Dialog, EditView},
-    Cursive,
 };
 
 static INITIATED: AtomicBool = AtomicBool::new(false);

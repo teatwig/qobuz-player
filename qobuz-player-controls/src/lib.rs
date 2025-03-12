@@ -1,25 +1,25 @@
 use crate::models::{Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
-use cached::{proc_macro::cached, Cached};
+use cached::{Cached, proc_macro::cached};
 use error::Error;
 use futures::prelude::*;
-use gstreamer::{prelude::*, Element, Message, MessageView, SeekFlags, Structure};
-use models::{image_to_string, parse_playlist, Album, AlbumSimple, ArtistPage};
+use gstreamer::{Element, Message, MessageView, SeekFlags, Structure, prelude::*};
+use models::{Album, AlbumSimple, ArtistPage, image_to_string, parse_playlist};
 use notification::Notification;
 use qobuz_player_client::client::Client;
 use rand::seq::SliceRandom;
 use std::{
     str::FromStr,
     sync::{
-        atomic::{AtomicBool, Ordering},
         LazyLock, OnceLock,
+        atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };
 use tokio::{
     select,
     sync::{
-        broadcast::{self, Receiver, Sender},
         Mutex, RwLock,
+        broadcast::{self, Receiver, Sender},
     },
 };
 use tracing::instrument;
@@ -123,7 +123,7 @@ static TARGET_STATUS: LazyLock<RwLock<tracklist::Status>> =
 static TRACKLIST: LazyLock<RwLock<Tracklist>> = LazyLock::new(|| RwLock::new(Tracklist::new()));
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
 ];
 
 static CLIENT: OnceLock<Client> = OnceLock::new();

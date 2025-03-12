@@ -1,5 +1,5 @@
-use axum::{response::IntoResponse, routing::get, Router};
-use leptos::{component, prelude::*, IntoView};
+use axum::{Router, response::IntoResponse, routing::get};
+use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::tracklist::{self, TracklistType};
 
 use crate::{

@@ -1,5 +1,7 @@
 use crate::{
+    Error, Result,
     qobuz_models::{
+        TrackURL,
         album::{Album, AlbumSearchResults},
         album_suggestion::AlbumSuggestionResponse,
         artist::{Artists, ArtistsResponse},
@@ -10,14 +12,12 @@ use crate::{
         release::{Release, ReleaseQuery},
         search_results::SearchAllResults,
         track::Track,
-        TrackURL,
     },
-    Error, Result,
 };
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use reqwest::{
-    header::{HeaderMap, HeaderValue},
     Method, Response, StatusCode,
+    header::{HeaderMap, HeaderValue},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

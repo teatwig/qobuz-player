@@ -1,8 +1,8 @@
 use axum::{
+    Router,
     extract::Path,
     response::IntoResponse,
     routing::{get, put},
-    Router,
 };
 use leptos::prelude::*;
 use qobuz_player_controls::models::{self, AlbumSimple, Artist, ArtistPage};
@@ -10,8 +10,8 @@ use tokio::join;
 
 use crate::{
     components::{
-        list::{ListAlbumsVertical, ListArtistsVertical},
         Info, ToggleFavorite,
+        list::{ListAlbumsVertical, ListArtistsVertical},
     },
     html,
     icons::Play,

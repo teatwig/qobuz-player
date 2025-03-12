@@ -1,4 +1,4 @@
-use gstreamer::{glib, StateChangeError};
+use gstreamer::{StateChangeError, glib};
 use snafu::prelude::*;
 
 use crate::notification::Notification;

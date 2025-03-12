@@ -1,18 +1,18 @@
 use axum::{
+    Router,
     extract::Path,
     response::IntoResponse,
     routing::{get, put},
-    Router,
 };
-use leptos::{component, prelude::*, IntoView};
+use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::models::{Album, AlbumSimple, Track};
 use tokio::join;
 
 use crate::{
     components::{
-        button_class,
+        ButtonGroup, ToggleFavorite, button_class,
         list::{ListAlbumsVertical, ListTracks, TrackNumberDisplay},
-        parse_duration, ButtonGroup, ToggleFavorite,
+        parse_duration,
     },
     html,
     icons::{Link, Play},

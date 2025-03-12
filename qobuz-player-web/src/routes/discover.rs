@@ -1,4 +1,4 @@
-use axum::{response::IntoResponse, routing::get, Router};
+use axum::{Router, response::IntoResponse, routing::get};
 use leptos::prelude::*;
 use qobuz_player_controls::models::{AlbumSimple, Playlist};
 use tokio::try_join;

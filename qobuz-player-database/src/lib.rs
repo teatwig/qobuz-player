@@ -1,5 +1,5 @@
 use qobuz_player_controls::AudioQuality;
-use sqlx::{sqlite::SqliteConnectOptions, Pool, Sqlite, SqlitePool};
+use sqlx::{Pool, Sqlite, SqlitePool, sqlite::SqliteConnectOptions};
 use std::{path::PathBuf, sync::OnceLock};
 use tracing::debug;
 

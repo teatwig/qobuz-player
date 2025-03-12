@@ -1,24 +1,24 @@
 use std::sync::{Arc, OnceLock};
 
 use cursive::{
+    Cursive, With,
     align::HAlign,
     direction::Orientation,
     reexports::crossbeam_channel::Sender,
     theme::{BorderStyle, Effect, Palette, Style},
-    utils::{markup::StyledString, Counter},
+    utils::{Counter, markup::StyledString},
     view::{Nameable, Resizable, Scrollable, SizeConstraint},
     views::{
         Dialog, EditView, HideableView, LinearLayout, MenuPopup, PaddedView, Panel, ProgressBar,
         ResizedView, ScreensView, ScrollView, SelectView, TextView,
     },
-    Cursive, With,
 };
 use futures::executor::block_on;
 use qobuz_player_controls::{
+    ClockTime,
     models::{Album, AlbumSimple, Artist, Favorites, Playlist, SearchResults, Track, TrackStatus},
     notification::Notification,
     tracklist::{self, TracklistType},
-    ClockTime,
 };
 use tracing::debug;
 

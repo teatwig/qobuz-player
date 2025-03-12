@@ -1,10 +1,10 @@
 use axum::{
+    Router,
     extract::Path,
     response::IntoResponse,
     routing::{get, put},
-    Router,
 };
-use leptos::{component, prelude::*, IntoView};
+use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::tracklist::{Tracklist, TracklistType};
 
 use crate::{

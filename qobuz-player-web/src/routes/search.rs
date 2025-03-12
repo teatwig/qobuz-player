@@ -1,8 +1,8 @@
 use axum::{
+    Form, Router,
     extract::{Path, Query},
     response::IntoResponse,
     routing::{get, put},
-    Form, Router,
 };
 use leptos::{component, prelude::*};
 use qobuz_player_controls::models::{self, SearchResults};
@@ -19,8 +19,8 @@ pub enum Tab {
 
 use crate::{
     components::{
-        list::{List, ListAlbums, ListArtists, ListItem, ListPlaylists},
         Info,
+        list::{List, ListAlbums, ListArtists, ListItem, ListPlaylists},
     },
     html,
     icons::MagnifyingGlass,

@@ -1,4 +1,4 @@
-use leptos::{component, prelude::*, IntoView};
+use leptos::{IntoView, component, prelude::*};
 
 use crate::{
     html,

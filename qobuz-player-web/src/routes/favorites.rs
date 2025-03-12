@@ -1,11 +1,11 @@
-use axum::{extract::Path, response::IntoResponse, routing::get, Router};
-use leptos::{component, prelude::*, IntoView};
+use axum::{Router, extract::Path, response::IntoResponse, routing::get};
+use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::models::Favorites;
 
 use crate::{
     components::{
-        list::{ListAlbums, ListArtists, ListPlaylists},
         Tab,
+        list::{ListAlbums, ListArtists, ListPlaylists},
     },
     html,
     page::Page,

@@ -1,4 +1,4 @@
-use leptos::{component, prelude::*, IntoView};
+use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::models::{Album, AlbumSimple, Artist, Playlist, Track};
 
 use crate::{

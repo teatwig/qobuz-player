@@ -1,7 +1,7 @@
 use crate::qobuz_models::{
+    Composer, Image,
     artist::{Artist, OtherArtists},
     track::Tracks,
-    Composer, Image,
 };
 use serde::{Deserialize, Serialize};
 

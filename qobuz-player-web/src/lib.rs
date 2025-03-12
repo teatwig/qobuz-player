@@ -1,9 +1,9 @@
 use assets::static_handler;
 use axum::{
-    extract::State,
-    response::{sse::Event, Sse},
-    routing::get,
     Router,
+    extract::State,
+    response::{Sse, sse::Event},
+    routing::get,
 };
 use futures::stream::Stream;
 use leptos::*;
@@ -12,8 +12,8 @@ use qobuz_player_controls::{notification::Notification, tracklist};
 use routes::{album, artist, controls, discover, favorites, now_playing, playlist, queue, search};
 use std::{convert::Infallible, sync::Arc};
 use tokio::sync::broadcast::{self, Sender};
-use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt as _;
+use tokio_stream::wrappers::BroadcastStream;
 
 mod assets;
 mod components;

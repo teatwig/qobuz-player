@@ -1,9 +1,9 @@
 use mpris_server::{
-    zbus::{self, fdo},
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property, RootInterface,
     Server, Time, TrackId, Volume,
+    zbus::{self, fdo},
 };
-use qobuz_player_controls::{models::Track, notification::Notification, tracklist, ClockTime};
+use qobuz_player_controls::{ClockTime, models::Track, notification::Notification, tracklist};
 
 struct MprisPlayer;
 

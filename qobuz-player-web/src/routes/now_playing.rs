@@ -1,9 +1,9 @@
 use axum::{
+    Router,
     response::IntoResponse,
     routing::{get, post, put},
-    Router,
 };
-use leptos::{component, prelude::*, IntoView};
+use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::{
     models,
     tracklist::{self, Tracklist, TracklistType},

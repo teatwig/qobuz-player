@@ -1,4 +1,4 @@
-use crate::qobuz_models::{artist::OtherArtists, Image};
+use crate::qobuz_models::{Image, artist::OtherArtists};
 use serde::{Deserialize, Serialize};
 
 use super::release::{AudioInfo, Dates, Genre, Label, Rights};

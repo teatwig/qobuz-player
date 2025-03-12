@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{artist::Artist, playlist::Playlist, Image};
+use super::{Image, artist::Artist, playlist::Playlist};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FeaturedAlbumsResponse {

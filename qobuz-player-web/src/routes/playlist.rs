@@ -1,8 +1,8 @@
 use axum::{
+    Router,
     extract::Path,
     response::IntoResponse,
     routing::{get, put},
-    Router,
 };
 use leptos::prelude::*;
 use qobuz_player_controls::models::{Playlist, Track};
@@ -10,9 +10,9 @@ use tokio::join;
 
 use crate::{
     components::{
-        button_class,
+        ButtonGroup, ToggleFavorite, button_class,
         list::{ListTracks, TrackNumberDisplay},
-        parse_duration, ButtonGroup, ToggleFavorite,
+        parse_duration,
     },
     html,
     icons::{Link, Play},
