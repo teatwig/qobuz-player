@@ -83,7 +83,7 @@ pub async fn link_album(id: String) {
     .unwrap();
 
     tokio::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
         let sink = SINK.get().unwrap();
         sink.send(Box::new(move |s| {

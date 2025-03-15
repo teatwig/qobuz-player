@@ -67,7 +67,7 @@ pub fn toast(message: notification::Message) -> impl IntoView {
                     "bg-blue-500"
                 },
             )
-            remove-me="5s"
+            remove-me="3s"
         >
             {message}
         </div>
