@@ -11,10 +11,6 @@ jobs:
   create-build-upload:
     name: Build, package and publish
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        arch: [x86_64]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -38,13 +34,13 @@ jobs:
         working-directory: qobuz-player-web
         run: npm run build
 
-      - name: Build player ${{ matrix.arch }} 
+      - name: Build player
         run: cargo build --release --target x86_64-unknown-linux-gnu
 
-      - name: Tar qobuz-player-${{ matrix.arch }}-unknown-linux-gnu.tar.gz
+      - name: Tar
         run: tar -cvf qobuz-player-x86_64-unknown-linux-gnu.tar.gz -C ./target/x86_64-unknown-linux-gnu/release/ qobuz-player
 
-      - name: Release x86_64-unknown-linux-gnu
+      - name: Release
         uses: softprops/action-gh-release@v1
         with:
           files: qobuz-player-x86_64-unknown-linux-gnu.tar.gz
