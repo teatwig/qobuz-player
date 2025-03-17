@@ -11,6 +11,7 @@ use cursive::{
 };
 
 static INITIATED: AtomicBool = AtomicBool::new(false);
+static AWAITING_SCAN: AtomicBool = AtomicBool::new(false);
 static SINK: OnceLock<CursiveSender> = OnceLock::new();
 type CursiveSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
 
@@ -62,6 +63,8 @@ fn submit_scan(s: &mut Cursive, rfid_id: &str) {
 }
 
 pub async fn link_album(id: String) {
+    AWAITING_SCAN.store(true, Ordering::Relaxed);
+
     qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Info(
         "Scan rfid to link album".to_string(),
     ));
@@ -83,14 +86,21 @@ pub async fn link_album(id: String) {
     .unwrap();
 
     tokio::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
-        let sink = SINK.get().unwrap();
-        sink.send(Box::new(move |s| {
-            s.pop_layer();
-            s.add_layer(scan_dialog());
-        }))
-        .unwrap();
+        if AWAITING_SCAN.load(Ordering::Relaxed) {
+            let sink = SINK.get().unwrap();
+            sink.send(Box::new(move |s| {
+                s.pop_layer();
+                s.add_layer(scan_dialog());
+            }))
+            .unwrap();
+
+            AWAITING_SCAN.store(false, Ordering::Relaxed);
+            qobuz_player_controls::send_message(
+                qobuz_player_controls::notification::Message::Warning("Scan cancelled".to_string()),
+            );
+        }
     });
 }
 
@@ -114,6 +124,7 @@ fn submit_link_album(s: &mut Cursive, rfid_id: &str, id: String) {
         qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Success(
             "Link completed".to_string(),
         ));
+        AWAITING_SCAN.store(false, Ordering::Relaxed);
     });
 
     s.pop_layer();
@@ -121,6 +132,7 @@ fn submit_link_album(s: &mut Cursive, rfid_id: &str, id: String) {
 }
 
 pub async fn link_playlist(id: u32) {
+    AWAITING_SCAN.store(true, Ordering::Relaxed);
     qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Info(
         "Scan rfid to link playlist".to_string(),
     ));
@@ -140,6 +152,24 @@ pub async fn link_playlist(id: u32) {
         )
     }))
     .unwrap();
+
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+        if AWAITING_SCAN.load(Ordering::Relaxed) {
+            let sink = SINK.get().unwrap();
+            sink.send(Box::new(move |s| {
+                s.pop_layer();
+                s.add_layer(scan_dialog());
+            }))
+            .unwrap();
+
+            AWAITING_SCAN.store(false, Ordering::Relaxed);
+            qobuz_player_controls::send_message(
+                qobuz_player_controls::notification::Message::Warning("Scan cancelled".to_string()),
+            );
+        }
+    });
 }
 
 fn submit_link_playlist(s: &mut Cursive, rfid_id: &str, id: u32) {
@@ -161,6 +191,7 @@ fn submit_link_playlist(s: &mut Cursive, rfid_id: &str, id: u32) {
         qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Success(
             "Link completed".to_string(),
         ));
+        AWAITING_SCAN.store(false, Ordering::Relaxed);
     });
 
     s.pop_layer();

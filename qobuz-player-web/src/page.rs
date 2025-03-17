@@ -59,7 +59,8 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
 
                 <div
                     id="toast-container"
-                    class="fixed top-8 right-8 z-20"
+                    class="flex fixed top-8 right-8 z-20 flex-col gap-4"
+                    hx-swap="afterbegin"
                     sse-swap="error,warn,success,info"
                 ></div>
 
