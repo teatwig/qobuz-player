@@ -35,6 +35,9 @@ async fn controls() -> impl IntoResponse {
 fn controls_partial() -> impl IntoView {
     let current_status = futures::executor::block_on(qobuz_player_controls::current_state());
     let current_tracklist = futures::executor::block_on(qobuz_player_controls::current_tracklist());
+    let track_title = current_tracklist
+        .current_track()
+        .map(|track| track.title.clone());
 
     let (playing, show) = match current_status {
         tracklist::Status::Stopped => (false, false),
@@ -79,7 +82,10 @@ fn controls_partial() -> impl IntoView {
                                 href=entity_link
                             >
                                 {image}
-                                <span class="truncate">{title}</span>
+                                <div class="flex flex-wrap gap-2 leading-none">
+                                    <span class="truncate">{title}</span>
+                                    <span class="text-gray-500 truncate">{track_title}</span>
+                                </div>
                             </a>
                             <div class="flex gap-4 items-center">
                                 <span class="hidden w-8 sm:flex">

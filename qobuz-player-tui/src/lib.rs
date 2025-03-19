@@ -323,8 +323,8 @@ fn favorite_albums(favorite_albums: Vec<Album>) -> LinearLayout {
     let mut list_layout = LinearLayout::new(Orientation::Vertical);
 
     let mut album_list = SelectView::new();
-    favorite_albums.iter().for_each(|p| {
-        album_list.add_item(p.title.clone(), p.id.clone());
+    favorite_albums.iter().for_each(|album| {
+        album_list.add_item(album.list_item(), album.id.clone());
     });
 
     album_list.set_on_submit(move |_s: &mut Cursive, item: &String| {
@@ -350,8 +350,8 @@ fn favorite_artists(favorite_artists: Vec<Artist>) -> LinearLayout {
     let mut list_layout = LinearLayout::new(Orientation::Vertical);
 
     let mut artist_list = SelectView::new();
-    favorite_artists.iter().for_each(|p| {
-        artist_list.add_item(p.name.clone(), p.id);
+    favorite_artists.iter().for_each(|artist| {
+        artist_list.add_item(artist.name.clone(), artist.id);
     });
 
     artist_list.set_on_submit(move |s: &mut Cursive, item: &u32| {
@@ -376,8 +376,8 @@ fn favorite_playlists(favorite_playlists: Vec<Playlist>) -> LinearLayout {
     let mut list_layout = LinearLayout::new(Orientation::Vertical);
 
     let mut playlist_list = SelectView::new();
-    favorite_playlists.iter().for_each(|p| {
-        playlist_list.add_item(p.title.clone(), p.id);
+    favorite_playlists.iter().for_each(|playlist| {
+        playlist_list.add_item(playlist.title.clone(), playlist.id);
     });
 
     playlist_list.set_on_submit(move |s: &mut Cursive, item: &u32| {

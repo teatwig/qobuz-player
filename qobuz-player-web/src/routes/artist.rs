@@ -10,7 +10,7 @@ use tokio::join;
 
 use crate::{
     components::{
-        Info, ToggleFavorite,
+        ButtonGroup, Info, ToggleFavorite, button_class,
         list::{ListAlbumsVertical, ListArtistsVertical},
     },
     html,
@@ -98,6 +98,13 @@ async fn index(Path(id): Path<u32>) -> impl IntoResponse {
 }
 
 #[component]
+fn artist_image(artist_image: Option<String>, artist_name: String) -> impl IntoView {
+    artist_image.map(|artist_image| {
+        html! { <img src=artist_image alt=artist_name class="object-contain rounded-lg size-full" /> }
+    })
+}
+
+#[component]
 fn artist(
     artist: ArtistPage,
     albums: Vec<AlbumSimple>,
@@ -105,20 +112,30 @@ fn artist(
     is_favorite: bool,
     now_playing_id: Option<u32>,
 ) -> impl IntoView {
-    let artist_image_style = artist
-        .image
-        .map(|image| format!("background-image: url({});", image));
-
     html! {
         <div class="flex flex-col">
-            <div class="flex flex-col gap-4 items-center p-4">
-                <div
-                    class="bg-gray-800 bg-center bg-no-repeat bg-cover rounded-full aspect-square size-32"
-                    style=artist_image_style
-                ></div>
-                <h1 class="text-2xl">{artist.name}</h1>
-                <ToggleFavorite id=artist.id.to_string() is_favorite=is_favorite />
+            <div class="p-4 max-w-sm">
+                <ArtistImage artist_image=artist.image artist_name=artist.name.clone() />
             </div>
+
+            <div class="flex flex-col flex-grow gap-4 items-center p-4 w-full">
+                <h1 class="text-2xl">{artist.name}</h1>
+                <ButtonGroup>
+                    <button
+                        class=button_class()
+                        hx-swap="none"
+                        hx-put=format!("{}/play-top-track/0", artist.id)
+                    >
+                        <span class="size-6">
+                            <Play />
+                        </span>
+                        <span>Play</span>
+                    </button>
+
+                    <ToggleFavorite id=artist.id.to_string() is_favorite=is_favorite />
+                </ButtonGroup>
+            </div>
+
             <div class="flex flex-col gap-4">
                 <div
                     hx-get=format!("{}/top-tracks", artist.id)
@@ -138,6 +155,7 @@ fn artist(
                         />
                     </div>
                 </div>
+
                 <div class="flex flex-col gap-2">
                     <h3 class="px-4 text-lg">Albums</h3>
                     <ListAlbumsVertical albums=albums />
