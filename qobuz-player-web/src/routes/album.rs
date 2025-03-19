@@ -10,7 +10,7 @@ use tokio::join;
 
 use crate::{
     components::{
-        ButtonGroup, ToggleFavorite, button_class,
+        ButtonGroup, Description, ToggleFavorite, button_class,
         list::{ListAlbumsVertical, ListTracks, TrackNumberDisplay},
         parse_duration,
     },
@@ -116,7 +116,7 @@ fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) ->
     let rfid = qobuz_player_rfid::is_initiated();
 
     html! {
-        <div class="flex flex-col justify-center items-center sm:p-4">
+        <div class="flex flex-col justify-center items-center">
             <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full *:max-w-sm">
                 <img
                     src=album.image
@@ -132,7 +132,7 @@ fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) ->
                         >
                             {album.artist.name}
                         </a>
-                        <span class="text-lg sm:text-xl">{album.title}</span>
+                        <span class="text-lg sm:text-xl">{album.title.clone()}</span>
                         <span class="flex gap-2 text-gray-400 sm:text-lg">
                             <span>{album.release_year}</span>
                             <span>"•︎"</span>
@@ -173,7 +173,9 @@ fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) ->
                 </div>
             </div>
             <div class="flex flex-col gap-4 w-full">
-                <AlbumTracks tracks=album.tracks album_id=album_id_clone_2 />
+                <div class="sm:p-4">
+                    <AlbumTracks tracks=album.tracks album_id=album_id_clone_2 />
+                </div>
 
                 {if !suggested_albums.is_empty() {
                     Some(
@@ -187,6 +189,7 @@ fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) ->
                 } else {
                     None
                 }}
+                <Description description=album.description entity_title=album.title />
             </div>
         </div>
     }

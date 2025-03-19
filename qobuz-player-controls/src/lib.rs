@@ -758,10 +758,9 @@ pub async fn suggested_albums(album_id: String) -> Result<Vec<AlbumSimple>> {
         .items
         .into_iter()
         .map(|x| {
-            let album: Album = x.into();
+            let album: AlbumSimple = x.into();
             album
         })
-        .map(|x| x.into())
         .collect())
 }
 

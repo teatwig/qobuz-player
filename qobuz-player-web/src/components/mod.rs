@@ -29,6 +29,18 @@ pub fn button_class() -> String {
 }
 
 #[component]
+pub fn description(description: Option<String>, entity_title: String) -> impl IntoView {
+    description.map(|description| {
+        html! {
+            <div class="flex flex-col gap-4 p-4 bg-gray-800 inset-shadow-lg">
+                <h3 class="text-lg">{format!("About {entity_title}")}</h3>
+                <p>{description}</p>
+            </div>
+        }
+    })
+}
+
+#[component]
 pub fn button_group(children: ChildrenFragment) -> impl IntoView {
     let nodes = children()
         .nodes

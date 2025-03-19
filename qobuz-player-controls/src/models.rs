@@ -74,12 +74,8 @@ impl From<Album> for AlbumSimple {
     }
 }
 
-impl From<AlbumSuggestion> for Album {
+impl From<AlbumSuggestion> for AlbumSimple {
     fn from(s: AlbumSuggestion) -> Self {
-        let year = chrono::NaiveDate::from_str(&s.dates.original)
-            .expect("failed to parse date")
-            .format("%Y");
-
         let artist = s.artists.and_then(|vec| vec.into_iter().next());
         let (artist_id, artist_name) = artist.map_or((0, "Unknown".into()), |artist| {
             (artist.id as u32, artist.name)
@@ -93,18 +89,10 @@ impl From<AlbumSuggestion> for Album {
                 name: artist_name,
                 ..Default::default()
             },
-            release_year: year
-                .to_string()
-                .parse::<u32>()
-                .expect("error converting year"),
             hires_available: hifi_available(s.rights.hires_streamable),
             explicit: s.parental_warning,
-            total_tracks: s.track_count as u32,
-            tracks: Default::default(),
             available: s.rights.streamable,
             image: s.image.large,
-            image_thumbnail: s.image.small,
-            duration_seconds: s.duration.map_or(0, |duration| duration as u32),
         }
     }
 }
@@ -154,8 +142,36 @@ impl From<QobuzAlbum> for Album {
             image: value.image.large,
             image_thumbnail: value.image.small,
             duration_seconds: value.duration.map_or(0, |duration| duration as u32),
+            description: sanitize_html(value.description),
         }
     }
+}
+
+fn sanitize_html(source: Option<String>) -> Option<String> {
+    let source = source?;
+    if source.trim() == "" {
+        return None;
+    }
+
+    let mut data = String::new();
+    let mut inside = false;
+
+    for c in source.chars() {
+        if c == '<' {
+            inside = true;
+            continue;
+        }
+        if c == '>' {
+            inside = false;
+            continue;
+        }
+
+        if !inside {
+            data.push(c);
+        }
+    }
+
+    Some(data.replace("&copy", "©"))
 }
 
 pub fn image_to_string(value: artist_page::Image) -> String {
@@ -197,6 +213,7 @@ impl From<QobuzArtistPage> for ArtistPage {
                     }
                 })
                 .collect(),
+            description: sanitize_html(value.biography.map(|bio| bio.content)),
         }
     }
 }
@@ -323,6 +340,7 @@ pub struct Album {
     pub image: String,
     pub image_thumbnail: String,
     pub duration_seconds: u32,
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -365,6 +383,7 @@ pub struct ArtistPage {
     pub name: String,
     pub image: Option<String>,
     pub top_tracks: Vec<Track>,
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]

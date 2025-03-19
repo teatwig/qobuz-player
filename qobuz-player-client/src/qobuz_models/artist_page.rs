@@ -16,6 +16,7 @@ pub struct ArtistPage {
     pub name: ArtistName,
     pub images: Images,
     pub top_tracks: Vec<Track>,
+    pub biography: Option<Biography>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

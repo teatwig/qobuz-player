@@ -10,7 +10,7 @@ use tokio::join;
 
 use crate::{
     components::{
-        ButtonGroup, Info, ToggleFavorite, button_class,
+        ButtonGroup, Description, Info, ToggleFavorite, button_class,
         list::{ListAlbumsVertical, ListArtistsVertical},
     },
     html,
@@ -114,12 +114,12 @@ fn artist(
 ) -> impl IntoView {
     html! {
         <div class="flex flex-col">
-            <div class="p-4 max-w-sm">
+            <div class="self-center p-4 max-w-md">
                 <ArtistImage artist_image=artist.image artist_name=artist.name.clone() />
             </div>
 
             <div class="flex flex-col flex-grow gap-4 items-center p-4 w-full">
-                <h1 class="text-2xl">{artist.name}</h1>
+                <h1 class="text-2xl">{artist.name.clone()}</h1>
                 <ButtonGroup>
                     <button
                         class=button_class()
@@ -172,6 +172,7 @@ fn artist(
                 } else {
                     None
                 }}
+                <Description description=artist.description entity_title=artist.name />
             </div>
         </div>
     }

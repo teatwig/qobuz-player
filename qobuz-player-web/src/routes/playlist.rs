@@ -118,7 +118,7 @@ fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
     let rfid = qobuz_player_rfid::is_initiated();
 
     html! {
-        <div class="flex flex-col justify-center items-center sm:p-4">
+        <div class="flex flex-col justify-center items-center">
             <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full">
                 <div class="max-w-sm">
                     <img
@@ -192,7 +192,9 @@ fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
                     }
                 </div>
             </div>
-            <Tracks tracks=playlist.tracks playlist_id=playlist.id />
+            <div class="sm:p-4">
+                <Tracks tracks=playlist.tracks playlist_id=playlist.id />
+            </div>
         </div>
     }
 }
