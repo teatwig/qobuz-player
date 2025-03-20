@@ -906,18 +906,25 @@ pub async fn favorites() -> Result<Favorites> {
     let (favorites, favorite_playlists) =
         tokio::join!(client.favorites(1000), user_playlists(client));
 
+    let mut favorite_playlists = favorite_playlists.unwrap_or_default();
+
     let qobuz_player_client::qobuz_models::favorites::Favorites {
         albums,
         tracks: _,
         artists,
     } = favorites?;
-    let albums = albums.items;
-    let artists = artists.items;
+    let mut albums = albums.items;
+    albums.sort_by(|a, b| a.artist.name.cmp(&b.artist.name));
+
+    let mut artists = artists.items;
+    artists.sort_by(|a, b| a.name.cmp(&b.name));
+
+    favorite_playlists.sort_by(|a, b| a.title.cmp(&b.title));
 
     Ok(Favorites {
         albums: albums.into_iter().map(|x| x.into()).collect(),
         artists: artists.into_iter().map(|x| x.into()).collect(),
-        playlists: favorite_playlists?,
+        playlists: favorite_playlists,
     })
 }
 

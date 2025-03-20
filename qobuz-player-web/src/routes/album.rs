@@ -56,7 +56,7 @@ async fn play(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn link(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_rfid::link_album(id).await;
+    qobuz_player_rfid::link(qobuz_player_rfid::LinkRequest::Album(id)).await;
 }
 
 async fn index(Path(id): Path<String>) -> impl IntoResponse {
