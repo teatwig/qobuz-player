@@ -82,7 +82,7 @@ fn controls_partial() -> impl IntoView {
                                 href=entity_link
                             >
                                 {image}
-                                <div class="flex flex-wrap gap-2 leading-none">
+                                <div class="flex overflow-hidden flex-wrap gap-2 leading-none">
                                     <span class="truncate">{title}</span>
                                     <span class="text-gray-500 truncate">{track_title}</span>
                                 </div>
