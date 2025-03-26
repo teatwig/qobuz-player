@@ -4,14 +4,17 @@
 
 Powered by [Qobuz](https://www.qobuz.com). Requires a paid subscription. This does not allow you to listen for free.
 
-The player includes a terminal ui and a webui. 
+The player includes a terminal ui, a webui and a RFID player. 
 The web interface is ideal for a setup with a single board computer, e.g. Raspberry Pi, connected to the speaker system and controlled with a smartphone or tablet.
 
 ## Terminal UI screenshot
-![TUI Screenshot](/qobuz-player.png?raw=true)
+![TUI Screenshot](/assets/qobuz-player.png?raw=true)
 
 ## Web UI screenshot
-<img src="/qobuz-player-webui.png?raw=true" width="240">
+<img src="/assets/qobuz-player-webui.png?raw=true" width="240">
+
+## RFID player
+![RFID player](/assets/rfid-player.gif?raw=true)
 
 ## Player Features
 
