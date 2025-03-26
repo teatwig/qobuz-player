@@ -119,16 +119,14 @@ fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
 
     html! {
         <div class="flex flex-col justify-center items-center">
-            <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full">
-                <div class="max-w-sm">
-                    <img
-                        src=playlist.image
-                        alt=playlist.title.clone()
-                        class="object-contain rounded-lg size-full"
-                    />
-                </div>
+            <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full *:max-w-sm">
+                <img
+                    src=playlist.image
+                    alt=playlist.title.clone()
+                    class="object-contain rounded-lg size-full"
+                />
 
-                <div class="flex flex-col flex-grow gap-4 items-center">
+                <div class="flex flex-col flex-grow gap-4 items-center w-full">
                     <div class="flex flex-col gap-2 justify-center items-center w-full text-center">
                         <span class="text-lg sm:text-xl">{playlist.title}</span>
                         <span class="text-gray-400 sm:text-lg">
@@ -192,8 +190,10 @@ fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
                     }
                 </div>
             </div>
-            <div class="sm:p-4">
-                <Tracks tracks=playlist.tracks playlist_id=playlist.id />
+            <div class="flex flex-col gap-4 w-full">
+                <div class="sm:p-4">
+                    <Tracks tracks=playlist.tracks playlist_id=playlist.id />
+                </div>
             </div>
         </div>
     }
