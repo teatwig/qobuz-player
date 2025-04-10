@@ -311,18 +311,19 @@ pub fn position() -> Option<ClockTime> {
 #[instrument]
 /// Current volume
 pub fn volume() -> f64 {
-    PLAYBIN.property::<f64>("volume")
+    PLAYBIN.property::<f64>("volume").powf(1.0 / 3.0)
 }
 
 #[instrument]
 /// Set volume
 pub fn set_volume(value: f64) {
-    PLAYBIN.set_property("volume", value);
+    let volume_pow = value.powi(3);
+    PLAYBIN.set_property("volume", volume_pow);
 
     tokio::task::spawn(async move {
         BROADCAST_CHANNELS
             .tx
-            .send(Notification::Volume { volume: value })
+            .send(Notification::Volume { volume: volume_pow })
             .unwrap();
     });
 }
