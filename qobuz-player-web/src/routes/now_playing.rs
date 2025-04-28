@@ -230,7 +230,7 @@ pub fn state(playing: bool) -> impl IntoView {
             hx-get="/status"
             hx-swap="innerHTML"
             hx-target="this"
-            class="flex"
+            class="flex justify-center"
         >
             <PlayPause play=playing />
         </div>
@@ -267,10 +267,7 @@ pub fn now_playing(
             current_track
                 .as_ref()
                 .and_then(|track| track.album_title.clone()),
-            tracklist
-                .album_id
-                .as_ref()
-                .map(|id| format!("/album/{}", id)),
+            tracklist.album_id.as_ref().map(|id| format!("/album/{id}")),
         ),
         TracklistType::None => (None, None),
     };
@@ -286,7 +283,7 @@ pub fn now_playing(
         .map_or((String::default(), None, None, false, false), |track| {
             (
                 track.title.clone(),
-                artist_id.map(|id| format!("/artist/{}", id)),
+                artist_id.map(|id| format!("/artist/{id}")),
                 Some(track.duration_seconds),
                 track.explicit,
                 track.hires_available,
@@ -362,12 +359,12 @@ fn seconds_to_mm_ss<T: Into<u64>>(seconds: T) -> String {
     let seconds = seconds.into();
     let minutes = seconds / 60;
     let seconds = seconds % 60;
-    format!("{:02}:{:02}", minutes, seconds)
+    format!("{minutes:02}:{seconds:02}")
 }
 
 fn mseconds_to_mm_ss<T: Into<u64>>(seconds: T) -> String {
     let seconds = seconds.into() / 1000;
     let minutes = seconds / 60;
     let seconds = seconds % 60;
-    format!("{:02}:{:02}", minutes, seconds)
+    format!("{minutes:02}:{seconds:02}")
 }

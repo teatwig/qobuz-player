@@ -166,11 +166,10 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn position(&self) -> fdo::Result<Time> {
-        let position_mseconds = qobuz_player_controls::position()
-            .map(|position| position.mseconds())
+        let position_seconds = qobuz_player_controls::position()
+            .map(|position| position.seconds())
             .map_or(0, |p| p as i64);
-        let time = Time::from_micros(position_mseconds);
-
+        let time = Time::from_secs(position_seconds);
         Ok(time)
     }
 

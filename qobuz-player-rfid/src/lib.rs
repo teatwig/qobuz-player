@@ -77,7 +77,7 @@ pub async fn link(request: LinkRequest) {
     };
 
     qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Info(
-        format!("Scan rfid to link {}", type_string),
+        format!("Scan rfid to link {type_string}"),
     ));
     let sink = SINK.get().unwrap();
 

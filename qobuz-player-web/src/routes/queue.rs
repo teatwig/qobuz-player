@@ -54,10 +54,7 @@ fn queue(current_tracklist: Tracklist) -> impl IntoView {
         ),
         TracklistType::Track(tracklist) => (
             tracklist.track_title.clone(),
-            tracklist
-                .album_id
-                .as_ref()
-                .map(|id| format!("/album/{}", id)),
+            tracklist.album_id.as_ref().map(|id| format!("/album/{id}")),
         ),
         TracklistType::None => ("Empty queue".to_string(), None),
     };
@@ -96,7 +93,7 @@ fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
                 tracks=tracks
                 show_artist=true
                 dim_played=true
-                api_call=|index: usize| format!("/queue/skip-to/{}", index)
+                api_call=|index: usize| format!("/queue/skip-to/{index}")
             />
         </List>
     }

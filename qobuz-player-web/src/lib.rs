@@ -99,7 +99,7 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
                     };
                     _ = tx.send(event);
                 }
-                Notification::Quit => (),
+                Notification::Quit => return,
                 Notification::Message { message } => {
                     let toast = components::toast(message.clone()).to_html();
 

@@ -668,8 +668,7 @@ async fn track_url(
     let now = format!("{}", chrono::Utc::now().timestamp());
 
     let sig = format!(
-        "trackgetFileUrlformat_id{}intentstreamtrack_id{}{}{}",
-        max_audio_quality, track_id, now, secret
+        "trackgetFileUrlformat_id{max_audio_quality}intentstreamtrack_id{track_id}{now}{secret}"
     );
 
     let hashed_sig = format!("{:x}", md5::compute(sig.as_str()));

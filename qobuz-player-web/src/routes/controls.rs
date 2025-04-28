@@ -64,7 +64,7 @@ fn controls_partial() -> impl IntoView {
         TracklistType::Track(tracklist) => (
             image(tracklist.image, false).into_any(),
             Some(tracklist.track_title),
-            tracklist.album_id.map(|id| format!("/album/{}", id)),
+            tracklist.album_id.map(|id| format!("/album/{id}")),
         ),
         TracklistType::None => (image(None, false).into_any(), None, None),
     };
@@ -106,7 +106,7 @@ fn controls_partial() -> impl IntoView {
 }
 
 fn image(url: Option<String>, cicle: bool) -> impl IntoView {
-    let image_style = url.map(|url| format!("background-image: url({});", url));
+    let image_style = url.map(|url| format!("background-image: url({url});"));
 
     html! {
         <div

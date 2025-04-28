@@ -106,7 +106,7 @@ fn tracks(tracks: Vec<Track>, playlist_id: u32) -> impl IntoView {
                 tracks=tracks
                 show_artist=true
                 dim_played=false
-                api_call=move |index: usize| format!("/playlist/{}/play/{}", playlist_id, index)
+                api_call=move |index: usize| format!("/playlist/{playlist_id}/play/{index}")
             />
         </div>
     }

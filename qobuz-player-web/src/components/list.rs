@@ -48,7 +48,7 @@ pub fn list_playlists_vertical(playlists: Vec<Playlist>) -> impl IntoView {
                 .map(|playlist| {
                     let img_src = playlist
                         .image
-                        .map(|image| format!("background-image: url({});", image));
+                        .map(|image| format!("background-image: url({image});"));
                     html! {
                         <a
                             href=format!("/playlist/{}", playlist.id)
@@ -77,7 +77,7 @@ pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
                 .map(|artist| {
                     let artist_image_style = artist
                         .image
-                        .map(|image| format!("background-image: url({});", image));
+                        .map(|image| format!("background-image: url({image});"));
                     html! {
                         <a href=format!("/artist/{}", artist.id) class="w-32 h-full text-center">
                             {match artist_image_style {
@@ -197,7 +197,7 @@ pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView
                 .map(|artist| {
                     let artist_image_style = artist
                         .image
-                        .map(|image| format!("background-image: url({});", image));
+                        .map(|image| format!("background-image: url({image});"));
                     html! {
                         <ListItem>
                             {html! {
@@ -310,9 +310,7 @@ pub fn list_tracks(
                                                                     class="bg-gray-800 bg-center bg-no-repeat bg-cover rounded-md aspect-square size-12"
                                                                     style=track
                                                                         .image
-                                                                        .map(|image| {
-                                                                            format!("background-image: url({});", image)
-                                                                        })
+                                                                        .map(|image| { format!("background-image: url({image});") })
                                                                 ></div>
                                                             }
                                                                 .into_any()
@@ -373,7 +371,7 @@ pub fn list_playlists(mut playlists: Vec<Playlist>, sort: PlaylistSort) -> impl 
                 .map(|playlist| {
                     let img_src = playlist
                         .image
-                        .map(|image| format!("background-image: url({});", image));
+                        .map(|image| format!("background-image: url({image});"));
                     html! {
                         <ListItem>
                             {html! {

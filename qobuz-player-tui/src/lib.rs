@@ -580,16 +580,16 @@ fn set_current_track(s: &mut Cursive, track: &Track, lt: &TracklistType, current
                 track_num.set_content(format!("{:03}", track.number));
             }
             TracklistType::Playlist(_) => {
-                track_num.set_content(format!("{:03}", current_position));
+                track_num.set_content(format!("{current_position:03}"));
             }
             TracklistType::TopTracks(_) => {
-                track_num.set_content(format!("{:03}", current_position));
+                track_num.set_content(format!("{current_position:03}"));
             }
             TracklistType::Track(_) => {
-                track_num.set_content(format!("{:03}", current_position));
+                track_num.set_content(format!("{current_position:03}"));
             }
             TracklistType::None => {
-                track_num.set_content(format!("{:03}", current_position));
+                track_num.set_content(format!("{current_position:03}"));
             }
         };
 
@@ -801,7 +801,7 @@ fn set_now_playing(sink: &mut Cursive, title: Option<String>, total: u32, queue:
                 });
         }
         if let Some(mut total_tracks) = sink.find_name::<TextView>("total_tracks") {
-            total_tracks.set_content(format!("{:03}", total));
+            total_tracks.set_content(format!("{total:03}"));
         }
 
         if let (Some(mut entity_title), Some(title)) =
