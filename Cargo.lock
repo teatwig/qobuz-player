@@ -323,9 +323,9 @@ checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
 name = "axum"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de45108900e1f9b9242f7f2e254aa3e2c029c921c258fe9e6b4217eeebd54288"
+checksum = "021e862c184ae977658b36c4500f7feac3221ca5da43e3f25bd04ab6c79a29b5"
 dependencies = [
  "axum-core",
  "base64",
@@ -2771,7 +2771,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player"
-version = "0.2.10"
+version = "0.2.9"
 dependencies = [
  "clap",
  "dialoguer",
@@ -2791,7 +2791,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-client"
-version = "0.2.10"
+version = "0.2.9"
 dependencies = [
  "base64",
  "chrono",
@@ -2808,7 +2808,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-controls"
-version = "0.2.10"
+version = "0.2.9"
 dependencies = [
  "cached",
  "chrono",
@@ -2823,7 +2823,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-database"
-version = "0.2.10"
+version = "0.2.9"
 dependencies = [
  "dirs",
  "md5",
@@ -2834,7 +2834,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-gpio"
-version = "0.2.10"
+version = "0.2.9"
 dependencies = [
  "qobuz-player-controls",
  "rppal",
@@ -2844,7 +2844,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-mpris"
-version = "0.2.10"
+version = "0.2.9"
 dependencies = [
  "mpris-server",
  "qobuz-player-controls",
@@ -2853,7 +2853,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-rfid"
-version = "0.2.10"
+version = "0.2.9"
 dependencies = [
  "cursive",
  "qobuz-player-controls",
@@ -2865,7 +2865,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-tui"
-version = "0.2.10"
+version = "0.2.9"
 dependencies = [
  "cursive",
  "futures",
@@ -2876,7 +2876,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-web"
-version = "0.2.10"
+version = "0.2.9"
 dependencies = [
  "axum",
  "futures",
