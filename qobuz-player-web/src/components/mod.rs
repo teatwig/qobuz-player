@@ -92,7 +92,7 @@ pub fn toggle_favorite(id: String, is_favorite: bool) -> impl IntoView {
         <button
             class=button_class()
             id="toggle-favorite"
-            hx-swap="morph:outerHTML"
+            hx-swap="outerHTML"
             hx-target="this"
             hx-put=format!("{}/{}", id, if is_favorite { "unset-favorite" } else { "set-favorite" })
         >
