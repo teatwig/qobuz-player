@@ -141,7 +141,10 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
 
 async fn sse_handler(
     State(state): State<Arc<AppState>>,
-) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+) -> (
+    axum::http::HeaderMap,
+    Sse<impl Stream<Item = Result<Event, Infallible>>>,
+) {
     let rx = state.tx.subscribe();
     let stream = BroadcastStream::new(rx).filter_map(|result| match result {
         Ok(event) => Some(Ok(Event::default()
@@ -150,7 +153,10 @@ async fn sse_handler(
         Err(_) => None,
     });
 
-    Sse::new(stream)
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert("X-Accel-Buffering", "no".parse().unwrap());
+
+    (headers, Sse::new(stream))
 }
 
 pub struct AppState {
