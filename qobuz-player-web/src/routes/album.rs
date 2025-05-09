@@ -20,7 +20,7 @@ use crate::{
     view::render,
 };
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new()
         .route("/album/{id}", get(index))
         .route("/album/{id}/tracks", get(album_tracks_partial))

@@ -28,7 +28,7 @@ use crate::{
     view::render,
 };
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new()
         .route("/search/{tab}", get(index).post(search))
         .route("/play-track/{track_id}", put(play_track))

@@ -18,29 +18,10 @@ pub enum Page {
 
 #[component]
 pub fn page(children: Children, active_page: Page) -> impl IntoView {
-    let style_url = "/assets/styles.css?version=15";
-
     html! {
         <!DOCTYPE html>
         <html lang="en" class="h-full dark">
-            <head>
-                <title>Qobuz Player</title>
-                <link rel="shortcut icon" href="/assets/favicon.svg" type="image/svg" />
-                <link rel="manifest" href="/assets/manifest.json" />
-                <meta
-                    name="viewport"
-                    content="width=device-width, initial-scale=1, maximum-scale=5 viewport-fit=cover"
-                />
-                <meta name="theme-color" content="#000" />
-                <link rel="stylesheet" href=style_url />
-                <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-                <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
-                <script src="https://unpkg.com/htmx-ext-preload@2.1.0/preload.js"></script>
-                <script src="https://unpkg.com/htmx-ext-remove-me@2.0.0/remove-me.js"></script>
-                <script src="https://unpkg.com/idiomorph@0.7.3"></script>
-                <script src="/assets/script.js?version=1"></script>
-            </head>
-
+            <Head load_htmx=true />
             <body
                 class="flex flex-col justify-between text-gray-50 bg-black h-dvh touch-none overflow-clip px-safe pt-safe"
                 hx-ext="sse, preload, remove-me, morph"
@@ -72,6 +53,48 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 </div>
             </body>
         </html>
+    }
+}
+
+#[component]
+pub fn unauthorized_page(children: Children) -> impl IntoView {
+    html! {
+        <!DOCTYPE html>
+        <html lang="en" class="h-full dark">
+            <Head load_htmx=false />
+            <body class="flex flex-col justify-between text-gray-50 bg-black h-dvh touch-none overflow-clip px-safe pt-safe">
+                {children()}
+            </body>
+        </html>
+    }
+}
+
+#[component]
+fn head(load_htmx: bool) -> impl IntoView {
+    let style_url = "/assets/styles.css?version=15";
+    html! {
+        <head>
+            <title>Qobuz Player</title>
+            <link rel="shortcut icon" href="/assets/favicon.svg" type="image/svg" />
+            <link rel="manifest" href="/assets/manifest.json" />
+            <meta
+                name="viewport"
+                content="width=device-width, initial-scale=1, maximum-scale=5 viewport-fit=cover"
+            />
+            <meta name="theme-color" content="#000" />
+            <link rel="stylesheet" href=style_url />
+            {load_htmx
+                .then_some({
+                    html! {
+                        <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+                        <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+                        <script src="https://unpkg.com/htmx-ext-preload@2.1.0/preload.js"></script>
+                        <script src="https://unpkg.com/htmx-ext-remove-me@2.0.0/remove-me.js"></script>
+                        <script src="https://unpkg.com/idiomorph@0.7.3"></script>
+                        <script src="/assets/script.js?version=1"></script>
+                    }
+                })}
+        </head>
     }
 }
 
