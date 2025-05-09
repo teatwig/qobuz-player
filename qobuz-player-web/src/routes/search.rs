@@ -237,7 +237,7 @@ fn search(search_results: SearchResults, tab: Tab) -> impl IntoView {
                         hx-post=""
                         hx-trigger="input changed delay:500ms, keyup[key=='Enter']"
                         hx-target="#search-results"
-                        hx-swap="innerHTML"
+                        hx-swap="morph:innerHTML"
                     />
                     <span class="size-8">
                         <MagnifyingGlass />

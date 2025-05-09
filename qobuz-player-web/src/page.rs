@@ -37,12 +37,13 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
                 <script src="https://unpkg.com/htmx-ext-preload@2.1.0/preload.js"></script>
                 <script src="https://unpkg.com/htmx-ext-remove-me@2.0.0/remove-me.js"></script>
+                <script src="https://unpkg.com/idiomorph@0.7.3"></script>
                 <script src="/assets/script.js?version=1"></script>
             </head>
 
             <body
                 class="flex flex-col justify-between text-gray-50 bg-black h-dvh touch-none overflow-clip px-safe pt-safe"
-                hx-ext="sse, preload, remove-me"
+                hx-ext="sse, preload, remove-me, morph"
                 sse-connect="/sse"
                 hx-boost="true"
                 hx-indicator="#loading-spinner"

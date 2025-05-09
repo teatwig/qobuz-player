@@ -94,7 +94,7 @@ fn album_tracks(tracks: Vec<Track>, album_id: String) -> impl IntoView {
             class="w-full"
             hx-get=format!("/album/{}/tracks", album_id_clone)
             hx-trigger="sse:tracklist"
-            hx-swap="outerHTML"
+            hx-swap="morph:outerHTML"
         >
             <ListTracks
                 track_number_display=TrackNumberDisplay::Number

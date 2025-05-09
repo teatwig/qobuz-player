@@ -228,7 +228,7 @@ pub fn state(playing: bool) -> impl IntoView {
         <div
             hx-trigger="sse:status"
             hx-get="/status"
-            hx-swap="innerHTML"
+            hx-swap="morph:innerHTML"
             hx-target="this"
             class="flex justify-center"
         >
@@ -298,7 +298,7 @@ pub fn now_playing(
             style="max-width: calc(600px + 2rem); height: calc(100% - 4rem - env(safe-area-inset-bottom))"
             hx-get="/now-playing"
             hx-trigger="sse:tracklist"
-            hx-swap="outerHTML"
+            hx-swap="morph:outerHTML"
         >
             <div class="flex overflow-hidden justify-center size-full aspect-square max-h-fit">
                 {if let Some(cover_image_url) = cover_image {
@@ -334,7 +334,7 @@ pub fn now_playing(
                         <Info explicit=explicit hires_available=hires_available />
                     </div>
 
-                    <div hx-get="progress" hx-trigger="sse:position" hx-swap="innerHTML">
+                    <div hx-get="progress" hx-trigger="sse:position" hx-swap="morph:innerHTML">
                         <Progress
                             position_seconds=position_mseconds
                             duration_seconds=duration_seconds

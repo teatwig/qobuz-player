@@ -98,7 +98,7 @@ fn tracks(tracks: Vec<Track>, playlist_id: u32) -> impl IntoView {
         <div
             class="w-full"
             hx-trigger="sse:tracklist"
-            hx-swap="outerHTML"
+            hx-swap="morph:outerHTML"
             hx-get=format!("/playlist/{}/tracks", playlist_id)
         >
             <ListTracks
