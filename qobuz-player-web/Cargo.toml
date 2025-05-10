@@ -11,6 +11,7 @@ qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 qobuz-player-rfid = { version = "*", path = "../qobuz-player-rfid" }
 
 axum = { workspace = true, features = ["ws"] }
+axum-extra = { workspace = true }
 futures = { workspace = true }
 leptos = { workspace = true, features = ["ssr"] }
 mime = { workspace = true }

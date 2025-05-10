@@ -9,7 +9,9 @@ use futures::stream::Stream;
 use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
 use qobuz_player_controls::{notification::Notification, tracklist};
-use routes::{album, artist, controls, discover, favorites, now_playing, playlist, queue, search};
+use routes::{
+    album, artist, auth, controls, discover, favorites, now_playing, playlist, queue, search,
+};
 use std::{convert::Infallible, sync::Arc};
 use tokio::sync::broadcast::{self, Sender};
 use tokio_stream::StreamExt as _;
@@ -26,9 +28,9 @@ pub fn is_htmx_request(headers: &axum::http::HeaderMap) -> bool {
     headers.get("HX-Request").is_some() && headers.get("HX-Boosted").is_none()
 }
 
-pub async fn init(address: String) {
+pub async fn init(address: String, secret: Option<String>) {
     tracing::info!("Listening on {address}");
-    let router = create_router().await;
+    let router = create_router(secret).await;
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
     axum::serve(listener, router)
         .with_graceful_shutdown(async {
@@ -46,14 +48,16 @@ pub async fn init(address: String) {
         .unwrap();
 }
 
-async fn create_router() -> Router {
+async fn create_router(secret: Option<String>) -> Router {
     let (tx, _rx) = broadcast::channel::<ServerSentEvent>(100);
-    let shared_state = Arc::new(AppState { tx: tx.clone() });
+    let shared_state = Arc::new(AppState {
+        tx: tx.clone(),
+        secret,
+    });
     tokio::spawn(background_task(tx));
 
     axum::Router::new()
         .route("/sse", get(sse_handler))
-        .with_state(shared_state)
         .merge(now_playing::routes())
         .merge(search::routes())
         .merge(album::routes())
@@ -63,7 +67,13 @@ async fn create_router() -> Router {
         .merge(queue::routes())
         .merge(discover::routes())
         .merge(controls::routes())
+        .layer(axum::middleware::from_fn_with_state(
+            shared_state.clone(),
+            auth::auth_middleware,
+        ))
         .route("/assets/{*file}", get(static_handler))
+        .merge(auth::routes())
+        .with_state(shared_state.clone())
 }
 
 async fn background_task(tx: Sender<ServerSentEvent>) {
@@ -161,6 +171,7 @@ async fn sse_handler(
 
 pub struct AppState {
     pub tx: Sender<ServerSentEvent>,
+    pub secret: Option<String>,
 }
 
 #[derive(Clone)]

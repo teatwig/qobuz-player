@@ -8,7 +8,7 @@ use crate::{
     view::render,
 };
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new().route("/controls", get(controls))
 }
 
