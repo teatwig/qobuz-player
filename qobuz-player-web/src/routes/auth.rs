@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{AppState, components::button_class, html, page::UnauthorizedPage, view::render};
 use axum::{
     Form, Router,
@@ -15,6 +13,7 @@ use axum_extra::extract::{
 };
 use leptos::prelude::*;
 use serde::Deserialize;
+use std::sync::Arc;
 
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
@@ -27,9 +26,9 @@ pub async fn auth_middleware(
     jar: CookieJar,
     request: Request,
     next: axum::middleware::Next,
-) -> impl IntoResponse {
+) -> (CookieJar, Response<Body>) {
     let Some(state_secret) = state.secret.clone() else {
-        return next.run(request).await;
+        return (jar, next.run(request).await);
     };
 
     let redirect_response = (
@@ -52,13 +51,21 @@ pub async fn auth_middleware(
     match secret {
         Some(result_secret) => {
             if state_secret != result_secret.value() {
-                return redirect_response;
+                return (jar, redirect_response);
             }
         }
-        None => return redirect_response,
+        None => return (jar, redirect_response),
     }
 
-    next.run(request).await
+    (set_auth_cookie(jar, state_secret), next.run(request).await)
+}
+
+fn set_auth_cookie(jar: CookieJar, secret: String) -> CookieJar {
+    let mut cookie = Cookie::new("secret", secret);
+    cookie.set_same_site(SameSite::Strict);
+    cookie.set_path("/");
+    cookie.set_max_age(time::Duration::weeks(1));
+    jar.add(cookie)
 }
 
 async fn index() -> impl IntoResponse {
@@ -89,7 +96,7 @@ struct LoginParameters {
 
 async fn login(
     State(state): State<Arc<AppState>>,
-    mut jar: CookieJar,
+    jar: CookieJar,
     Form(parameters): Form<LoginParameters>,
 ) -> (CookieJar, Response<Body>) {
     let response = (
@@ -112,12 +119,7 @@ async fn login(
         None => return (jar, response),
         Some(secret) => {
             if secret == parameters.secret {
-                let mut cookie = Cookie::new("secret", secret);
-                cookie.set_same_site(SameSite::Strict);
-                cookie.set_path("/");
-                jar = jar.add(cookie);
-
-                return (jar, response);
+                return (set_auth_cookie(jar, secret), response);
             };
         }
     }
