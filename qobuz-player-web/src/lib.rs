@@ -24,12 +24,8 @@ mod page;
 mod routes;
 mod view;
 
-pub fn is_htmx_request(headers: &axum::http::HeaderMap) -> bool {
-    headers.get("HX-Request").is_some() && headers.get("HX-Boosted").is_none()
-}
-
 pub async fn init(address: String, secret: Option<String>) {
-    tracing::info!("Listening on {address}");
+    println!("Listening on {address}");
     let router = create_router(secret).await;
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
     axum::serve(listener, router)
@@ -170,7 +166,7 @@ async fn sse_handler(
 }
 
 pub struct AppState {
-    pub tx: Sender<ServerSentEvent>,
+    tx: Sender<ServerSentEvent>,
     pub secret: Option<String>,
 }
 

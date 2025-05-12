@@ -1,7 +1,15 @@
+let lastOpenTime = Date.now();
+
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) {
+  let wakeUp = Date.now() - lastOpenTime > 5000;
+
+  if (!document.hidden && !wakeUp) {
     location.reload();
   }
+});
+
+setInterval(() => {
+  (lastOpenTime = Date.now()), 1000;
 });
 
 function focusSearchInput() {

@@ -23,10 +23,9 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
         <html lang="en" class="h-full dark">
             <Head load_htmx=true />
             <body
-                class="flex flex-col justify-between text-gray-50 bg-black h-dvh touch-none overflow-clip px-safe pt-safe"
+                class="flex flex-col justify-between text-gray-50 bg-black h-dvh touch-none overflow-clip"
                 hx-ext="sse, preload, remove-me, morph"
                 sse-connect="/sse"
-                hx-boost="true"
                 hx-indicator="#loading-spinner"
             >
                 <div
@@ -44,7 +43,7 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                     sse-swap="error,warn,success,info"
                 ></div>
 
-                <div class="overflow-auto h-full">
+                <div class="overflow-auto h-full px-safe pt-safe">
                     {children()}
                     {(active_page != Page::NowPlaying)
                         .then(|| {
@@ -87,7 +86,7 @@ fn head(load_htmx: bool) -> impl IntoView {
                 .then_some({
                     html! {
                         <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-                        <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+                        <script src="https://unpkg.com/htmx-ext-sse@2.2.3/sse.js"></script>
                         <script src="https://unpkg.com/htmx-ext-preload@2.1.0/preload.js"></script>
                         <script src="https://unpkg.com/htmx-ext-remove-me@2.0.0/remove-me.js"></script>
                         <script src="https://unpkg.com/idiomorph@0.7.3"></script>
