@@ -29,7 +29,7 @@ async fn index(Path(tab): Path<Tab>) -> impl IntoResponse {
 #[component]
 fn favorites(favorites: Favorites, tab: Tab) -> impl IntoView {
     html! {
-        <div class="flex flex-col">
+        <div class="flex flex-col px-4">
             <div class="flex sticky top-0 flex-col flex-grow gap-4 p-4 max-h-full bg-black/80 backdrop-blur">
                 <h1 class="text-2xl">Favorites</h1>
 
