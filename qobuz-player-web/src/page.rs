@@ -23,7 +23,7 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
         <html lang="en" class="h-full dark">
             <Head load_htmx=true />
             <body
-                class="flex flex-col justify-between text-gray-50 bg-black h-dvh touch-none overflow-clip"
+                class="flex flex-col justify-between text-gray-50 bg-black"
                 hx-ext="sse, preload, remove-me, morph"
                 sse-connect="/sse"
                 hx-indicator="#loading-spinner"
@@ -31,7 +31,7 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 <div
                     id="loading-spinner"
                     hx-preserve
-                    class="fixed top-8 right-8 z-10 p-2 rounded-lg pointer-events-none bg-gray-900/20 my-indicator backdrop-blur size-12"
+                    class="fixed m-safe top-8 right-8 z-10 p-2 rounded-lg pointer-events-none bg-gray-900/20 my-indicator backdrop-blur size-12"
                 >
                     <icons::ArrowPath />
                 </div>
@@ -43,13 +43,12 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                     sse-swap="error,warn,success,info"
                 ></div>
 
-                <div class="overflow-auto h-full px-safe pt-safe">
                     {children()}
                     {(active_page != Page::NowPlaying)
                         .then(|| {
                             html! { <Controls /> }
                         })} <Navigation active_page=active_page />
-                </div>
+                
             </body>
         </html>
     }
@@ -61,7 +60,7 @@ pub fn unauthorized_page(children: Children) -> impl IntoView {
         <!DOCTYPE html>
         <html lang="en" class="h-full dark">
             <Head load_htmx=false />
-            <body class="flex flex-col justify-between text-gray-50 bg-black h-dvh touch-none overflow-clip px-safe pt-safe">
+            <body class="flex flex-col justify-between text-gray-50 bg-black">
                 {children()}
             </body>
         </html>
@@ -80,7 +79,8 @@ fn head(load_htmx: bool) -> impl IntoView {
                 name="viewport"
                 content="width=device-width, initial-scale=1, maximum-scale=5 viewport-fit=cover"
             />
-            <meta name="theme-color" content="#000" />
+            <meta name="apple-mobile-web-app-capable" content="yes"></meta>
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"></meta>
             <link rel="stylesheet" href=style_url />
             {load_htmx
                 .then_some({
@@ -103,7 +103,7 @@ fn Navigation(active_page: Page) -> impl IntoView {
         <div class="p-safe">
             <div class="h-12"></div>
         </div>
-        <nav class="flex fixed bottom-0 justify-evenly w-full backdrop-blur bg-black/80 p-safe *:flex *:h-[3.25rem] *:w-20 *:flex-col *:items-center *:overflow-visible *:text-nowrap *:px-4 *:py-1 *:text-[10px] *:font-medium *:transition-colors">
+        <nav class="flex fixed bottom-0 justify-evenly w-full pb-safe px-safe backdrop-blur bg-black/80 *:flex *:h-[3.25rem] *:w-20 *:flex-col *:items-center *:overflow-visible *:text-nowrap *:px-4 *:py-1 *:text-[10px] *:font-medium *:transition-colors">
             {html! {
                 <a
                     href="/"
