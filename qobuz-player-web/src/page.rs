@@ -31,7 +31,7 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                 <div
                     id="loading-spinner"
                     hx-preserve
-                    class="fixed m-safe top-8 right-8 z-10 p-2 rounded-lg pointer-events-none bg-gray-900/20 my-indicator backdrop-blur size-12"
+                    class="fixed top-8 right-8 z-10 p-2 rounded-lg pointer-events-none m-safe bg-gray-900/20 my-indicator backdrop-blur size-12"
                 >
                     <icons::ArrowPath />
                 </div>
@@ -43,12 +43,13 @@ pub fn page(children: Children, active_page: Page) -> impl IntoView {
                     sse-swap="error,warn,success,info"
                 ></div>
 
-                    {children()}
-                    {(active_page != Page::NowPlaying)
-                        .then(|| {
-                            html! { <Controls /> }
-                        })} <Navigation active_page=active_page />
-                
+                {children()}
+                {(active_page != Page::NowPlaying)
+                    .then(|| {
+                        html! { <Controls /> }
+                    })}
+                <Navigation active_page=active_page />
+
             </body>
         </html>
     }
@@ -60,9 +61,7 @@ pub fn unauthorized_page(children: Children) -> impl IntoView {
         <!DOCTYPE html>
         <html lang="en" class="h-full dark">
             <Head load_htmx=false />
-            <body class="flex flex-col justify-between text-gray-50 bg-black">
-                {children()}
-            </body>
+            <body class="flex flex-col justify-between text-gray-50 bg-black">{children()}</body>
         </html>
     }
 }
@@ -75,12 +74,13 @@ fn head(load_htmx: bool) -> impl IntoView {
             <title>Qobuz Player</title>
             <link rel="shortcut icon" href="/assets/favicon.svg" type="image/svg" />
             <link rel="manifest" href="/assets/manifest.json" />
+            <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
             <meta
                 name="viewport"
                 content="width=device-width, initial-scale=1, maximum-scale=5 viewport-fit=cover"
             />
-            <meta name="apple-mobile-web-app-capable" content="yes"></meta>
-            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"></meta>
+            <meta name="apple-mobile-web-app-capable" content="yes" />
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
             <link rel="stylesheet" href=style_url />
             {load_htmx
                 .then_some({
