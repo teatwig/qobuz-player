@@ -238,7 +238,7 @@ pub fn state(playing: bool) -> impl IntoView {
 }
 
 #[component]
-pub fn now_playing(
+fn now_playing(
     current_tracklist: Tracklist,
     current_track: Option<models::Track>,
     position_mseconds: Option<u64>,

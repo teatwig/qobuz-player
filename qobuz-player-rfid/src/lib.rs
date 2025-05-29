@@ -9,6 +9,7 @@ use cursive::{
     view::Nameable,
     views::{Dialog, EditView},
 };
+use qobuz_player_controls::tracklist;
 
 static INITIATED: AtomicBool = AtomicBool::new(false);
 static AWAITING_SCAN: AtomicBool = AtomicBool::new(false);
@@ -50,11 +51,29 @@ fn submit_scan(s: &mut Cursive, rfid_id: &str) {
                 Some(reference) => reference,
                 None => return,
             };
+            let now_playing = qobuz_player_controls::current_tracklist().await.list_type;
             match reference {
-                Reference::Album(id) => qobuz_player_controls::play_album(&id, 0).await.unwrap(),
-                Reference::Playlist(id) => qobuz_player_controls::play_playlist(id, 0, false)
-                    .await
-                    .unwrap(),
+                Reference::Album(id) => {
+                    if let tracklist::TracklistType::Album(now_playing) = now_playing {
+                        if now_playing.id == id {
+                            qobuz_player_controls::play_pause().await.unwrap();
+                            return;
+                        }
+                    }
+
+                    qobuz_player_controls::play_album(&id, 0).await.unwrap()
+                }
+                Reference::Playlist(id) => {
+                    if let tracklist::TracklistType::Playlist(now_playing) = now_playing {
+                        if now_playing.id == id {
+                            qobuz_player_controls::play_pause().await.unwrap();
+                            return;
+                        }
+                    }
+                    qobuz_player_controls::play_playlist(id, 0, false)
+                        .await
+                        .unwrap()
+                }
             }
         });
         s.pop_layer();

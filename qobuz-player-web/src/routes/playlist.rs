@@ -118,82 +118,80 @@ fn playlist(playlist: Playlist, is_favorite: bool) -> impl IntoView {
     let rfid = qobuz_player_rfid::is_initiated();
 
     html! {
-        <div class="flex flex-col justify-center items-center">
-            <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full *:max-w-sm">
-                <img
-                    src=playlist.image
-                    alt=playlist.title.clone()
-                    class="object-contain rounded-lg size-full"
-                />
+        <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full *:max-w-sm">
+            <img
+                src=playlist.image
+                alt=playlist.title.clone()
+                class="object-contain rounded-lg size-full"
+            />
 
-                <div class="flex flex-col flex-grow gap-4 items-center w-full">
-                    <div class="flex flex-col gap-2 justify-center items-center w-full text-center">
-                        <span class="text-lg sm:text-xl">{playlist.title}</span>
-                        <span class="text-gray-400 sm:text-lg">
-                            {format!("{} minutes", duration.minutes)}
-                        </span>
-                    </div>
+            <div class="flex flex-col flex-grow gap-4 items-center w-full">
+                <div class="flex flex-col gap-2 justify-center items-center w-full text-center">
+                    <span class="text-lg sm:text-xl">{playlist.title}</span>
+                    <span class="text-gray-400 sm:text-lg">
+                        {format!("{} minutes", duration.minutes)}
+                    </span>
+                </div>
 
-                    {
-                        html! {
-                            <ButtonGroup>
-                                <button
-                                    class=button_class()
-                                    hx-swap="none"
-                                    hx-put=format!("{}/play", playlist.id.clone())
-                                >
-                                    <span class="size-6">
-                                        <Play />
-                                    </span>
-                                    <span>Play</span>
-                                </button>
+                {
+                    html! {
+                        <ButtonGroup>
+                            <button
+                                class=button_class()
+                                hx-swap="none"
+                                hx-put=format!("{}/play", playlist.id.clone())
+                            >
+                                <span class="size-6">
+                                    <Play />
+                                </span>
+                                <span>Play</span>
+                            </button>
 
-                                <button
-                                    class=button_class()
-                                    hx-swap="none"
-                                    hx-put=format!("{}/play/shuffle", playlist.id.clone())
-                                >
-                                    <span class="size-6">
-                                        <Play />
-                                    </span>
-                                    <span>Shuffle</span>
-                                </button>
+                            <button
+                                class=button_class()
+                                hx-swap="none"
+                                hx-put=format!("{}/play/shuffle", playlist.id.clone())
+                            >
+                                <span class="size-6">
+                                    <Play />
+                                </span>
+                                <span>Shuffle</span>
+                            </button>
 
-                                {(!playlist.is_owned)
-                                    .then_some({
-                                        html! {
-                                            <ToggleFavorite
-                                                id=playlist.id.to_string()
-                                                is_favorite=is_favorite
-                                            />
-                                        }
-                                    })}
+                            {(!playlist.is_owned)
+                                .then_some({
+                                    html! {
+                                        <ToggleFavorite
+                                            id=playlist.id.to_string()
+                                            is_favorite=is_favorite
+                                        />
+                                    }
+                                })}
 
-                                {rfid
-                                    .then_some(
-                                        html! {
-                                            <button
-                                                class=button_class()
-                                                hx-swap="none"
-                                                hx-put=format!("{}/link", playlist.id.clone())
-                                            >
-                                                <span class="size-6">
-                                                    <Link />
-                                                </span>
-                                                <span>Link RFID</span>
-                                            </button>
-                                        },
-                                    )}
+                            {rfid
+                                .then_some(
+                                    html! {
+                                        <button
+                                            class=button_class()
+                                            hx-swap="none"
+                                            hx-put=format!("{}/link", playlist.id.clone())
+                                        >
+                                            <span class="size-6">
+                                                <Link />
+                                            </span>
+                                            <span>Link RFID</span>
+                                        </button>
+                                    },
+                                )}
 
-                            </ButtonGroup>
-                        }
+                        </ButtonGroup>
                     }
-                </div>
+                }
             </div>
-            <div class="flex flex-col gap-4 w-full">
-                <div class="sm:p-4">
-                    <Tracks tracks=playlist.tracks playlist_id=playlist.id />
-                </div>
+        </div>
+        <div class="flex flex-col gap-4 w-full">
+            <div class="sm:p-4">
+                <Tracks tracks=playlist.tracks playlist_id=playlist.id />
             </div>
         </div>
     }

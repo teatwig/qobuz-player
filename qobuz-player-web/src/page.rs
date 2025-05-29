@@ -20,13 +20,14 @@ pub enum Page {
 pub fn page(children: Children, active_page: Page) -> impl IntoView {
     html! {
         <!DOCTYPE html>
-        <html lang="en" class="h-full dark">
+        <html lang="en" class="dark">
             <Head load_htmx=true />
             <body
-                class="flex flex-col justify-between text-gray-50 bg-black"
+                class="text-gray-50 bg-black touch-pan-y"
                 hx-ext="sse, preload, remove-me, morph"
                 sse-connect="/sse"
                 hx-indicator="#loading-spinner"
+                hx-boost="true"
             >
                 <div
                     id="loading-spinner"
@@ -61,7 +62,9 @@ pub fn unauthorized_page(children: Children) -> impl IntoView {
         <!DOCTYPE html>
         <html lang="en" class="h-full dark">
             <Head load_htmx=false />
-            <body class="flex flex-col justify-between text-gray-50 bg-black">{children()}</body>
+            <body class="flex flex-col justify-between h-full text-gray-50 bg-black">
+                {children()}
+            </body>
         </html>
     }
 }
@@ -79,7 +82,7 @@ fn head(load_htmx: bool) -> impl IntoView {
                 name="viewport"
                 content="width=device-width, initial-scale=1, maximum-scale=5 viewport-fit=cover"
             />
-            <meta name="apple-mobile-web-app-capable" content="yes" />
+            <meta name="mobile-web-app-capable" content="yes" />
             <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
             <link rel="stylesheet" href=style_url />
             {load_htmx
@@ -98,7 +101,7 @@ fn head(load_htmx: bool) -> impl IntoView {
 }
 
 #[component]
-fn Navigation(active_page: Page) -> impl IntoView {
+fn navigation(active_page: Page) -> impl IntoView {
     html! {
         <div class="pb-safe">
             <div class="h-12"></div>
