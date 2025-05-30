@@ -294,7 +294,7 @@ fn now_playing(
 
     html! {
         <div
-            class="flex flex-col gap-4 p-4 mx-auto"
+            class="flex flex-col gap-4 p-4 mx-auto touch-none"
             style="max-width: calc(600px + 2rem); height: calc(100% - 4rem - env(safe-area-inset-bottom))"
             hx-get="/now-playing"
             hx-trigger="sse:tracklist"
