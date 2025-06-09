@@ -120,7 +120,7 @@ fn album(album: Album, suggested_albums: Vec<AlbumSimple>, is_favorite: bool) ->
             <img
                 src=album.image
                 alt=album.title.clone()
-                class="object-contain rounded-lg size-full"
+                class="object-contain rounded-lg size-full pt-safe"
             />
 
             <div class="flex flex-col flex-grow gap-4 items-center w-full">
