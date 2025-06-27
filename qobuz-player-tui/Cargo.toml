@@ -9,7 +9,12 @@ repository.workspace = true
 [dependencies]
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 
-cursive = { workspace = true } 
 futures = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+ratatui = "*"
+ratatui-image = "*"
+tui-input = "*"
+crossterm = "0.29"
+image = "*"
+reqwest = { workspace = true }
 tracing = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
