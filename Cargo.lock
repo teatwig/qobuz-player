@@ -3694,7 +3694,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "clap",
  "dialoguer",
@@ -3714,7 +3714,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-client"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3731,7 +3731,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-controls"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "cached",
  "chrono",
@@ -3746,7 +3746,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-database"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "dirs",
  "md5",
@@ -3757,7 +3757,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-gpio"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "qobuz-player-controls",
  "rppal",
@@ -3767,7 +3767,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-mpris"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "mpris-server",
  "qobuz-player-controls",
@@ -3776,7 +3776,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-rfid"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "cursive",
  "qobuz-player-controls",
@@ -3788,7 +3788,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-tui"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "crossterm 0.29.0",
  "futures",
@@ -3804,7 +3804,7 @@ dependencies = [
 
 [[package]]
 name = "qobuz-player-web"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "axum",
  "axum-extra",
