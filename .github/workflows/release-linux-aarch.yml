@@ -41,7 +41,7 @@ jobs:
         run: dpkg --add-architecture arm64 && apt update
 
       - name: Install dependencies
-        run: apt install -y curl libgstreamer1.0-dev:arm64 g++-aarch64-linux-gnu libc6-dev-arm64-cross libglib2.0-dev:arm64 nodejs npm
+        run: apt install -y curl libgstreamer1.0-dev:arm64 g++-aarch64-linux-gnu libc6-dev-arm64-cross libglib2.0-dev:arm64 nodejs npm pkg-config:arm64 libssl-dev:arm64
 
       - name: npm install
         working-directory: qobuz-player-web
