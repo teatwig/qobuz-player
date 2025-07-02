@@ -54,30 +54,6 @@ qobuz-player open
 qobuz-player --web open
 ```
 
-## TUI Controls
-
-The TUI has full mouse support.
-
-### Keyboard Shortcuts
-
-| Command             | Key(s)                                 |
-| ------------------- | -------------------------------------- |
-| Now Playing         | <kbd>1</kbd>                           |
-| My Playlists        | <kbd>2</kbd>                           |
-| Search              | <kbd>3</kbd>                           |
-| Enter URL           | <kbd>3</kbd>                           |
-| Cycle elements      | <kbd>tab</kbd>                         |
-| Play/Pause          | <kbd>space</kbd>                       |
-| Next track          | <kbd>n</kbd>                           |
-| Previous track      | <kbd>p</kbd>                           |
-| Jump forward        | <kbd>l</kbd>                           |
-| Jump backward       | <kbd>h</kbd>                           |
-| Quit                | <kbd>q</kbd>                           |
-| Move up in list     | <kbd>up arrow</kbd>                    |
-| Move down in list   | <kbd>down arrow</kbd>                  |
-| Select item in list | <kbd>enter</kbd>                       |
-| Dismiss popup       | <kbd>esc</kbd>                         |
-
 ## Web UI
 
 The player can start an embedded web interface. This is disabled by default and must be started with the `--web` argument. It also listens on `0.0.0.0:9888` by default,
