@@ -1,7 +1,8 @@
+use crossterm::event::KeyCode;
 use qobuz_player_controls::models::AlbumSimple;
-use ratatui::{prelude::*, symbols::border, widgets::*};
+use ratatui::{prelude::*, widgets::*};
 
-use crate::ui::center;
+use crate::ui::{block, center};
 
 #[derive(PartialEq)]
 pub struct ArtistPopupState {
@@ -32,10 +33,6 @@ impl Popup {
                     Constraint::Percentage(50),
                     Constraint::Length(artist.albums.len() as u16 + 2),
                 );
-                let block = Block::bordered()
-                    .title(artist.artist_name.clone())
-                    .title_alignment(Alignment::Center)
-                    .border_set(border::ROUNDED);
 
                 let list: Vec<ListItem> = artist
                     .albums
@@ -44,7 +41,7 @@ impl Popup {
                     .collect();
 
                 let list = List::new(list)
-                    .block(block)
+                    .block(block(&artist.artist_name))
                     .highlight_style(Style::default().bg(Color::Blue))
                     .highlight_symbol(">")
                     .highlight_spacing(HighlightSpacing::Always);
@@ -54,13 +51,8 @@ impl Popup {
             }
             Popup::Playlist(playlist) => {
                 let area = center(frame.area(), Constraint::Length(18), Constraint::Length(3));
-                let block = Block::bordered()
-                    .title(playlist.playlist_name.clone())
-                    .title_alignment(Alignment::Center)
-                    .border_set(border::ROUNDED);
-
                 let tabs = Tabs::new(["Play", "Shuffle"])
-                    .block(block)
+                    .block(block(&playlist.playlist_name))
                     .not_underlined()
                     .highlight_style(Style::default().bg(Color::Blue))
                     .select(if playlist.shuffle { 1 } else { 0 })
@@ -70,5 +62,53 @@ impl Popup {
                 frame.render_widget(tabs, area);
             }
         };
+    }
+
+    pub async fn handle_event(&mut self, key: KeyCode) -> bool {
+        match self {
+            Popup::Artist(artist_popup_state) => match key {
+                KeyCode::Up => {
+                    artist_popup_state.state.select_previous();
+                    false
+                }
+                KeyCode::Down => {
+                    artist_popup_state.state.select_next();
+                    false
+                }
+                KeyCode::Enter => {
+                    let index = artist_popup_state.state.selected();
+
+                    let id = index
+                        .map(|index| &artist_popup_state.albums[index])
+                        .map(|album| album.id.clone());
+
+                    if let Some(id) = id {
+                        qobuz_player_controls::play_album(&id, 0).await.unwrap();
+                        return true;
+                    }
+                    false
+                }
+                _ => false,
+            },
+            Popup::Playlist(playlist_popup_state) => match key {
+                KeyCode::Left => {
+                    playlist_popup_state.shuffle = !playlist_popup_state.shuffle;
+                    false
+                }
+                KeyCode::Right => {
+                    playlist_popup_state.shuffle = !playlist_popup_state.shuffle;
+                    false
+                }
+                KeyCode::Enter => {
+                    let id = playlist_popup_state.playlist_id;
+
+                    qobuz_player_controls::play_playlist(id, 0, playlist_popup_state.shuffle)
+                        .await
+                        .unwrap();
+                    true
+                }
+                _ => false,
+            },
+        }
     }
 }

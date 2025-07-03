@@ -1,3 +1,4 @@
+use crate::ui::block;
 use qobuz_player_controls::tracklist;
 use ratatui::{prelude::*, widgets::*};
 use ratatui_image::StatefulImage;
@@ -10,10 +11,8 @@ pub fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState) {
         None => return,
     };
 
-    let block = Block::bordered()
-        .title_alignment(Alignment::Center)
-        .title(format!(" Playing {} ", get_status_icon(state.status)))
-        .border_type(BorderType::Rounded);
+    let title = format!("Playing {}", get_status_icon(state.status));
+    let block = block(&title);
 
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -45,7 +44,7 @@ pub fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState) {
     lines.push(Line::from(track.title.clone()));
 
     let track_number = if state.show_tracklist_position {
-        state.tracklist_position
+        state.tracklist_position + 1
     } else {
         track.number
     };
@@ -55,7 +54,14 @@ pub fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState) {
         track_number, state.tracklist_length
     )));
 
-    let ratio = state.duration_s as f64 / track.duration_seconds as f64;
+    let duration = if state.duration_s < track.duration_seconds {
+        state.duration_s
+    } else {
+        track.duration_seconds
+    };
+
+    let ratio = duration as f64 / track.duration_seconds as f64;
+
     let label = format!(
         "{} / {}",
         format_seconds(state.duration_s),
@@ -68,7 +74,6 @@ pub fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState) {
         .label(label);
 
     frame.render_widget(gauge, info_chunks[1]);
-
     frame.render_widget(Text::from(lines), info_chunks[0]);
 }
 

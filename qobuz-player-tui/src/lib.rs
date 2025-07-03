@@ -1,10 +1,16 @@
-use app::App;
+use app::{App, FilteredListState, UnfilteredListState};
+use favorites::FavoritesState;
+use queue::QueueState;
 use ratatui::{prelude::*, widgets::*};
+use search::SearchState;
 use ui::center;
 
 mod app;
+mod favorites;
 mod now_playing;
 mod popup;
+mod queue;
+mod search;
 mod ui;
 
 pub async fn init() {
@@ -16,45 +22,57 @@ pub async fn init() {
 
     let mut app = App {
         now_playing: Default::default(),
-        favorite_albums: app::FilteredListState {
-            filter: favorites.albums.clone(),
-            all_items: favorites.albums,
-            state: Default::default(),
-        },
-        favorite_artists: app::FilteredListState {
-            filter: favorites.artists.clone(),
-            all_items: favorites.artists,
-            state: Default::default(),
-        },
-        favorite_playlists: app::FilteredListState {
-            filter: favorites.playlists.clone(),
-            all_items: favorites.playlists,
-            state: Default::default(),
-        },
-        search_albums: app::UnfilteredListState {
-            items: Default::default(),
-
-            state: Default::default(),
-        },
-        search_artists: app::UnfilteredListState {
-            items: Default::default(),
-            state: Default::default(),
-        },
-        search_playlists: app::UnfilteredListState {
-            items: Default::default(),
-            state: Default::default(),
-        },
-        queue: app::UnfilteredListState {
-            items: Default::default(),
-            state: Default::default(),
-        },
         current_screen: Default::default(),
-        current_subtab: Default::default(),
         exit: Default::default(),
         should_draw: true,
         state: Default::default(),
-        favorite_filter: Default::default(),
-        search_filter: Default::default(),
+        favorites: FavoritesState {
+            editing: Default::default(),
+            filter: Default::default(),
+            albums: FilteredListState {
+                filter: favorites.albums.clone(),
+                all_items: favorites.albums,
+                state: Default::default(),
+            },
+            artists: FilteredListState {
+                filter: favorites.artists.clone(),
+                all_items: favorites.artists,
+                state: Default::default(),
+            },
+            playlists: FilteredListState {
+                filter: favorites.playlists.clone(),
+                all_items: favorites.playlists,
+                state: Default::default(),
+            },
+            sub_tab: Default::default(),
+        },
+        search: SearchState {
+            editing: Default::default(),
+            filter: Default::default(),
+            albums: UnfilteredListState {
+                items: Default::default(),
+                state: Default::default(),
+            },
+            artists: UnfilteredListState {
+                items: Default::default(),
+                state: Default::default(),
+            },
+            playlists: UnfilteredListState {
+                items: Default::default(),
+                state: Default::default(),
+            },
+            tracks: UnfilteredListState {
+                items: Default::default(),
+                state: Default::default(),
+            },
+            sub_tab: Default::default(),
+        },
+        queue: QueueState {
+            queue: UnfilteredListState {
+                items: Default::default(),
+                state: Default::default(),
+            },
+        },
     };
 
     let _app_result = app.run(&mut terminal).await;

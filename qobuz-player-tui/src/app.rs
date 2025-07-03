@@ -1,12 +1,9 @@
-use crate::{
-    popup::{ArtistPopupState, PlaylistPopupState, Popup},
-    ui,
-};
+use crate::{favorites::FavoritesState, popup::Popup, queue::QueueState, search::SearchState};
 use core::fmt;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use image::load_from_memory;
 use qobuz_player_controls::{
-    models::{Album, Artist, Playlist, Track},
+    models::Track,
     tracklist::{self, Tracklist},
 };
 use ratatui::{DefaultTerminal, widgets::*};
@@ -14,33 +11,30 @@ use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 use reqwest::Client;
 use std::io;
 use tokio::time::{self, Duration};
-use tui_input::{Input, backend::crossterm::EventHandler};
 
 pub struct App {
     pub current_screen: Tab,
-    pub current_subtab: SubTab,
     pub exit: bool,
     pub should_draw: bool,
     pub state: State,
-    pub favorite_filter: Input,
-    pub search_filter: Input,
     pub now_playing: NowPlayingState,
-    pub favorite_albums: FilteredListState<Album>,
-    pub favorite_artists: FilteredListState<Artist>,
-    pub favorite_playlists: FilteredListState<Playlist>,
-    pub search_albums: UnfilteredListState<Album>,
-    pub search_artists: UnfilteredListState<Artist>,
-    pub search_playlists: UnfilteredListState<Playlist>,
-    pub queue: UnfilteredListState<Track>,
+    pub favorites: FavoritesState,
+    pub search: SearchState,
+    pub queue: QueueState,
 }
 
 #[derive(Default, PartialEq)]
 pub enum State {
     #[default]
     Normal,
-    Editing,
     Popup(Popup),
     Help,
+}
+
+pub enum Output {
+    Consumed,
+    NotConsumed,
+    Popup(Popup),
 }
 
 #[derive(Default, PartialEq)]
@@ -63,39 +57,6 @@ impl fmt::Display for Tab {
 
 impl Tab {
     pub const VALUES: [Self; 3] = [Tab::Favorites, Tab::Search, Tab::Queue];
-}
-
-#[derive(Default, PartialEq, Eq, Clone, Copy)]
-pub enum SubTab {
-    #[default]
-    Albums,
-    Artists,
-    Playlists,
-}
-
-impl fmt::Display for SubTab {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Albums => write!(f, "Albums"),
-            Self::Artists => write!(f, "Artists"),
-            Self::Playlists => write!(f, "Playlists"),
-        }
-    }
-}
-
-impl SubTab {
-    pub const VALUES: [Self; 3] = [Self::Albums, Self::Artists, Self::Playlists];
-
-    pub fn next(self) -> Self {
-        let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
-        Self::VALUES[(index + 1) % Self::VALUES.len()]
-    }
-
-    pub fn previous(self) -> Self {
-        let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
-        let len = Self::VALUES.len();
-        Self::VALUES[(index + len - 1) % len]
-    }
 }
 
 #[derive(Default)]
@@ -141,7 +102,7 @@ impl App {
                             },
                             qobuz_player_controls::notification::Notification::CurrentTrackList { list } => {
                                 self.now_playing = get_current_state(&list).await;
-                                self.queue.items = list.queue;
+                                self.queue.queue.items = list.queue;
                                 self.should_draw = true;
                             }
                             qobuz_player_controls::notification::Notification::Quit => {
@@ -161,7 +122,7 @@ impl App {
             }
 
             if self.should_draw {
-                terminal.draw(|frame| ui::render(self, frame))?;
+                terminal.draw(|frame| self.render(frame))?;
                 self.should_draw = false;
             }
         }
@@ -178,329 +139,85 @@ impl App {
                     State::Help => {
                         self.state = State::Normal;
                         self.should_draw = true;
+                        return Ok(());
                     }
-                    State::Normal => match key_event.code {
-                        KeyCode::Char('h') => {
-                            self.state = State::Help;
-                            self.should_draw = true;
-                        }
-                        KeyCode::Char('q') => {
-                            self.should_draw = true;
-                            self.exit()
-                        }
-                        KeyCode::Char('1') => {
-                            self.navigate_to_favorites();
-                            self.should_draw = true;
-                        }
-                        KeyCode::Char('2') => {
-                            self.navigate_to_search();
-                            self.should_draw = true;
-                        }
-                        KeyCode::Char('3') => {
-                            self.navigate_to_queue();
-                            self.should_draw = true;
-                        }
-                        KeyCode::Char(' ') => {
-                            qobuz_player_controls::play_pause().await.unwrap();
-                            self.should_draw = true;
-                        }
-                        KeyCode::Char('n') => {
-                            qobuz_player_controls::next().await.unwrap();
-                            self.should_draw = true;
-                        }
-                        KeyCode::Char('p') => {
-                            qobuz_player_controls::previous().await.unwrap();
-                            self.should_draw = true;
-                        }
-                        KeyCode::Char('e') => {
-                            self.start_editing();
-                            self.should_draw = true;
-                        }
-                        KeyCode::Down => {
-                            let state = self.current_list_state();
-                            state.select_next();
-                            self.should_draw = true;
-                        }
-                        KeyCode::Up => {
-                            let state = self.current_list_state();
-                            state.select_previous();
-                            self.should_draw = true;
-                        }
-                        KeyCode::Left => {
-                            self.cycle_subtab_backwards();
-                            self.should_draw = true;
-                        }
-                        KeyCode::Right => {
-                            self.cycle_subtab();
-                            self.should_draw = true;
-                        }
-                        KeyCode::Enter => {
-                            match self.current_screen {
-                                Tab::Favorites => match self.current_subtab {
-                                    SubTab::Albums => {
-                                        let index = self.favorite_albums.state.selected();
-
-                                        let id = index
-                                            .map(|index| &self.favorite_albums.filter[index])
-                                            .map(|album| album.id.clone());
-
-                                        if let Some(id) = id {
-                                            qobuz_player_controls::play_album(&id, 0)
-                                                .await
-                                                .unwrap();
-                                        }
-                                    }
-                                    SubTab::Artists => {
-                                        let index = self.favorite_artists.state.selected();
-                                        let selected =
-                                            index.map(|index| &self.favorite_artists.filter[index]);
-
-                                        let Some(selected) = selected else {
-                                            return Ok(());
-                                        };
-
-                                        let artist_albums =
-                                            qobuz_player_controls::artist_albums(selected.id)
-                                                .await
-                                                .unwrap();
-
-                                        self.state =
-                                            State::Popup(Popup::Artist(ArtistPopupState {
-                                                artist_name: selected.name.clone(),
-                                                albums: artist_albums,
-                                                state: Default::default(),
-                                            }));
-                                    }
-                                    SubTab::Playlists => {
-                                        let index = self.favorite_playlists.state.selected();
-                                        let selected = index
-                                            .map(|index| &self.favorite_playlists.filter[index]);
-
-                                        let Some(selected) = selected else {
-                                            return Ok(());
-                                        };
-
-                                        self.state =
-                                            State::Popup(Popup::Playlist(PlaylistPopupState {
-                                                playlist_name: selected.title.clone(),
-                                                playlist_id: selected.id,
-                                                shuffle: false,
-                                            }))
-                                    }
-                                },
-                                Tab::Search => match self.current_subtab {
-                                    SubTab::Albums => {
-                                        let index = self.search_albums.state.selected();
-
-                                        let id = index
-                                            .map(|index| &self.search_albums.items[index])
-                                            .map(|album| album.id.clone());
-
-                                        if let Some(id) = id {
-                                            qobuz_player_controls::play_album(&id, 0)
-                                                .await
-                                                .unwrap();
-                                        }
-                                    }
-                                    SubTab::Artists => {
-                                        let index = self.search_artists.state.selected();
-                                        let selected =
-                                            index.map(|index| &self.search_artists.items[index]);
-
-                                        let Some(selected) = selected else {
-                                            return Ok(());
-                                        };
-
-                                        let artist_albums =
-                                            qobuz_player_controls::artist_albums(selected.id)
-                                                .await
-                                                .unwrap();
-
-                                        self.state =
-                                            State::Popup(Popup::Artist(ArtistPopupState {
-                                                artist_name: selected.name.clone(),
-                                                albums: artist_albums,
-                                                state: Default::default(),
-                                            }));
-                                    }
-                                    SubTab::Playlists => {
-                                        let index = self.search_playlists.state.selected();
-                                        let selected =
-                                            index.map(|index| &self.search_playlists.items[index]);
-
-                                        let Some(selected) = selected else {
-                                            return Ok(());
-                                        };
-
-                                        self.state =
-                                            State::Popup(Popup::Playlist(PlaylistPopupState {
-                                                playlist_name: selected.title.clone(),
-                                                playlist_id: selected.id,
-                                                shuffle: false,
-                                            }))
-                                    }
-                                },
-
-                                Tab::Queue => {
-                                    let index = self.search_playlists.state.selected();
-
-                                    if let Some(index) = index {
-                                        qobuz_player_controls::skip_to_position(index as u32, true)
-                                            .await
-                                            .unwrap();
-                                    }
-                                }
-                            }
-
-                            self.should_draw = true;
-                        }
-                        _ => {}
-                    },
-                    State::Editing => match key_event.code {
-                        KeyCode::Esc => {
-                            self.stop_editing();
-                            if matches!(self.current_screen, Tab::Search)
-                                && !self.search_filter.value().is_empty()
-                            {
-                                self.update_search().await;
-                            };
-                            self.should_draw = true;
-                        }
-                        KeyCode::Enter => {
-                            self.stop_editing();
-                            if matches!(self.current_screen, Tab::Search)
-                                && !self.search_filter.value().is_empty()
-                            {
-                                self.update_search().await;
-                            };
-                            self.should_draw = true;
-                        }
-                        _ => match self.current_screen {
-                            Tab::Favorites => {
-                                self.favorite_filter.handle_event(&event);
-
-                                self.favorite_albums.filter =
-                                    self.favorite_albums
-                                        .all_items
-                                        .iter()
-                                        .filter(|x| {
-                                            x.title.to_lowercase().contains(
-                                                &self.favorite_filter.value().to_lowercase(),
-                                            ) || x.artist.name.to_lowercase().contains(
-                                                &self.favorite_filter.value().to_lowercase(),
-                                            )
-                                        })
-                                        .cloned()
-                                        .collect();
-
-                                self.favorite_artists.filter = self
-                                    .favorite_artists
-                                    .all_items
-                                    .iter()
-                                    .filter(|x| {
-                                        x.name
-                                            .to_lowercase()
-                                            .contains(&self.favorite_filter.value().to_lowercase())
-                                    })
-                                    .cloned()
-                                    .collect();
-
-                                self.favorite_playlists.filter = self
-                                    .favorite_playlists
-                                    .all_items
-                                    .iter()
-                                    .filter(|x| {
-                                        x.title
-                                            .to_lowercase()
-                                            .contains(&self.favorite_filter.value().to_lowercase())
-                                    })
-                                    .cloned()
-                                    .collect();
-
-                                self.should_draw = true;
-                            }
-                            Tab::Search => {
-                                self.search_filter.handle_event(&event);
-                                self.should_draw = true;
-                            }
-                            Tab::Queue => (),
-                        },
-                    },
                     State::Popup(popup) => {
                         if key_event.code == KeyCode::Esc {
                             self.state = State::Normal;
                             self.should_draw = true;
                             return Ok(());
                         }
-                        match popup {
-                            Popup::Artist(artist_popup_state) => match key_event.code {
-                                KeyCode::Up => {
-                                    artist_popup_state.state.select_previous();
-                                    self.should_draw = true;
-                                }
-                                KeyCode::Down => {
-                                    artist_popup_state.state.select_next();
-                                    self.should_draw = true;
-                                }
-                                KeyCode::Enter => {
-                                    let index = artist_popup_state.state.selected();
 
-                                    let id = index
-                                        .map(|index| &artist_popup_state.albums[index])
-                                        .map(|album| album.id.clone());
+                        if popup.handle_event(key_event.code).await {
+                            self.state = State::Normal;
+                        };
 
-                                    if let Some(id) = id {
-                                        qobuz_player_controls::play_album(&id, 0).await.unwrap();
-                                        self.state = State::Normal;
-                                        self.should_draw = true;
-                                        return Ok(());
-                                    }
-                                }
-                                _ => {}
-                            },
-                            Popup::Playlist(playlist_popup_state) => match key_event.code {
-                                KeyCode::Left => {
-                                    playlist_popup_state.shuffle = !playlist_popup_state.shuffle;
-                                    self.should_draw = true;
-                                }
-                                KeyCode::Right => {
-                                    playlist_popup_state.shuffle = !playlist_popup_state.shuffle;
-                                    self.should_draw = true;
-                                }
-                                KeyCode::Enter => {
-                                    let id = playlist_popup_state.playlist_id;
+                        self.should_draw = true;
+                        return Ok(());
+                    }
+                    _ => {}
+                };
 
-                                    qobuz_player_controls::play_playlist(
-                                        id,
-                                        0,
-                                        playlist_popup_state.shuffle,
-                                    )
-                                    .await
-                                    .unwrap();
-                                    self.state = State::Normal;
-                                    self.should_draw = true;
-                                    return Ok(());
-                                }
-                                _ => {}
-                            },
-                        }
+                let screen_output = match self.current_screen {
+                    Tab::Favorites => self.favorites.handle_events(event).await,
+                    Tab::Search => self.search.handle_events(event).await,
+                    Tab::Queue => self.queue.handle_events(event).await,
+                };
 
+                match screen_output {
+                    Output::Consumed => {
+                        self.should_draw = true;
+                        return Ok(());
+                    }
+                    Output::NotConsumed => {}
+                    Output::Popup(popup) => {
+                        self.state = State::Popup(popup);
+                        self.should_draw = true;
                         return Ok(());
                     }
                 }
+
+                match key_event.code {
+                    KeyCode::Char('h') => {
+                        self.state = State::Help;
+                        self.should_draw = true;
+                    }
+                    KeyCode::Char('q') => {
+                        self.should_draw = true;
+                        self.exit()
+                    }
+                    KeyCode::Char('1') => {
+                        self.navigate_to_favorites();
+                        self.should_draw = true;
+                    }
+                    KeyCode::Char('2') => {
+                        self.navigate_to_search();
+                        self.should_draw = true;
+                    }
+                    KeyCode::Char('3') => {
+                        self.navigate_to_queue();
+                        self.should_draw = true;
+                    }
+                    KeyCode::Char(' ') => {
+                        qobuz_player_controls::play_pause().await.unwrap();
+                        self.should_draw = true;
+                    }
+                    KeyCode::Char('n') => {
+                        qobuz_player_controls::next().await.unwrap();
+                        self.should_draw = true;
+                    }
+                    KeyCode::Char('p') => {
+                        qobuz_player_controls::previous().await.unwrap();
+                        self.should_draw = true;
+                    }
+                    _ => {}
+                };
             }
+
             Event::Resize(_, _) => self.should_draw = true,
             _ => {}
         };
         Ok(())
-    }
-
-    fn start_editing(&mut self) {
-        self.state = State::Editing
-    }
-
-    fn stop_editing(&mut self) {
-        self.state = State::Normal
     }
 
     fn navigate_to_favorites(&mut self) {
@@ -517,42 +234,6 @@ impl App {
 
     fn exit(&mut self) {
         self.exit = true;
-    }
-
-    fn cycle_subtab_backwards(&mut self) {
-        self.current_subtab = self.current_subtab.previous();
-    }
-
-    fn cycle_subtab(&mut self) {
-        self.current_subtab = self.current_subtab.next();
-    }
-
-    fn current_list_state(&mut self) -> &mut TableState {
-        match &self.current_screen {
-            Tab::Favorites => match self.current_subtab {
-                SubTab::Albums => &mut self.favorite_albums.state,
-                SubTab::Artists => &mut self.favorite_artists.state,
-                SubTab::Playlists => &mut self.favorite_playlists.state,
-            },
-            Tab::Search => match self.current_subtab {
-                SubTab::Albums => &mut self.search_albums.state,
-                SubTab::Artists => &mut self.search_artists.state,
-                SubTab::Playlists => &mut self.search_playlists.state,
-            },
-            Tab::Queue => &mut self.queue.state,
-        }
-    }
-
-    async fn update_search(&mut self) {
-        let search_results = qobuz_player_controls::search(self.search_filter.value().to_string())
-            .await
-            .unwrap();
-
-        self.search_albums.items = search_results.albums;
-        self.search_artists.items = search_results.artists;
-        self.search_playlists.items = search_results.playlists;
-
-        self.should_draw = true;
     }
 }
 
