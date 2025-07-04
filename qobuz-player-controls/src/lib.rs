@@ -222,13 +222,11 @@ async fn broadcast_track_list(list: &Tracklist) -> Result<()> {
 #[instrument]
 /// Toggle play and pause.
 pub async fn play_pause() -> Result<()> {
-    if is_playing().await {
-        pause().await?;
-    } else if is_paused().await || is_player_ready() {
-        play().await?;
+    match current_state().await {
+        tracklist::Status::Playing => pause().await,
+        tracklist::Status::Paused => play().await,
+        tracklist::Status::Stopped => Ok(()),
     }
-
-    Ok(())
 }
 
 #[instrument]
