@@ -249,7 +249,7 @@ async fn fetch_image(image_url: &str) -> Option<StatefulProtocol> {
     Some(picker.new_resize_protocol(image))
 }
 
-async fn get_current_state(tracklist: &Tracklist) -> NowPlayingState {
+pub(crate) async fn get_current_state(tracklist: &Tracklist) -> NowPlayingState {
     let (entity, image_url, show_tracklist_position) = match &tracklist.list_type {
         qobuz_player_controls::tracklist::TracklistType::Album(tracklist) => (
             Some(tracklist.title.clone()),

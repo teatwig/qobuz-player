@@ -299,7 +299,7 @@ fn hifi_available(track_has_hires_available: bool) -> bool {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum TrackStatus {
     Played,
     Playing,
@@ -308,7 +308,7 @@ pub enum TrackStatus {
     Unplayable,
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Track {
     pub id: u32,
     pub title: String,

@@ -58,7 +58,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Open the player
-    Open {},
+    Open,
     /// Set configuration options
     Config {
         #[clap(subcommand)]
@@ -120,9 +120,10 @@ pub async fn run() -> Result<(), Error> {
     qobuz_player_database::init().await;
 
     match cli.command {
-        Commands::Open {} => {
+        Commands::Open => {
             let database_credentials = qobuz_player_database::get_credentials().await;
             let database_configuration = qobuz_player_database::get_configuration().await;
+            let loaded_tracklist = qobuz_player_database::get_tracklist().await;
 
             let username = cli.username.unwrap_or_else(|| {
                 database_credentials
@@ -164,6 +165,7 @@ pub async fn run() -> Result<(), Error> {
                 match qobuz_player_controls::player_loop(
                     qobuz_player_controls::Credentials { username, password },
                     qobuz_player_controls::Configuration { max_audio_quality },
+                    loaded_tracklist,
                 )
                 .await
                 {
@@ -172,21 +174,24 @@ pub async fn run() -> Result<(), Error> {
                 }
             });
 
-            if cli.rfid {
+            let tracklist = if cli.rfid {
                 qobuz_player_rfid::init().await;
+                qobuz_player_controls::quit().await?
             } else if !cli.disable_tui {
                 qobuz_player_tui::init().await;
 
                 debug!("tui exited, quitting");
-                qobuz_player_controls::quit().await?;
+                qobuz_player_controls::quit().await?
             } else {
                 debug!("waiting for ctrlc");
                 tokio::signal::ctrl_c()
                     .await
                     .expect("error waiting for ctrlc");
                 debug!("ctrlc received, quitting");
-                qobuz_player_controls::quit().await?;
+                qobuz_player_controls::quit().await?
             };
+
+            qobuz_player_database::set_tracklist(tracklist).await;
 
             Ok(())
         }

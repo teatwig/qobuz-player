@@ -19,6 +19,6 @@ mime = { workspace = true }
 mime_guess = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 rust-embed = { version = "8.7.2", features = ["axum", "tokio", "mime_guess"] }
-serde = { workspace = true, features = ["derive"] }
+serde = { workspace = true }
 tokio-stream = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }

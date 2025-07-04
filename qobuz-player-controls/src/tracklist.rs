@@ -1,35 +1,35 @@
 use crate::models::{Track, TrackStatus};
 use tracing::instrument;
 
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct AlbumTracklist {
     pub title: String,
     pub id: String,
     pub image: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct PlaylistTracklist {
     pub title: String,
     pub id: u32,
     pub image: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct TopTracklist {
     pub artist_name: String,
     pub id: u32,
     pub image: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct SingleTracklist {
     pub track_title: String,
     pub album_id: Option<String>,
     pub image: Option<String>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum TracklistType {
     Album(AlbumTracklist),
     Playlist(PlaylistTracklist),
@@ -39,7 +39,7 @@ pub enum TracklistType {
     None,
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Tracklist {
     pub queue: Vec<Track>,
     pub list_type: TracklistType,

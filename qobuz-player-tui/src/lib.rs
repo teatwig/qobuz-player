@@ -1,4 +1,4 @@
-use app::{App, FilteredListState, UnfilteredListState};
+use app::{App, FilteredListState, UnfilteredListState, get_current_state};
 use favorites::FavoritesState;
 use queue::QueueState;
 use ratatui::{prelude::*, widgets::*};
@@ -20,8 +20,11 @@ pub async fn init() {
 
     let favorites = qobuz_player_controls::favorites().await.unwrap();
 
+    let tracklist = qobuz_player_controls::current_tracklist().await;
+    let now_playing = get_current_state(&tracklist).await;
+
     let mut app = App {
-        now_playing: Default::default(),
+        now_playing,
         current_screen: Default::default(),
         exit: Default::default(),
         should_draw: true,

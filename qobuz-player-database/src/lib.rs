@@ -1,4 +1,6 @@
-use qobuz_player_controls::AudioQuality;
+use qobuz_player_controls::{AudioQuality, tracklist::Tracklist};
+use serde_json::to_string;
+use sqlx::types::Json;
 use sqlx::{Pool, Sqlite, SqlitePool, sqlite::SqliteConnectOptions};
 use std::{path::PathBuf, sync::OnceLock};
 use tracing::debug;
@@ -104,6 +106,50 @@ pub async fn set_password(password: String) {
         conn,
         md5_pw
     );
+}
+
+pub async fn set_tracklist(tracklist: Tracklist) {
+    let mut conn = acquire!().unwrap();
+    let serialized = to_string(&tracklist).unwrap();
+
+    sqlx::query!(
+        r#"
+            delete from tracklist
+            "#
+    )
+    .execute(&mut *conn)
+    .await
+    .expect("database failure");
+
+    sqlx::query!(
+        r#"
+            INSERT INTO tracklist (tracklist) VALUES (?1);
+        "#,
+        serialized
+    )
+    .execute(&mut *conn)
+    .await
+    .expect("failed to insert new tracklist");
+}
+
+#[derive(Debug, sqlx::FromRow, serde::Deserialize)]
+struct TracklistDb {
+    tracklist: Json<Tracklist>,
+}
+
+pub async fn get_tracklist() -> Option<Tracklist> {
+    let mut conn = acquire!().unwrap();
+
+    let row = sqlx::query_as!(
+        TracklistDb,
+        r#"
+            SELECT tracklist as "tracklist: Json<Tracklist>" FROM tracklist
+            "#
+    )
+    .fetch_one(&mut *conn)
+    .await;
+
+    row.ok().map(|x| x.tracklist.0)
 }
 
 pub async fn set_max_audio_quality(quality: AudioQuality) {

@@ -216,6 +216,7 @@ async fn broadcast_track_list(list: &Tracklist) -> Result<()> {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::CurrentTrackList { list: list.clone() })?;
+
     Ok(())
 }
 
@@ -225,7 +226,18 @@ pub async fn play_pause() -> Result<()> {
     match current_state().await {
         tracklist::Status::Playing => pause().await,
         tracklist::Status::Paused => play().await,
-        tracklist::Status::Stopped => Ok(()),
+        tracklist::Status::Stopped => {
+            let tracklist = TRACKLIST.read().await;
+
+            if let Some(current_track) = tracklist.current_track() {
+                let client = get_client().await;
+                let track_url = track_url(client, current_track.id).await?;
+                query_track_url(&track_url).await?;
+                play().await.unwrap();
+            }
+
+            Ok(())
+        }
     }
 }
 
@@ -952,7 +964,7 @@ async fn clock_loop() {
     }
 }
 
-pub async fn quit() -> Result<()> {
+pub async fn quit() -> Result<Tracklist> {
     tracing::debug!("stopping player");
 
     SHOULD_QUIT.store(true, Ordering::Relaxed);
@@ -977,12 +989,17 @@ pub async fn quit() -> Result<()> {
         .send(Notification::Quit)
         .expect("error sending broadcast");
 
-    Ok(())
+    let tracklist = TRACKLIST.read().await;
+    Ok(tracklist.clone())
 }
 
 /// Handles messages from GStreamer, receives player actions from external controls
 /// receives the about-to-finish event and takes necessary action.
-pub async fn player_loop(credentials: Credentials, configuration: Configuration) -> Result<()> {
+pub async fn player_loop(
+    credentials: Credentials,
+    configuration: Configuration,
+    load_tracklist: Option<Tracklist>,
+) -> Result<()> {
     CREDENTIALS.set(credentials).unwrap();
     CONFIGURATION.set(configuration).unwrap();
 
@@ -990,6 +1007,11 @@ pub async fn player_loop(credentials: Credentials, configuration: Configuration)
     let mut about_to_finish = TRACK_ABOUT_TO_FINISH.rx.resubscribe();
 
     let clock_loop = tokio::spawn(async { clock_loop().await });
+
+    if let Some(load_tracklist) = load_tracklist {
+        let mut tracklist = TRACKLIST.write().await;
+        *tracklist = load_tracklist;
+    }
 
     loop {
         if SHOULD_QUIT.load(Ordering::Relaxed) {

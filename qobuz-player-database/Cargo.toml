@@ -8,7 +8,9 @@ repository.workspace = true
 [dependencies]
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 
-sqlx = { workspace = true, features = ["runtime-tokio-rustls", "sqlite", "migrate", "macros"] }
+sqlx = { workspace = true }
 dirs = { workspace = true }
 md5 = { workspace = true }
 tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
