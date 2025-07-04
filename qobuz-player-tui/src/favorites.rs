@@ -71,7 +71,10 @@ impl FavoritesState {
         let title = format!("<Favorites: {}>", self.sub_tab);
 
         let (table, state) = match self.sub_tab {
-            SubTab::Albums => (album_table(&self.albums.filter), &mut self.albums.state),
+            SubTab::Albums => (
+                album_table(&self.albums.filter, "<Favorite: Albums>"),
+                &mut self.albums.state,
+            ),
             SubTab::Artists => (
                 basic_list_table(
                     self.artists

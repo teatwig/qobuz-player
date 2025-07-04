@@ -71,10 +71,13 @@ impl SearchState {
         );
 
         let tab_content_area = tab_content_area_split[1];
-        let title = format!("<Favorites: {}>", self.sub_tab);
+        let title = format!("<Search: {}>", self.sub_tab);
 
         let (table, state) = match self.sub_tab {
-            SubTab::Albums => (album_table(&self.albums.items), &mut self.albums.state),
+            SubTab::Albums => (
+                album_table(&self.albums.items, "<Favorite: Albums>"),
+                &mut self.albums.state,
+            ),
             SubTab::Artists => (
                 basic_list_table(
                     self.artists
@@ -201,8 +204,8 @@ impl SearchState {
                 },
                 true => match key_event.code {
                     KeyCode::Esc | KeyCode::Enter => {
-                        self.update_search().await;
                         self.stop_editing();
+                        self.update_search().await;
                         Output::Consumed
                     }
                     _ => {
@@ -216,7 +219,7 @@ impl SearchState {
     }
 
     async fn update_search(&mut self) {
-        if !self.filter.value().is_empty() {
+        if !self.filter.value().trim().is_empty() {
             let search_results = qobuz_player_controls::search(self.filter.value().to_string())
                 .await
                 .unwrap();

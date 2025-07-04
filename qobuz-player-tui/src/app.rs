@@ -225,6 +225,7 @@ impl App {
     }
 
     fn navigate_to_search(&mut self) {
+        self.search.editing = true;
         self.current_screen = Tab::Search;
     }
 

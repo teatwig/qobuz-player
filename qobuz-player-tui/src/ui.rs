@@ -133,7 +133,7 @@ pub fn block(title: &str) -> Block {
         .border_type(BorderType::Rounded)
 }
 
-pub fn album_table<'a>(rows: &[Album]) -> Table<'a> {
+pub fn album_table<'a>(rows: &[Album], title: &'a str) -> Table<'a> {
     let max_title_length = rows
         .iter()
         .map(|album| album.title.len())
@@ -166,7 +166,7 @@ pub fn album_table<'a>(rows: &[Album]) -> Table<'a> {
             Constraint::Length(4),
         ],
     )
-    .block(block("<Favorite: Albums>"))
+    .block(block(title))
     .row_highlight_style(ROW_HIGHLIGHT_STYLE);
 
     if !is_empty {
