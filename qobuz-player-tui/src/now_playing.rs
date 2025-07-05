@@ -1,9 +1,19 @@
 use crate::ui::block;
-use qobuz_player_controls::tracklist;
+use qobuz_player_controls::{models::Track, tracklist};
 use ratatui::{prelude::*, widgets::*};
-use ratatui_image::StatefulImage;
+use ratatui_image::{StatefulImage, protocol::StatefulProtocol};
 
-use crate::app::NowPlayingState;
+#[derive(Default)]
+pub(crate) struct NowPlayingState {
+    pub(crate) image: Option<(StatefulProtocol, f32)>,
+    pub(crate) entity_title: Option<String>,
+    pub(crate) playing_track: Option<Track>,
+    pub(crate) tracklist_length: u32,
+    pub(crate) tracklist_position: u32,
+    pub(crate) show_tracklist_position: bool,
+    pub(crate) status: tracklist::Status,
+    pub(crate) duration_s: u32,
+}
 
 pub fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState) {
     let track = match &state.playing_track {
@@ -14,16 +24,23 @@ pub fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState) {
     let title = format!("Playing {}", get_status_icon(state.status));
     let block = block(&title);
 
+    let length = state
+        .image
+        .as_ref()
+        .map(|image| image.1 * (area.height * 2 - 1) as f32)
+        .map(|x| x as u16)
+        .unwrap_or(0);
+
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(19), Constraint::Min(1)])
+        .constraints([Constraint::Length(length), Constraint::Min(1)])
         .split(block.inner(area));
 
     frame.render_widget(block, area);
 
     if let Some(image) = &mut state.image {
         let stateful_image = StatefulImage::default();
-        frame.render_stateful_widget(stateful_image, chunks[0], image);
+        frame.render_stateful_widget(stateful_image, chunks[0], &mut image.0);
     }
 
     let info_chunks = Layout::default()

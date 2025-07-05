@@ -1,14 +1,11 @@
 use crate::{
-    discover::DiscoverState, favorites::FavoritesState, popup::Popup, queue::QueueState,
-    search::SearchState,
+    discover::DiscoverState, favorites::FavoritesState, now_playing::NowPlayingState, popup::Popup,
+    queue::QueueState, search::SearchState,
 };
 use core::fmt;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use image::load_from_memory;
-use qobuz_player_controls::{
-    models::Track,
-    tracklist::{self, Tracklist},
-};
+use qobuz_player_controls::tracklist::Tracklist;
 use ratatui::{DefaultTerminal, widgets::*};
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 use reqwest::Client;
@@ -63,18 +60,6 @@ impl fmt::Display for Tab {
 
 impl Tab {
     pub(crate) const VALUES: [Self; 4] = [Tab::Favorites, Tab::Search, Tab::Queue, Tab::Discover];
-}
-
-#[derive(Default)]
-pub(crate) struct NowPlayingState {
-    pub(crate) image: Option<StatefulProtocol>,
-    pub(crate) entity_title: Option<String>,
-    pub(crate) playing_track: Option<Track>,
-    pub(crate) tracklist_length: u32,
-    pub(crate) tracklist_position: u32,
-    pub(crate) show_tracklist_position: bool,
-    pub(crate) status: tracklist::Status,
-    pub(crate) duration_s: u32,
 }
 
 pub(crate) struct FilteredListState<T> {
@@ -253,15 +238,16 @@ impl App {
     }
 }
 
-async fn fetch_image(image_url: &str) -> Option<StatefulProtocol> {
+async fn fetch_image(image_url: &str) -> Option<(StatefulProtocol, f32)> {
     let client = Client::new();
     let response = client.get(image_url).send().await.ok()?;
     let img_bytes = response.bytes().await.ok()?;
 
     let image = load_from_memory(&img_bytes).ok()?;
+    let ratio = image.width() as f32 / image.height() as f32;
 
     let picker = Picker::from_query_stdio().ok()?;
-    Some(picker.new_resize_protocol(image))
+    Some((picker.new_resize_protocol(image), ratio))
 }
 
 pub(crate) async fn get_current_state(tracklist: &Tracklist) -> NowPlayingState {
