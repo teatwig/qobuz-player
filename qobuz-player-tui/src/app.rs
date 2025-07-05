@@ -1,4 +1,7 @@
-use crate::{favorites::FavoritesState, popup::Popup, queue::QueueState, search::SearchState};
+use crate::{
+    discover::DiscoverState, favorites::FavoritesState, popup::Popup, queue::QueueState,
+    search::SearchState,
+};
 use core::fmt;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use image::load_from_memory;
@@ -12,37 +15,39 @@ use reqwest::Client;
 use std::io;
 use tokio::time::{self, Duration};
 
-pub struct App {
-    pub current_screen: Tab,
-    pub exit: bool,
-    pub should_draw: bool,
-    pub state: State,
-    pub now_playing: NowPlayingState,
-    pub favorites: FavoritesState,
-    pub search: SearchState,
-    pub queue: QueueState,
+pub(crate) struct App {
+    pub(crate) current_screen: Tab,
+    pub(crate) exit: bool,
+    pub(crate) should_draw: bool,
+    pub(crate) state: State,
+    pub(crate) now_playing: NowPlayingState,
+    pub(crate) favorites: FavoritesState,
+    pub(crate) search: SearchState,
+    pub(crate) queue: QueueState,
+    pub(crate) discover: DiscoverState,
 }
 
 #[derive(Default, PartialEq)]
-pub enum State {
+pub(crate) enum State {
     #[default]
     Normal,
     Popup(Popup),
     Help,
 }
 
-pub enum Output {
+pub(crate) enum Output {
     Consumed,
     NotConsumed,
     Popup(Popup),
 }
 
 #[derive(Default, PartialEq)]
-pub enum Tab {
+pub(crate) enum Tab {
     #[default]
     Favorites,
     Search,
     Queue,
+    Discover,
 }
 
 impl fmt::Display for Tab {
@@ -51,39 +56,40 @@ impl fmt::Display for Tab {
             Tab::Favorites => write!(f, "Favorites"),
             Tab::Search => write!(f, "Search"),
             Tab::Queue => write!(f, "Queue"),
+            Tab::Discover => write!(f, "Discover"),
         }
     }
 }
 
 impl Tab {
-    pub const VALUES: [Self; 3] = [Tab::Favorites, Tab::Search, Tab::Queue];
+    pub(crate) const VALUES: [Self; 4] = [Tab::Favorites, Tab::Search, Tab::Queue, Tab::Discover];
 }
 
 #[derive(Default)]
-pub struct NowPlayingState {
-    pub image: Option<StatefulProtocol>,
-    pub entity_title: Option<String>,
-    pub playing_track: Option<Track>,
-    pub tracklist_length: u32,
-    pub tracklist_position: u32,
-    pub show_tracklist_position: bool,
-    pub status: tracklist::Status,
-    pub duration_s: u32,
+pub(crate) struct NowPlayingState {
+    pub(crate) image: Option<StatefulProtocol>,
+    pub(crate) entity_title: Option<String>,
+    pub(crate) playing_track: Option<Track>,
+    pub(crate) tracklist_length: u32,
+    pub(crate) tracklist_position: u32,
+    pub(crate) show_tracklist_position: bool,
+    pub(crate) status: tracklist::Status,
+    pub(crate) duration_s: u32,
 }
 
-pub struct FilteredListState<T> {
-    pub filter: Vec<T>,
-    pub all_items: Vec<T>,
-    pub state: TableState,
+pub(crate) struct FilteredListState<T> {
+    pub(crate) filter: Vec<T>,
+    pub(crate) all_items: Vec<T>,
+    pub(crate) state: TableState,
 }
 
-pub struct UnfilteredListState<T> {
-    pub items: Vec<T>,
-    pub state: TableState,
+pub(crate) struct UnfilteredListState<T> {
+    pub(crate) items: Vec<T>,
+    pub(crate) state: TableState,
 }
 
 impl App {
-    pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+    pub(crate) async fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         let mut receiver = qobuz_player_controls::notify_receiver();
         let mut tick_interval = time::interval(Duration::from_millis(10));
 
@@ -162,6 +168,7 @@ impl App {
                     Tab::Favorites => self.favorites.handle_events(event).await,
                     Tab::Search => self.search.handle_events(event).await,
                     Tab::Queue => self.queue.handle_events(event).await,
+                    Tab::Discover => self.discover.handle_events(event).await,
                 };
 
                 match screen_output {
@@ -198,6 +205,10 @@ impl App {
                         self.navigate_to_queue();
                         self.should_draw = true;
                     }
+                    KeyCode::Char('4') => {
+                        self.navigate_to_discover();
+                        self.should_draw = true;
+                    }
                     KeyCode::Char(' ') => {
                         qobuz_player_controls::play_pause().await.unwrap();
                         self.should_draw = true;
@@ -231,6 +242,10 @@ impl App {
 
     fn navigate_to_queue(&mut self) {
         self.current_screen = Tab::Queue;
+    }
+
+    fn navigate_to_discover(&mut self) {
+        self.current_screen = Tab::Discover;
     }
 
     fn exit(&mut self) {

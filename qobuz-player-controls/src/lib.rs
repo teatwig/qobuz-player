@@ -32,7 +32,7 @@ pub mod models;
 pub mod notification;
 pub mod tracklist;
 
-pub type Result<T, E = Error> = std::result::Result<T, E>;
+type Result<T, E = Error> = std::result::Result<T, E>;
 
 static PLAYBIN: LazyLock<Element> = LazyLock::new(|| {
     gstreamer::init().expect("error initializing gstreamer");
@@ -286,13 +286,13 @@ pub async fn pause() -> Result<()> {
 
 #[instrument]
 /// Is the player paused?
-pub async fn is_paused() -> bool {
+async fn is_paused() -> bool {
     *TARGET_STATUS.read().await != tracklist::Status::Playing
 }
 
 #[instrument]
 /// Is the player playing?
-pub async fn is_playing() -> bool {
+async fn is_playing() -> bool {
     *TARGET_STATUS.read().await == tracklist::Status::Playing
 }
 

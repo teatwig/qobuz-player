@@ -1,4 +1,4 @@
-use qobuz_player_controls::models::Album;
+use qobuz_player_controls::models::{Album, AlbumSimple};
 use ratatui::{layout::Flex, prelude::*, widgets::*};
 use tui_input::Input;
 
@@ -51,6 +51,7 @@ impl App {
             Tab::Favorites => self.favorites.render(frame, tab_content_area),
             Tab::Search => self.search.render(frame, tab_content_area),
             Tab::Queue => self.queue.render(frame, tab_content_area),
+            Tab::Discover => self.discover.render(frame, tab_content_area),
         }
 
         if let State::Popup(popup) = &mut self.state {
@@ -171,6 +172,46 @@ pub fn album_table<'a>(rows: &[Album], title: &'a str) -> Table<'a> {
 
     if !is_empty {
         table = table.header(Row::new(["Title", "Artist", "Year"]).add_modifier(Modifier::BOLD));
+    }
+    table
+}
+
+pub fn album_simple_table<'a>(rows: &[AlbumSimple], title: &'a str) -> Table<'a> {
+    let max_title_length = rows
+        .iter()
+        .map(|album| album.title.len())
+        .max()
+        .unwrap_or(0);
+
+    let max_artist_name_length = rows
+        .iter()
+        .map(|album| album.artist.name.len())
+        .max()
+        .unwrap_or(0);
+
+    let rows: Vec<_> = rows
+        .iter()
+        .map(|album| {
+            Row::new(vec![
+                Span::from(album.title.clone()),
+                Span::from(album.artist.name.clone()),
+            ])
+        })
+        .collect();
+
+    let is_empty = rows.is_empty();
+    let mut table = Table::new(
+        rows,
+        [
+            Constraint::Min(max_title_length as u16),
+            Constraint::Min(max_artist_name_length as u16),
+        ],
+    )
+    .block(block(title))
+    .row_highlight_style(ROW_HIGHLIGHT_STYLE);
+
+    if !is_empty {
+        table = table.header(Row::new(["Title", "Artist"]).add_modifier(Modifier::BOLD));
     }
     table
 }

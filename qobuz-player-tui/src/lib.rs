@@ -3,9 +3,11 @@ use favorites::FavoritesState;
 use queue::QueueState;
 use ratatui::{prelude::*, widgets::*};
 use search::SearchState;
+use tokio::try_join;
 use ui::center;
 
 mod app;
+mod discover;
 mod favorites;
 mod now_playing;
 mod popup;
@@ -18,10 +20,29 @@ pub async fn init() {
 
     draw_loading_screen(&mut terminal);
 
-    let favorites = qobuz_player_controls::favorites().await.unwrap();
-
     let tracklist = qobuz_player_controls::current_tracklist().await;
     let now_playing = get_current_state(&tracklist).await;
+
+    let (favorites, press_awards, new_releases, qobuzissims, ideal_discography, editor_picks) =
+        try_join!(
+            qobuz_player_controls::favorites(),
+            qobuz_player_controls::featured_albums(
+                qobuz_player_controls::AlbumFeaturedType::PressAwards
+            ),
+            qobuz_player_controls::featured_albums(
+                qobuz_player_controls::AlbumFeaturedType::NewReleasesFull
+            ),
+            qobuz_player_controls::featured_albums(
+                qobuz_player_controls::AlbumFeaturedType::Qobuzissims
+            ),
+            qobuz_player_controls::featured_albums(
+                qobuz_player_controls::AlbumFeaturedType::IdealDiscography
+            ),
+            qobuz_player_controls::featured_playlists(
+                qobuz_player_controls::PlaylistFeaturedType::EditorPicks
+            ),
+        )
+        .unwrap();
 
     let mut app = App {
         now_playing,
@@ -75,6 +96,29 @@ pub async fn init() {
                 items: Default::default(),
                 state: Default::default(),
             },
+        },
+        discover: discover::DiscoverState {
+            press_awards: UnfilteredListState {
+                items: press_awards,
+                state: Default::default(),
+            },
+            new_releases: UnfilteredListState {
+                items: new_releases,
+                state: Default::default(),
+            },
+            qobuzissims: UnfilteredListState {
+                items: qobuzissims,
+                state: Default::default(),
+            },
+            ideal_discography: UnfilteredListState {
+                items: ideal_discography,
+                state: Default::default(),
+            },
+            editor_picks: UnfilteredListState {
+                items: editor_picks,
+                state: Default::default(),
+            },
+            sub_tab: Default::default(),
         },
     };
 
