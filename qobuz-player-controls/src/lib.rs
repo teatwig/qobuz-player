@@ -451,7 +451,13 @@ pub async fn previous() -> Result<()> {
         lock.current_position()
     };
 
-    skip_to_position(current_position - 1, false).await
+    let next = if current_position == 0 {
+        0
+    } else {
+        current_position - 1
+    };
+
+    skip_to_position(next, false).await
 }
 
 fn skip_to_track(tracklist: &mut Tracklist, new_position: u32) -> Option<&Track> {
