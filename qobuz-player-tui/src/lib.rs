@@ -20,9 +20,6 @@ pub async fn init() {
 
     draw_loading_screen(&mut terminal);
 
-    let tracklist = qobuz_player_controls::current_tracklist().await;
-    let now_playing = get_current_state(&tracklist).await;
-
     let (favorites, press_awards, new_releases, qobuzissims, ideal_discography, editor_picks) =
         try_join!(
             qobuz_player_controls::favorites(),
@@ -43,6 +40,9 @@ pub async fn init() {
             ),
         )
         .unwrap();
+
+    let tracklist = qobuz_player_controls::current_tracklist().await;
+    let now_playing = get_current_state(&tracklist).await;
 
     let mut app = App {
         now_playing,

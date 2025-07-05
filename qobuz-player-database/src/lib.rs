@@ -114,8 +114,8 @@ pub async fn set_tracklist(tracklist: Tracklist) {
 
     sqlx::query!(
         r#"
-            delete from tracklist
-            "#
+           delete from tracklist
+        "#
     )
     .execute(&mut *conn)
     .await
@@ -144,7 +144,7 @@ pub async fn get_tracklist() -> Option<Tracklist> {
         TracklistDb,
         r#"
             SELECT tracklist as "tracklist: Json<Tracklist>" FROM tracklist
-            "#
+        "#
     )
     .fetch_one(&mut *conn)
     .await;
