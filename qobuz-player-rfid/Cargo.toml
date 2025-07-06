@@ -9,7 +9,6 @@ repository.workspace = true
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 qobuz-player-database = { version = "*", path = "../qobuz-player-database" }
 
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio-rustls", "sqlite", "migrate", "macros"] }
-tracing = { workspace = true }
-cursive = { workspace = true } 
+dialoguer = { workspace = true }

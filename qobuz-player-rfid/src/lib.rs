@@ -1,20 +1,13 @@
+use dialoguer::Input;
+use qobuz_player_controls::tracklist;
 use std::sync::{
-    OnceLock,
+    LazyLock,
     atomic::{AtomicBool, Ordering},
 };
-
-use cursive::{
-    Cursive,
-    reexports::crossbeam_channel::Sender,
-    view::Nameable,
-    views::{Dialog, EditView},
-};
-use qobuz_player_controls::tracklist;
+use tokio::sync::RwLock;
 
 static INITIATED: AtomicBool = AtomicBool::new(false);
-static AWAITING_SCAN: AtomicBool = AtomicBool::new(false);
-static SINK: OnceLock<CursiveSender> = OnceLock::new();
-type CursiveSender = Sender<Box<dyn FnOnce(&mut Cursive) + Send>>;
+static SCAN_REQUEST: LazyLock<RwLock<Option<LinkRequest>>> = LazyLock::new(|| RwLock::new(None));
 
 pub fn is_initiated() -> bool {
     INITIATED.load(Ordering::Relaxed)
@@ -23,72 +16,60 @@ pub fn is_initiated() -> bool {
 pub async fn init() {
     INITIATED.store(true, Ordering::Relaxed);
 
-    let mut siv = cursive::default();
+    loop {
+        match Input::<String>::new()
+            .with_prompt("Scan rfid")
+            .interact_text()
+        {
+            Ok(res) => match &*SCAN_REQUEST.read().await {
+                Some(request) => match request {
+                    LinkRequest::Album(album) => submit_link_album(&res, album),
+                    LinkRequest::Playlist(playlist) => submit_link_playlist(&res, *playlist),
+                },
+                None => handle_play_scan(&res).await,
+            },
 
-    SINK.set(siv.cb_sink().clone()).expect("error setting sink");
-
-    siv.add_global_callback(cursive::event::Event::CtrlChar('c'), Cursive::quit);
-
-    siv.add_layer(scan_dialog());
-
-    siv.run();
-}
-
-fn scan_dialog() -> Dialog {
-    Dialog::new()
-        .title("Scan RFID")
-        .padding_lrtb(1, 1, 1, 0)
-        .content(EditView::new().on_submit(submit_scan).with_name("id"))
-}
-
-fn submit_scan(s: &mut Cursive, rfid_id: &str) {
-    if rfid_id.is_empty() {
-        s.add_layer(Dialog::info("Please scan RFID!"));
-    } else {
-        let rfid_id = rfid_id.to_owned();
-        tokio::spawn(async move {
-            let reference = match get_reference(&rfid_id).await {
-                Some(reference) => reference,
-                None => return,
-            };
-            let now_playing = qobuz_player_controls::current_tracklist().await.list_type;
-            match reference {
-                Reference::Album(id) => {
-                    if let tracklist::TracklistType::Album(now_playing) = now_playing {
-                        if now_playing.id == id {
-                            qobuz_player_controls::play_pause().await.unwrap();
-                            return;
-                        }
-                    }
-
-                    qobuz_player_controls::play_album(&id, 0).await.unwrap()
-                }
-                Reference::Playlist(id) => {
-                    if let tracklist::TracklistType::Playlist(now_playing) = now_playing {
-                        if now_playing.id == id {
-                            qobuz_player_controls::play_pause().await.unwrap();
-                            return;
-                        }
-                    }
-                    qobuz_player_controls::play_playlist(id, 0, false)
-                        .await
-                        .unwrap()
-                }
-            }
-        });
-        s.pop_layer();
-        s.add_layer(scan_dialog());
+            Err(_) => continue,
+        };
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum LinkRequest {
-    Album(String),
-    Playlist(u32),
+async fn handle_play_scan(res: &str) {
+    let reference = match get_reference(res).await {
+        Some(reference) => reference,
+        None => {
+            return;
+        }
+    };
+
+    let now_playing = qobuz_player_controls::current_tracklist().await.list_type;
+    match reference {
+        LinkRequest::Album(id) => {
+            if let tracklist::TracklistType::Album(now_playing) = now_playing {
+                if now_playing.id == id {
+                    qobuz_player_controls::play_pause().await.unwrap();
+                    return;
+                }
+            }
+
+            qobuz_player_controls::play_album(&id, 0).await.unwrap()
+        }
+        LinkRequest::Playlist(id) => {
+            if let tracklist::TracklistType::Playlist(now_playing) = now_playing {
+                if now_playing.id == id {
+                    qobuz_player_controls::play_pause().await.unwrap();
+                    return;
+                }
+            }
+            qobuz_player_controls::play_playlist(id, 0, false)
+                .await
+                .unwrap()
+        }
+    }
 }
 
 pub async fn link(request: LinkRequest) {
-    AWAITING_SCAN.store(true, Ordering::Relaxed);
+    set_state(Some(request.clone())).await;
 
     let type_string = match request {
         LinkRequest::Album(_) => "album",
@@ -98,46 +79,27 @@ pub async fn link(request: LinkRequest) {
     qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Info(
         format!("Scan rfid to link {type_string}"),
     ));
-    let sink = SINK.get().unwrap();
-
-    sink.send(Box::new(move |s| {
-        s.pop_layer();
-        s.add_layer(
-            Dialog::new()
-                .title("Link album to RFID")
-                .padding_lrtb(1, 1, 1, 0)
-                .content(
-                    EditView::new()
-                        .on_submit(move |s, rfid_id| match request.clone() {
-                            LinkRequest::Album(id) => submit_link_album(s, rfid_id, id.clone()),
-                            LinkRequest::Playlist(id) => submit_link_playlist(s, rfid_id, id),
-                        })
-                        .with_name("id"),
-                ),
-        )
-    }))
-    .unwrap();
 
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
-        if AWAITING_SCAN.load(Ordering::Relaxed) {
-            let sink = SINK.get().unwrap();
-            sink.send(Box::new(move |s| {
-                s.pop_layer();
-                s.add_layer(scan_dialog());
-            }))
-            .unwrap();
+        let request_ongoing = { SCAN_REQUEST.read().await.is_some() };
 
-            AWAITING_SCAN.store(false, Ordering::Relaxed);
+        if request_ongoing {
             qobuz_player_controls::send_message(
                 qobuz_player_controls::notification::Message::Warning("Scan cancelled".to_string()),
             );
+            set_state(None).await;
         }
     });
 }
 
-fn submit_link_album(s: &mut Cursive, rfid_id: &str, id: String) {
+async fn set_state(request: Option<LinkRequest>) {
+    let mut request_lock = SCAN_REQUEST.write().await;
+    *request_lock = request;
+}
+
+fn submit_link_album(rfid_id: &str, id: &str) {
     let rfid_id = rfid_id.to_owned();
     let id = id.to_owned();
 
@@ -157,14 +119,12 @@ fn submit_link_album(s: &mut Cursive, rfid_id: &str, id: String) {
         qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Success(
             "Link completed".to_string(),
         ));
-        AWAITING_SCAN.store(false, Ordering::Relaxed);
-    });
 
-    s.pop_layer();
-    s.add_layer(scan_dialog());
+        set_state(None).await;
+    });
 }
 
-fn submit_link_playlist(s: &mut Cursive, rfid_id: &str, id: u32) {
+fn submit_link_playlist(rfid_id: &str, id: u32) {
     let rfid_id = rfid_id.to_owned();
 
     tokio::spawn(async move {
@@ -183,14 +143,11 @@ fn submit_link_playlist(s: &mut Cursive, rfid_id: &str, id: u32) {
         qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Success(
             "Link completed".to_string(),
         ));
-        AWAITING_SCAN.store(false, Ordering::Relaxed);
+        set_state(None).await;
     });
-
-    s.pop_layer();
-    s.add_layer(scan_dialog());
 }
 
-async fn get_reference(id: &str) -> Option<Reference> {
+async fn get_reference(id: &str) -> Option<LinkRequest> {
     let mut conn = qobuz_player_database::get_pool().await;
 
     let db_reference = match sqlx::query_as!(
@@ -206,10 +163,10 @@ async fn get_reference(id: &str) -> Option<Reference> {
     };
 
     match db_reference.reference_type {
-        ReferenceType::Album => Some(Reference::Album(db_reference.album_id.unwrap())),
-        ReferenceType::Playlist => {
-            Some(Reference::Playlist(db_reference.playlist_id.unwrap() as u32))
-        }
+        ReferenceType::Album => Some(LinkRequest::Album(db_reference.album_id.unwrap())),
+        ReferenceType::Playlist => Some(LinkRequest::Playlist(
+            db_reference.playlist_id.unwrap() as u32
+        )),
     }
 }
 
@@ -237,8 +194,8 @@ impl From<i64> for ReferenceType {
     }
 }
 
-#[derive(Debug)]
-enum Reference {
+#[derive(Debug, Clone)]
+pub enum LinkRequest {
     Album(String),
     Playlist(u32),
 }
