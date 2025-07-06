@@ -8,12 +8,12 @@ use crate::{
     view::render,
 };
 
-pub fn routes() -> Router<std::sync::Arc<crate::AppState>> {
+pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new().route("/controls", get(controls))
 }
 
 #[component]
-pub fn controls(current_status: Status, current_tracklist: Tracklist) -> impl IntoView {
+pub(crate) fn controls(current_status: Status, current_tracklist: Tracklist) -> impl IntoView {
     html! {
         <div
             hx-get="/controls"

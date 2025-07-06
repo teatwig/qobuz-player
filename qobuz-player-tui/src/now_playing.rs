@@ -15,7 +15,7 @@ pub(crate) struct NowPlayingState {
     pub(crate) duration_s: u32,
 }
 
-pub fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState) {
+pub(crate) fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState) {
     let track = match &state.playing_track {
         Some(t) => t,
         None => return,

@@ -29,7 +29,6 @@ base64 = "0.22"
 cached = "0.54"
 chrono = "0.4"
 clap = "4"
-cursive =  "0.21"
 dialoguer = "0.11"
 dirs = "6"
 futures = "0.3"
@@ -45,8 +44,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 snafu = "0.8"
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "migrate", "macros"] }
-tokio = "1"
-tokio-stream = "0.1"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 url = "2"

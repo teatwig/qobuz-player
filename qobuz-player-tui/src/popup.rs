@@ -5,27 +5,27 @@ use ratatui::{prelude::*, widgets::*};
 use crate::ui::{block, center};
 
 #[derive(PartialEq)]
-pub struct ArtistPopupState {
+pub(crate) struct ArtistPopupState {
     pub artist_name: String,
     pub albums: Vec<AlbumSimple>,
     pub state: ListState,
 }
 
 #[derive(PartialEq)]
-pub struct PlaylistPopupState {
+pub(crate) struct PlaylistPopupState {
     pub playlist_name: String,
     pub playlist_id: u32,
     pub shuffle: bool,
 }
 
 #[derive(PartialEq)]
-pub enum Popup {
+pub(crate) enum Popup {
     Artist(ArtistPopupState),
     Playlist(PlaylistPopupState),
 }
 
 impl Popup {
-    pub fn render(&mut self, frame: &mut Frame) {
+    pub(crate) fn render(&mut self, frame: &mut Frame) {
         match self {
             Popup::Artist(artist) => {
                 let area = center(
@@ -64,7 +64,7 @@ impl Popup {
         };
     }
 
-    pub async fn handle_event(&mut self, key: KeyCode) -> bool {
+    pub(crate) async fn handle_event(&mut self, key: KeyCode) -> bool {
         match self {
             Popup::Artist(artist_popup_state) => match key {
                 KeyCode::Up => {

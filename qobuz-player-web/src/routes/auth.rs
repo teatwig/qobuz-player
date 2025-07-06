@@ -15,13 +15,13 @@ use leptos::prelude::*;
 use serde::Deserialize;
 use std::sync::Arc;
 
-pub fn routes() -> Router<Arc<AppState>> {
+pub(crate) fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/auth", get(index))
         .route("/auth/login", post(login))
 }
 
-pub async fn auth_middleware(
+pub(crate) async fn auth_middleware(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
     request: Request,

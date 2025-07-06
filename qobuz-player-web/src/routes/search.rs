@@ -11,7 +11,7 @@ use tokio::join;
 
 #[derive(Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
-pub enum Tab {
+pub(crate) enum Tab {
     Albums,
     Artists,
     Playlists,
@@ -29,7 +29,7 @@ use crate::{
     view::render,
 };
 
-pub fn routes() -> Router<std::sync::Arc<crate::AppState>> {
+pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new()
         .route("/search/{tab}", get(index).post(search))
         .route("/play-track/{track_id}", put(play_track))

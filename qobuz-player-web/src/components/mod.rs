@@ -3,33 +3,33 @@ use qobuz_player_controls::notification;
 use serde::Deserialize;
 
 use crate::{html, icons::Star};
-pub mod list;
+pub(crate) mod list;
 
 #[derive(Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
-pub enum Tab {
+pub(crate) enum Tab {
     Albums,
     Artists,
     Playlists,
 }
 
-pub struct Duration {
+pub(crate) struct Duration {
     pub minutes: u32,
 }
 
-pub fn parse_duration(seconds: u32) -> Duration {
+pub(crate) fn parse_duration(seconds: u32) -> Duration {
     Duration {
         minutes: seconds / 60,
     }
 }
 
-pub fn button_class() -> String {
+pub(crate) fn button_class() -> String {
     "flex gap-2 justify-center items-center py-2 px-4 w-full bg-blue-500 rounded cursor-pointer active:bg-blue-700 whitespace-nowrap"
         .into()
 }
 
 #[component]
-pub fn description(description: Option<String>, entity_title: String) -> impl IntoView {
+pub(crate) fn description(description: Option<String>, entity_title: String) -> impl IntoView {
     description.map(|description| {
         html! {
             <div class="flex flex-col gap-4 p-4 bg-gray-800 inset-shadow-lg">
@@ -41,7 +41,7 @@ pub fn description(description: Option<String>, entity_title: String) -> impl In
 }
 
 #[component]
-pub fn button_group(children: ChildrenFragment) -> impl IntoView {
+pub(crate) fn button_group(children: ChildrenFragment) -> impl IntoView {
     let nodes = children()
         .nodes
         .into_iter()
@@ -58,7 +58,7 @@ pub fn button_group(children: ChildrenFragment) -> impl IntoView {
     }
 }
 
-pub fn toast(message: notification::Message) -> impl IntoView {
+pub(crate) fn toast(message: notification::Message) -> impl IntoView {
     let (message, severity) = match message {
         notification::Message::Error(message) => (message, 1),
         notification::Message::Warning(message) => (message, 2),
@@ -87,7 +87,7 @@ pub fn toast(message: notification::Message) -> impl IntoView {
 }
 
 #[component]
-pub fn toggle_favorite(id: String, is_favorite: bool) -> impl IntoView {
+pub(crate) fn toggle_favorite(id: String, is_favorite: bool) -> impl IntoView {
     html! {
         <button
             class=button_class()
@@ -105,7 +105,7 @@ pub fn toggle_favorite(id: String, is_favorite: bool) -> impl IntoView {
 }
 
 #[component]
-pub fn info(hires_available: bool, explicit: bool) -> impl IntoView {
+pub(crate) fn info(hires_available: bool, explicit: bool) -> impl IntoView {
     html! {
         {(explicit || hires_available)
             .then(|| {

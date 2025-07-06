@@ -11,7 +11,7 @@ use crate::{
     ui::{album_table, basic_list_table, render_input},
 };
 
-pub struct FavoritesState {
+pub(crate) struct FavoritesState {
     pub editing: bool,
     pub filter: Input,
     pub albums: FilteredListState<Album>,
@@ -21,7 +21,7 @@ pub struct FavoritesState {
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum SubTab {
+pub(crate) enum SubTab {
     #[default]
     Albums,
     Artists,
@@ -39,14 +39,14 @@ impl fmt::Display for SubTab {
 }
 
 impl SubTab {
-    pub const VALUES: [Self; 3] = [Self::Albums, Self::Artists, Self::Playlists];
+    pub(crate) const VALUES: [Self; 3] = [Self::Albums, Self::Artists, Self::Playlists];
 
-    pub fn next(self) -> Self {
+    pub(crate) fn next(self) -> Self {
         let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
         Self::VALUES[(index + 1) % Self::VALUES.len()]
     }
 
-    pub fn previous(self) -> Self {
+    pub(crate) fn previous(self) -> Self {
         let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
         let len = Self::VALUES.len();
         Self::VALUES[(index + len - 1) % len]
@@ -54,7 +54,7 @@ impl SubTab {
 }
 
 impl FavoritesState {
-    pub fn render(&mut self, frame: &mut Frame, area: Rect) {
+    pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect) {
         let tab_content_area_split = Layout::default()
             .constraints([Constraint::Length(3), Constraint::Min(1)])
             .split(area);
@@ -102,7 +102,7 @@ impl FavoritesState {
         frame.render_stateful_widget(table, tab_content_area, state);
     }
 
-    pub async fn handle_events(&mut self, event: Event) -> Output {
+    pub(crate) async fn handle_events(&mut self, event: Event) -> Output {
         match event {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => match &mut self
                 .editing

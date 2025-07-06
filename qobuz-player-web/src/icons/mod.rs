@@ -3,7 +3,7 @@ use leptos::{IntoView, component, prelude::*};
 use crate::html;
 
 #[component]
-pub fn megaphone(solid: bool) -> impl IntoView {
+pub(crate) fn megaphone(solid: bool) -> impl IntoView {
     match solid {
         true => html! {
             <svg
@@ -38,7 +38,7 @@ pub fn megaphone(solid: bool) -> impl IntoView {
 }
 
 #[component]
-pub fn arrow_path() -> impl IntoView {
+pub(crate) fn arrow_path() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -60,7 +60,7 @@ pub fn arrow_path() -> impl IntoView {
 }
 
 #[component]
-pub fn user() -> impl IntoView {
+pub(crate) fn user() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -79,7 +79,7 @@ pub fn user() -> impl IntoView {
 }
 
 #[component]
-pub fn speaker_wave() -> impl IntoView {
+pub(crate) fn speaker_wave() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -95,7 +95,7 @@ pub fn speaker_wave() -> impl IntoView {
 }
 
 #[component]
-pub fn link() -> impl IntoView {
+pub(crate) fn link() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -116,7 +116,7 @@ pub fn link() -> impl IntoView {
 }
 
 #[component]
-pub fn play() -> impl IntoView {
+pub(crate) fn play() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -135,7 +135,7 @@ pub fn play() -> impl IntoView {
 }
 
 #[component]
-pub fn pause() -> impl IntoView {
+pub(crate) fn pause() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -154,7 +154,7 @@ pub fn pause() -> impl IntoView {
 }
 
 #[component]
-pub fn backward() -> impl IntoView {
+pub(crate) fn backward() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -169,7 +169,7 @@ pub fn backward() -> impl IntoView {
 }
 
 #[component]
-pub fn forward() -> impl IntoView {
+pub(crate) fn forward() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -184,7 +184,7 @@ pub fn forward() -> impl IntoView {
 }
 
 #[component]
-pub fn play_circle() -> impl IntoView {
+pub(crate) fn play_circle() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -203,7 +203,7 @@ pub fn play_circle() -> impl IntoView {
 }
 
 #[component]
-pub fn queue_list() -> impl IntoView {
+pub(crate) fn queue_list() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -218,7 +218,7 @@ pub fn queue_list() -> impl IntoView {
 }
 
 #[component]
-pub fn star(solid: bool) -> impl IntoView {
+pub(crate) fn star(solid: bool) -> impl IntoView {
     match solid {
         true => html! {
             <svg
@@ -256,7 +256,7 @@ pub fn star(solid: bool) -> impl IntoView {
 }
 
 #[component]
-pub fn magnifying_glass() -> impl IntoView {
+pub(crate) fn magnifying_glass() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"

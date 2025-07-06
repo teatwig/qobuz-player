@@ -164,13 +164,13 @@ async fn sse_handler(
     (headers, Sse::new(stream))
 }
 
-pub struct AppState {
+pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
     pub secret: Option<String>,
 }
 
 #[derive(Clone)]
-pub struct ServerSentEvent {
+pub(crate) struct ServerSentEvent {
     event_name: String,
     event_data: String,
 }

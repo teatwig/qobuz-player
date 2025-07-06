@@ -17,7 +17,7 @@ use crate::{
     view::render,
 };
 
-pub fn routes() -> Router<std::sync::Arc<crate::AppState>> {
+pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new()
         .route("/", get(index))
         .route("/progress", get(progress_partial))
@@ -108,7 +108,7 @@ fn play_pause(play: bool) -> impl IntoView {
 }
 
 #[component]
-pub fn next() -> impl IntoView {
+pub(crate) fn next() -> impl IntoView {
     html! {
         <button hx-swap="none" hx-put="/next" class="transition-colors cursor-pointer">
             <Forward />
@@ -117,7 +117,7 @@ pub fn next() -> impl IntoView {
 }
 
 #[component]
-pub fn previous() -> impl IntoView {
+pub(crate) fn previous() -> impl IntoView {
     html! {
         <button hx-swap="none" hx-put="/previous" class="transition-colors cursor-pointer">
             <Backward />
@@ -227,7 +227,7 @@ fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> imp
 }
 
 #[component]
-pub fn state(playing: bool) -> impl IntoView {
+pub(crate) fn state(playing: bool) -> impl IntoView {
     html! {
         <div
             hx-trigger="sse:status"

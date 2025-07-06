@@ -20,7 +20,7 @@ pub(crate) struct DiscoverState {
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum SubTab {
+pub(crate) enum SubTab {
     #[default]
     PressAwards,
     NewReleases,
@@ -42,7 +42,7 @@ impl fmt::Display for SubTab {
 }
 
 impl SubTab {
-    pub const VALUES: [Self; 5] = [
+    pub(crate) const VALUES: [Self; 5] = [
         Self::PressAwards,
         Self::NewReleases,
         Self::Qobuzissims,
@@ -50,12 +50,12 @@ impl SubTab {
         Self::EditorPicks,
     ];
 
-    pub fn next(self) -> Self {
+    pub(crate) fn next(self) -> Self {
         let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
         Self::VALUES[(index + 1) % Self::VALUES.len()]
     }
 
-    pub fn previous(self) -> Self {
+    pub(crate) fn previous(self) -> Self {
         let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
         let len = Self::VALUES.len();
         Self::VALUES[(index + len - 1) % len]
@@ -63,7 +63,7 @@ impl SubTab {
 }
 
 impl DiscoverState {
-    pub fn render(&mut self, frame: &mut Frame, area: Rect) {
+    pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect) {
         let (table, state) = match self.sub_tab {
             SubTab::PressAwards => (
                 album_simple_table(&self.press_awards.items, "Press awards"),
@@ -97,7 +97,7 @@ impl DiscoverState {
         frame.render_stateful_widget(table, area, state);
     }
 
-    pub async fn handle_events(&mut self, event: Event) -> Output {
+    pub(crate) async fn handle_events(&mut self, event: Event) -> Output {
         match event {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
                 match key_event.code {

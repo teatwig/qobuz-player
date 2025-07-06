@@ -15,7 +15,7 @@ use crate::{
     view::render,
 };
 
-pub fn routes() -> Router<std::sync::Arc<crate::AppState>> {
+pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new()
         .route("/queue", get(index))
         .route("/queue/list", get(queue_partial))

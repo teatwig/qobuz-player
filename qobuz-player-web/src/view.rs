@@ -8,7 +8,7 @@ macro_rules! html {
     };
 }
 
-pub fn render(view: impl IntoView) -> axum::response::Response {
+pub(crate) fn render(view: impl IntoView) -> axum::response::Response {
     (
         [
             (

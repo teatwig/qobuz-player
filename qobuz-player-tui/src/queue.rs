@@ -7,12 +7,12 @@ use crate::{
     ui::basic_list_table,
 };
 
-pub struct QueueState {
+pub(crate) struct QueueState {
     pub queue: UnfilteredListState<Track>,
 }
 
 impl QueueState {
-    pub fn render(&mut self, frame: &mut Frame, area: Rect) {
+    pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect) {
         let table = basic_list_table(
             self.queue
                 .items
@@ -42,7 +42,7 @@ impl QueueState {
         frame.render_stateful_widget(table, area, &mut self.queue.state);
     }
 
-    pub async fn handle_events(&mut self, event: Event) -> Output {
+    pub(crate) async fn handle_events(&mut self, event: Event) -> Output {
         match event {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
                 match key_event.code {

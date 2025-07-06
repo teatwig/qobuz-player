@@ -4,7 +4,7 @@ use rust_embed::RustEmbed;
 #[derive(RustEmbed)]
 #[folder = "assets/"]
 struct Asset;
-pub struct StaticFile<T>(pub T);
+struct StaticFile<T>(pub T);
 
 impl<T> IntoResponse for StaticFile<T>
 where
@@ -30,7 +30,7 @@ where
     }
 }
 
-pub async fn static_handler(uri: axum::http::Uri) -> impl IntoResponse {
+pub(crate) async fn static_handler(uri: axum::http::Uri) -> impl IntoResponse {
     let path = uri.path().trim_start_matches("/assets/").to_string();
 
     StaticFile(path)

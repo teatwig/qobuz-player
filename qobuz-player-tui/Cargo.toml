@@ -17,4 +17,4 @@ crossterm = "0.29"
 image = "*"
 reqwest = { workspace = true }
 tracing = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true }

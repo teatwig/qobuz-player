@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[derive(PartialEq)]
-pub enum Page {
+pub(crate) enum Page {
     NowPlaying,
     Queue,
     Favorites,
@@ -18,7 +18,7 @@ pub enum Page {
 }
 
 #[component]
-pub fn page(
+pub(crate) fn page(
     children: Children,
     active_page: Page,
     current_status: Status,
@@ -68,7 +68,7 @@ pub fn page(
 }
 
 #[component]
-pub fn unauthorized_page(children: Children) -> impl IntoView {
+pub(crate) fn unauthorized_page(children: Children) -> impl IntoView {
     html! {
         <!DOCTYPE html>
         <html lang="en" class="h-full dark">

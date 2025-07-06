@@ -12,7 +12,7 @@ qobuz-player-client = { version = "*", path = "../qobuz-player-client" }
 gstreamer = { workspace = true, features = ["serde", "v1_16"] }
 cached = { workspace = true, features = ["async", "serde", "serde_json"] } 
 futures = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true }
 rand = { workspace = true }
 tracing = { workspace = true }
 snafu = { workspace = true }

@@ -8,7 +8,7 @@ use crate::{
 };
 
 impl App {
-    pub fn render(&mut self, frame: &mut Frame) {
+    pub(crate) fn render(&mut self, frame: &mut Frame) {
         let area = frame.area();
 
         let chunks = Layout::default()
@@ -64,7 +64,7 @@ impl App {
     }
 }
 
-pub fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect {
+pub(crate) fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect {
     let [area] = Layout::horizontal([horizontal])
         .flex(Flex::Center)
         .areas(area);
@@ -104,7 +104,13 @@ fn render_help(frame: &mut Frame) {
     frame.render_widget(table, area);
 }
 
-pub fn render_input(input: &Input, editing: bool, area: Rect, frame: &mut Frame, title: &str) {
+pub(crate) fn render_input(
+    input: &Input,
+    editing: bool,
+    area: Rect,
+    frame: &mut Frame,
+    title: &str,
+) {
     let width = area.width.max(3) - 3;
     let scroll = input.visual_scroll(width as usize);
     let style = match editing {
@@ -127,14 +133,14 @@ pub fn render_input(input: &Input, editing: bool, area: Rect, frame: &mut Frame,
 
 const ROW_HIGHLIGHT_STYLE: Style = Style::new().bg(Color::Blue);
 
-pub fn block(title: &str) -> Block {
+pub(crate) fn block(title: &str) -> Block {
     Block::bordered()
         .title(format!(" {title} "))
         .title_alignment(Alignment::Center)
         .border_type(BorderType::Rounded)
 }
 
-pub fn album_table<'a>(rows: &[Album], title: &'a str) -> Table<'a> {
+pub(crate) fn album_table<'a>(rows: &[Album], title: &'a str) -> Table<'a> {
     let max_title_length = rows
         .iter()
         .map(|album| album.title.len())
@@ -176,7 +182,7 @@ pub fn album_table<'a>(rows: &[Album], title: &'a str) -> Table<'a> {
     table
 }
 
-pub fn album_simple_table<'a>(rows: &[AlbumSimple], title: &'a str) -> Table<'a> {
+pub(crate) fn album_simple_table<'a>(rows: &[AlbumSimple], title: &'a str) -> Table<'a> {
     let max_title_length = rows
         .iter()
         .map(|album| album.title.len())
@@ -216,7 +222,7 @@ pub fn album_simple_table<'a>(rows: &[AlbumSimple], title: &'a str) -> Table<'a>
     table
 }
 
-pub fn basic_list_table<'a>(rows: Vec<Row<'a>>, title: &'a str) -> Table<'a> {
+pub(crate) fn basic_list_table<'a>(rows: Vec<Row<'a>>, title: &'a str) -> Table<'a> {
     Table::new(rows, [Constraint::Min(1)])
         .block(block(title))
         .row_highlight_style(ROW_HIGHLIGHT_STYLE)

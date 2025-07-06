@@ -8,17 +8,17 @@ use crate::{
 };
 
 #[component]
-pub fn list(children: Children) -> impl IntoView {
+pub(crate) fn list(children: Children) -> impl IntoView {
     html! { <ul class="overflow-y-auto w-full h-full leading-tight align-start">{children()}</ul> }
 }
 
 #[component]
-pub fn list_item(children: Children) -> impl IntoView {
+pub(crate) fn list_item(children: Children) -> impl IntoView {
     html! { <li class="w-full text-left border-b border-gray-700 *:p-4">{children()}</li> }
 }
 
 #[component]
-pub fn list_albums_vertical(albums: Vec<AlbumSimple>) -> impl IntoView {
+pub(crate) fn list_albums_vertical(albums: Vec<AlbumSimple>) -> impl IntoView {
     html! {
         <div class="flex overflow-scroll gap-4 p-2 w-full">
             {albums
@@ -40,7 +40,7 @@ pub fn list_albums_vertical(albums: Vec<AlbumSimple>) -> impl IntoView {
 }
 
 #[component]
-pub fn list_playlists_vertical(playlists: Vec<Playlist>) -> impl IntoView {
+pub(crate) fn list_playlists_vertical(playlists: Vec<Playlist>) -> impl IntoView {
     html! {
         <div class="flex overflow-scroll gap-4 p-2 w-full">
             {playlists
@@ -69,7 +69,7 @@ pub fn list_playlists_vertical(playlists: Vec<Playlist>) -> impl IntoView {
 }
 
 #[component]
-pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
+pub(crate) fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
     html! {
         <div class="flex overflow-scroll gap-4 p-2 w-full">
             {artists
@@ -113,13 +113,13 @@ pub fn list_artists_vertical(artists: Vec<Artist>) -> impl IntoView {
     }
 }
 
-pub enum AlbumSort {
+pub(crate) enum AlbumSort {
     Default,
     Artist,
 }
 
 #[component]
-pub fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
+pub(crate) fn list_albums(mut albums: Vec<Album>, sort: AlbumSort) -> impl IntoView {
     match sort {
         AlbumSort::Default => (),
         AlbumSort::Artist => albums.sort_by(|a, b| {
@@ -178,13 +178,13 @@ fn album(album: Album) -> impl IntoView {
     .attr("preload-images", "true")
 }
 
-pub enum ArtistSort {
+pub(crate) enum ArtistSort {
     Default,
     Name,
 }
 
 #[component]
-pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView {
+pub(crate) fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView {
     match sort {
         ArtistSort::Default => (),
         ArtistSort::Name => artists.sort_by_key(|artist| artist.name.clone()),
@@ -241,13 +241,13 @@ pub fn list_artists(mut artists: Vec<Artist>, sort: ArtistSort) -> impl IntoView
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
-pub enum TrackNumberDisplay {
+pub(crate) enum TrackNumberDisplay {
     Number,
     Cover,
 }
 
 #[component]
-pub fn list_tracks(
+pub(crate) fn list_tracks(
     tracks: Vec<Track>,
     track_number_display: TrackNumberDisplay,
     show_artist: bool,
@@ -350,13 +350,13 @@ pub fn list_tracks(
     }
 }
 
-pub enum PlaylistSort {
+pub(crate) enum PlaylistSort {
     Default,
     Title,
 }
 
 #[component]
-pub fn list_playlists(mut playlists: Vec<Playlist>, sort: PlaylistSort) -> impl IntoView {
+pub(crate) fn list_playlists(mut playlists: Vec<Playlist>, sort: PlaylistSort) -> impl IntoView {
     match sort {
         PlaylistSort::Default => (),
         PlaylistSort::Title => playlists.sort_by_key(|playlist| playlist.title.clone()),

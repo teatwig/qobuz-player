@@ -17,8 +17,8 @@ futures = { workspace = true }
 leptos = { workspace = true, features = ["ssr"] }
 mime = { workspace = true }
 mime_guess = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true }
 rust-embed = { version = "8.7.2", features = ["axum", "tokio", "mime_guess"] }
 serde = { workspace = true }
-tokio-stream = { workspace = true, features = ["sync"] }
+tokio-stream = { workspace = true }
 tracing = { workspace = true }
