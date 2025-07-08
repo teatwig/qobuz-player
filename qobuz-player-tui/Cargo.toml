@@ -13,7 +13,6 @@ futures = { workspace = true }
 ratatui = "*"
 ratatui-image = "*"
 tui-input = "*"
-crossterm = "0.29"
 image = "*"
 reqwest = { workspace = true }
 tracing = { workspace = true }

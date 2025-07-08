@@ -1,8 +1,11 @@
 use core::fmt;
 
-use crossterm::event::{Event, KeyCode, KeyEventKind};
 use qobuz_player_controls::models::{AlbumSimple, Playlist};
-use ratatui::{prelude::*, widgets::*};
+use ratatui::{
+    crossterm::event::{Event, KeyCode, KeyEventKind},
+    prelude::*,
+    widgets::*,
+};
 
 use crate::{
     app::{Output, UnfilteredListState},

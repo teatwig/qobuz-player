@@ -1,8 +1,11 @@
 use std::fmt;
 
-use crossterm::event::{Event, KeyCode, KeyEventKind};
 use qobuz_player_controls::models::{Album, Artist, Playlist, Track};
-use ratatui::{prelude::*, widgets::*};
+use ratatui::{
+    crossterm::event::{Event, KeyCode, KeyEventKind},
+    prelude::*,
+    widgets::*,
+};
 use tui_input::{Input, backend::crossterm::EventHandler};
 
 use crate::{

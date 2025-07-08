@@ -1,6 +1,5 @@
-use crossterm::event::KeyCode;
 use qobuz_player_controls::models::AlbumSimple;
-use ratatui::{prelude::*, widgets::*};
+use ratatui::{crossterm::event::KeyCode, prelude::*, widgets::*};
 
 use crate::ui::{block, center};
 

@@ -1,6 +1,10 @@
-use crossterm::event::{Event, KeyCode, KeyEventKind};
 use qobuz_player_controls::models::Track;
-use ratatui::{prelude::*, style::Styled, widgets::*};
+use ratatui::{
+    crossterm::event::{Event, KeyCode, KeyEventKind},
+    prelude::*,
+    style::Styled,
+    widgets::*,
+};
 
 use crate::{
     app::{Output, UnfilteredListState},

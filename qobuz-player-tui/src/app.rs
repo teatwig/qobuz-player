@@ -3,10 +3,13 @@ use crate::{
     queue::QueueState, search::SearchState,
 };
 use core::fmt;
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use image::load_from_memory;
 use qobuz_player_controls::tracklist::Tracklist;
-use ratatui::{DefaultTerminal, widgets::*};
+use ratatui::{
+    DefaultTerminal,
+    crossterm::event::{self, Event, KeyCode, KeyEventKind},
+    widgets::*,
+};
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 use reqwest::Client;
 use std::io;
