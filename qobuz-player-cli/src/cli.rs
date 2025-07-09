@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
-use qobuz_player_controls::AudioQuality;
+use qobuz_player_controls::{AudioQuality, notification::Notification};
 use snafu::prelude::*;
 
 #[derive(Parser)]
@@ -174,7 +174,11 @@ pub async fn run() -> Result<(), Error> {
                 }
             });
 
-            let tracklist = if cli.rfid {
+            tokio::spawn(async {
+                store_state_loop().await;
+            });
+
+            if cli.rfid {
                 qobuz_player_rfid::init().await;
                 qobuz_player_controls::quit().await?
             } else if !cli.disable_tui {
@@ -190,8 +194,6 @@ pub async fn run() -> Result<(), Error> {
                 debug!("ctrlc received, quitting");
                 qobuz_player_controls::quit().await?
             };
-
-            qobuz_player_database::set_tracklist(tracklist).await;
 
             Ok(())
         }
@@ -226,5 +228,15 @@ pub async fn run() -> Result<(), Error> {
                 Ok(())
             }
         },
+    }
+}
+
+async fn store_state_loop() {
+    let mut broadcast_receiver = qobuz_player_controls::notify_receiver();
+
+    loop {
+        if let Ok(Notification::CurrentTrackList { list }) = broadcast_receiver.recv().await {
+            qobuz_player_database::set_tracklist(list).await;
+        }
     }
 }

@@ -970,7 +970,7 @@ async fn clock_loop() {
     }
 }
 
-pub async fn quit() -> Result<Tracklist> {
+pub async fn quit() -> Result<()> {
     tracing::debug!("stopping player");
 
     SHOULD_QUIT.store(true, Ordering::Relaxed);
@@ -995,8 +995,7 @@ pub async fn quit() -> Result<Tracklist> {
         .send(Notification::Quit)
         .expect("error sending broadcast");
 
-    let tracklist = TRACKLIST.read().await;
-    Ok(tracklist.clone())
+    Ok(())
 }
 
 /// Handles messages from GStreamer, receives player actions from external controls

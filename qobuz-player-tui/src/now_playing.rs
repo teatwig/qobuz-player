@@ -105,5 +105,5 @@ fn get_status_icon(state: tracklist::Status) -> String {
 fn format_seconds(seconds: u32) -> String {
     let minutes = seconds / 60;
     let seconds = seconds % 60;
-    format!("{:02}:{:02}", minutes, seconds)
+    format!("{minutes:02}:{seconds:02}")
 }
