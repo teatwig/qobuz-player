@@ -139,11 +139,11 @@ fn playlist(now_playing_id: Option<u32>, playlist: Playlist, is_favorite: bool) 
     let rfid = qobuz_player_rfid::is_initiated();
 
     html! {
-        <div class="flex flex-wrap gap-4 justify-center items-end p-4 w-full *:max-w-sm">
+        <div class="flex flex-wrap gap-4 justify-center items-end w-full p-safe-offset-4 *:max-w-sm">
             <img
                 src=playlist.image
                 alt=playlist.title.clone()
-                class="object-contain rounded-lg size-full mt-safe"
+                class="object-contain rounded-lg size-full"
             />
 
             <div class="flex flex-col flex-grow gap-4 items-center w-full">
