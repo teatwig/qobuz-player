@@ -30,10 +30,8 @@ pub(crate) fn page(
             <Head load_htmx=true />
             <body
                 class="text-gray-50 bg-black touch-pan-y"
-                hx-ext="sse, preload, remove-me, morph"
-                sse-connect="/sse"
+                hx-ext="preload, remove-me, morph"
                 hx-indicator="#loading-spinner"
-                hx-boost="true"
             >
                 <div
                     id="loading-spinner"
@@ -100,7 +98,6 @@ fn head(load_htmx: bool) -> impl IntoView {
                 .then_some({
                     html! {
                         <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-                        <script src="https://unpkg.com/htmx-ext-sse@2.2.3/sse.js"></script>
                         <script src="https://unpkg.com/htmx-ext-preload@2.1.0/preload.js"></script>
                         <script src="https://unpkg.com/htmx-ext-remove-me@2.0.0/remove-me.js"></script>
                         <script src="https://unpkg.com/idiomorph@0.7.3"></script>

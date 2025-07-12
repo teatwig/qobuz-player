@@ -143,10 +143,11 @@ fn artist(
 
             <div class="flex flex-col gap-4">
                 <div
-                    hx-get=format!("{}/top-tracks", artist.id)
-                    hx-trigger="sse:tracklist"
+                    data-sse="tracklist"
+                    hx-trigger="sse"
                     hx-target="#top-tracks"
                     class="flex flex-col gap-2"
+                    hx-get=format!("{}/top-tracks", artist.id)
                 >
                     <h3 class="px-4 text-lg">Top tracks</h3>
                     <div

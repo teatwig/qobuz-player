@@ -47,7 +47,8 @@ fn volume_slider(current_volume: u32) -> impl IntoView {
         <div
             id="volume-slider"
             hx-target="this"
-            hx-trigger="sse:volume delay:5000"
+            hx-trigger="sse delay:5000"
+            data-sse="volume"
             hx-get="/volume-slider"
         >
             <input
@@ -230,7 +231,8 @@ fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> imp
 pub(crate) fn state(playing: bool) -> impl IntoView {
     html! {
         <div
-            hx-trigger="sse:status"
+            hx-trigger="sse"
+            data-sse="status"
             hx-get="/status"
             hx-swap="innerHTML"
             hx-target="this"
@@ -301,7 +303,8 @@ fn now_playing(
             class="flex flex-col gap-4 p-4 mx-auto touch-none"
             style="max-width: calc(600px + 2rem); height: calc(100% - 4rem - env(safe-area-inset-bottom))"
             hx-get="/now-playing"
-            hx-trigger="sse:tracklist"
+            hx-trigger="sse"
+            data-sse="tracklist"
             hx-swap="outerHTML"
         >
             <div class="flex overflow-hidden justify-center size-full aspect-square max-h-fit">
@@ -338,7 +341,7 @@ fn now_playing(
                         <Info explicit=explicit hires_available=hires_available />
                     </div>
 
-                    <div hx-get="progress" hx-trigger="sse:position" hx-swap="innerHTML">
+                    <div hx-get="progress" hx-trigger="sse" data-sse="position" hx-swap="innerHTML">
                         <Progress
                             position_seconds=position_mseconds
                             duration_seconds=duration_seconds

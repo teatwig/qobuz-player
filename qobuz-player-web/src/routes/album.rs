@@ -115,7 +115,8 @@ fn album_tracks(
         <div
             class="w-full"
             hx-get=format!("/album/{}/tracks", album_id_clone)
-            hx-trigger="sse:tracklist"
+            hx-trigger="sse"
+            data-sse="tracklist"
             hx-swap="morph:outerHTML"
         >
             <ListTracks

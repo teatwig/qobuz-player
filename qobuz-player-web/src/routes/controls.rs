@@ -17,7 +17,8 @@ pub(crate) fn controls(current_status: Status, current_tracklist: Tracklist) -> 
     html! {
         <div
             hx-get="/controls"
-            hx-trigger="sse:tracklist"
+            hx-trigger="sse"
+            data-sse="tracklist"
             hx-target="this"
             hx-preserve
             id="controls"
