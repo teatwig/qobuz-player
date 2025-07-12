@@ -2698,7 +2698,7 @@ dependencies = [
 [[package]]
 name = "mpris-server"
 version = "0.9.0"
-source = "git+https://github.com/SofusA/mpris-server-tokio?branch=tokio-feature#cd63183a919d36073edc23010ba91cc2f7af24a3"
+source = "git+https://github.com/SeaDve/mpris-server#1b0358dae1b9c09b2ce2d699f9f293ce600a943c"
 dependencies = [
  "async-channel",
  "futures-channel",
