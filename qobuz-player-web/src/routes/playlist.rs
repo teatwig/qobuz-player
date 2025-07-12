@@ -143,7 +143,7 @@ fn playlist(now_playing_id: Option<u32>, playlist: Playlist, is_favorite: bool) 
             <img
                 src=playlist.image
                 alt=playlist.title.clone()
-                class="object-contain rounded-lg size-full pt-safe"
+                class="object-contain rounded-lg size-full mt-safe"
             />
 
             <div class="flex flex-col flex-grow gap-4 items-center w-full">
