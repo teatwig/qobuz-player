@@ -145,7 +145,7 @@ fn album(
     let rfid = qobuz_player_rfid::is_initiated();
 
     html! {
-        <div class="flex flex-wrap gap-4 justify-center items-end w-full p-safe-offset-4 *:max-w-sm">
+        <div class="flex flex-wrap gap-4 justify-center items-end w-full p-safe-or-4 *:max-w-sm">
             <img
                 src=album.image
                 alt=album.title.clone()

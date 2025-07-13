@@ -45,8 +45,8 @@ async fn index() -> impl IntoResponse {
             current_status=current_status
             current_tracklist=current_tracklist
         >
-            <div class="flex flex-col gap-8 p-4">
-                <div class="flex sticky top-0 flex-col flex-grow gap-4 pb-2 max-h-full pt-safe bg-black/80 backdrop-blur">
+            <div class="flex flex-col gap-8 px-4">
+                <div class="flex sticky top-0 flex-col flex-grow gap-4 pb-2 max-h-full pt-safe-or-4 bg-black/80 backdrop-blur">
                     <h1 class="text-2xl">Discover</h1>
                 </div>
                 <AlbumFeature albums=press_awards name="Press awards".to_string() />

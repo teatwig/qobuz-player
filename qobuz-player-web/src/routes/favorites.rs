@@ -40,7 +40,7 @@ async fn index(Path(tab): Path<Tab>) -> impl IntoResponse {
 fn favorites(favorites: Favorites, tab: Tab) -> impl IntoView {
     html! {
         <div class="flex flex-col px-4">
-            <div class="flex sticky top-0 flex-col flex-grow gap-4 pb-2 max-h-full pt-safe bg-black/80 backdrop-blur">
+            <div class="flex sticky top-0 flex-col flex-grow gap-4 pb-2 max-h-full pt-safe-or-4 bg-black/80 backdrop-blur">
                 <h1 class="text-2xl">Favorites</h1>
 
                 <div class="flex justify-between group *:rounded-full *:px-2 *:py-1 *:transition-colors">
