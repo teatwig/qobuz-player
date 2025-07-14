@@ -95,6 +95,7 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
                         event_name: "position".into(),
                         event_data: clock.seconds().to_string(),
                     };
+
                     _ = tx.send(event);
                 }
                 Notification::CurrentTrackList { list: _ } => {
@@ -133,6 +134,7 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
                     _ = tx.send(event);
                 }
                 Notification::Volume { volume } => {
+                    let volume = (volume * 100.0) as u32;
                     let event = ServerSentEvent {
                         event_name: "volume".into(),
                         event_data: volume.to_string(),

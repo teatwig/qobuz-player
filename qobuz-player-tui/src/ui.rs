@@ -76,6 +76,8 @@ fn render_help(frame: &mut Frame) {
     let rows = [
         ["Next song", "n"],
         ["Previous song", "p"],
+        ["Jump forward", "f"],
+        ["Jump backwards", "b"],
         ["e", "Edit filter"],
         ["esc", "Stop edit filter"],
         ["Up/Down", "Select in list"],

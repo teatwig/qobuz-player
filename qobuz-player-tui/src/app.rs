@@ -209,6 +209,14 @@ impl App {
                         qobuz_player_controls::previous().await.unwrap();
                         self.should_draw = true;
                     }
+                    KeyCode::Char('f') => {
+                        qobuz_player_controls::jump_forward().await.unwrap();
+                        self.should_draw = true;
+                    }
+                    KeyCode::Char('b') => {
+                        qobuz_player_controls::jump_backward().await.unwrap();
+                        self.should_draw = true;
+                    }
                     _ => {}
                 };
             }

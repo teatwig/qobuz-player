@@ -5,7 +5,7 @@ use axum::{
 };
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::{
-    models,
+    ClockTime, models,
     tracklist::{self, Tracklist, TracklistType},
 };
 
@@ -20,54 +20,46 @@ use crate::{
 pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new()
         .route("/", get(index))
-        .route("/progress", get(progress_partial))
         .route("/status", get(status_partial))
-        .route("/volume-slider", get(volume_slider_partial))
         .route("/now-playing", get(now_playing_partial))
         .route("/play", put(play))
         .route("/pause", put(pause))
         .route("/previous", put(previous))
         .route("/next", put(next))
         .route("/volume", post(set_volume))
+        .route("/position", post(set_position))
 }
 
 #[derive(serde::Deserialize, Clone, Copy)]
-struct VolumeParameters {
-    volume: i32,
-}
-
-async fn volume_slider_partial() -> impl IntoResponse {
-    let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
-    render(html! { <VolumeSlider current_volume=current_volume /> })
+struct SliderParameters {
+    value: i32,
 }
 
 #[component]
 fn volume_slider(current_volume: u32) -> impl IntoView {
     html! {
-        <div
+        <input
             id="volume-slider"
-            hx-target="this"
-            hx-trigger="sse delay:5000"
-            data-sse="volume"
-            hx-get="/volume-slider"
-        >
-            <input
-                class="w-full"
-                hx-post="volume"
-                hx-trigger="input delay:100ms"
-                hx-swap="none"
-                value=current_volume
-                type="range"
-                name="volume"
-                min="0"
-                max="100"
-            />
-        </div>
+            class="w-full accent-blue-500"
+            hx-post="volume"
+            hx-trigger="input delay:100ms"
+            hx-swap="none"
+            value=current_volume
+            type="range"
+            name="value"
+            min="0"
+            max="100"
+        />
     }
 }
 
-async fn set_volume(axum::Form(parameters): axum::Form<VolumeParameters>) -> impl IntoResponse {
-    let mut volume = parameters.volume;
+async fn set_position(axum::Form(parameters): axum::Form<SliderParameters>) -> impl IntoResponse {
+    let time = ClockTime::from_seconds(parameters.value as u64);
+    qobuz_player_controls::seek(time, None).await.unwrap();
+}
+
+async fn set_volume(axum::Form(parameters): axum::Form<SliderParameters>) -> impl IntoResponse {
+    let mut volume = parameters.value;
 
     if volume < 0 {
         volume = 0;
@@ -152,7 +144,7 @@ async fn index() -> impl IntoResponse {
     let current_tracklist = qobuz_player_controls::current_tracklist().await;
     let current_track = current_tracklist.current_track().cloned();
 
-    let position_mseconds = qobuz_player_controls::position().map(|position| position.mseconds());
+    let position_seconds = qobuz_player_controls::position().map(|position| position.seconds());
     let current_status = qobuz_player_controls::current_state().await;
     let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
 
@@ -165,7 +157,7 @@ async fn index() -> impl IntoResponse {
             <NowPlaying
                 current_tracklist=current_tracklist
                 current_track=current_track
-                position_mseconds=position_mseconds
+                position_seconds=position_seconds
                 current_status=current_status
                 current_volume=current_volume
             />
@@ -176,7 +168,7 @@ async fn index() -> impl IntoResponse {
 async fn now_playing_partial() -> impl IntoResponse {
     let current_tracklist = qobuz_player_controls::current_tracklist().await;
     let current_track = current_tracklist.current_track().cloned();
-    let position_mseconds = qobuz_player_controls::position().map(|position| position.mseconds());
+    let position_seconds = qobuz_player_controls::position().map(|position| position.seconds());
     let current_status = qobuz_player_controls::current_state().await;
     let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
 
@@ -184,45 +176,36 @@ async fn now_playing_partial() -> impl IntoResponse {
         <NowPlaying
             current_tracklist=current_tracklist
             current_track=current_track
-            position_mseconds=position_mseconds
+            position_seconds=position_seconds
             current_status=current_status
             current_volume=current_volume
         />
     })
 }
 
-async fn progress_partial() -> impl IntoResponse {
-    let position_mseconds = qobuz_player_controls::position().map(|position| position.mseconds());
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-    let current_track = current_tracklist.current_track().cloned();
-    let duration_seconds = current_track.map(|track| track.duration_seconds);
-
-    render(
-        html! { <Progress position_seconds=position_mseconds duration_seconds=duration_seconds /> },
-    )
-}
-
 #[component]
 fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> impl IntoView {
-    let position = position_seconds.map_or("00:00".to_string(), mseconds_to_mm_ss);
-    let duration = duration_seconds.map_or("00:00".to_string(), seconds_to_mm_ss);
-
-    let progress = position_seconds
-        .and_then(|position| duration_seconds.map(|duration| position as u32 * 100 / duration))
-        .unwrap_or(0);
+    let position_string = position_seconds.map_or("00:00".to_string(), seconds_to_mm_ss);
+    let duration_string = duration_seconds.map_or("00:00".to_string(), seconds_to_mm_ss);
 
     html! {
-        <div class="grid h-2 rounded-full overflow-clip">
-            <div style="grid-column: 1; grid-row: 1;" class="w-full bg-gray-800"></div>
-            <div
-                id="progress-bar"
-                class="bg-gray-500 transition-all"
-                style=format!("grid-column: 1; grid-row: 1; width: calc({progress}%/1000)")
-            ></div>
-        </div>
-        <div class="flex justify-between text-sm text-gray-500">
-            <span>{position}</span>
-            <span>{duration}</span>
+        <div class="flex flex-col">
+            <input
+                id="progress-slider"
+                class="w-full accent-gray-500"
+                hx-post="position"
+                hx-trigger="input delay:100ms"
+                hx-swap="none"
+                value=position_seconds.unwrap_or(0)
+                type="range"
+                name="value"
+                min="0"
+                max=duration_seconds.unwrap_or(100)
+            />
+            <div class="flex justify-between text-sm text-gray-500">
+                <span id="position">{position_string}</span>
+                <span>{duration_string}</span>
+            </div>
         </div>
     }
 }
@@ -247,7 +230,7 @@ pub(crate) fn state(playing: bool) -> impl IntoView {
 fn now_playing(
     current_tracklist: Tracklist,
     current_track: Option<models::Track>,
-    position_mseconds: Option<u64>,
+    position_seconds: Option<u64>,
     current_status: tracklist::Status,
     current_volume: u32,
 ) -> impl IntoView {
@@ -341,12 +324,7 @@ fn now_playing(
                         <Info explicit=explicit hires_available=hires_available />
                     </div>
 
-                    <div hx-get="progress" hx-trigger="sse" data-sse="position" hx-swap="innerHTML">
-                        <Progress
-                            position_seconds=position_mseconds
-                            duration_seconds=duration_seconds
-                        />
-                    </div>
+                    <Progress position_seconds=position_seconds duration_seconds=duration_seconds />
                 </div>
 
                 <div class="flex flex-col gap-4">
@@ -364,13 +342,6 @@ fn now_playing(
 
 fn seconds_to_mm_ss<T: Into<u64>>(seconds: T) -> String {
     let seconds = seconds.into();
-    let minutes = seconds / 60;
-    let seconds = seconds % 60;
-    format!("{minutes:02}:{seconds:02}")
-}
-
-fn mseconds_to_mm_ss<T: Into<u64>>(seconds: T) -> String {
-    let seconds = seconds.into() / 1000;
     let minutes = seconds / 60;
     let seconds = seconds % 60;
     format!("{minutes:02}:{seconds:02}")

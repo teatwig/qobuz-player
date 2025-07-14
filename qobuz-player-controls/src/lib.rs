@@ -225,25 +225,19 @@ async fn broadcast_track_list(list: &Tracklist) -> Result<()> {
 pub async fn play_pause() -> Result<()> {
     match current_state().await {
         tracklist::Status::Playing => pause().await,
-        tracklist::Status::Paused => play().await,
-        tracklist::Status::Stopped => {
-            let tracklist = TRACKLIST.read().await;
-
-            if let Some(current_track) = tracklist.current_track() {
-                let client = get_client().await;
-                let track_url = track_url(client, current_track.id).await?;
-                query_track_url(&track_url).await?;
-                play().await.unwrap();
-            }
-
-            Ok(())
-        }
+        tracklist::Status::Paused | tracklist::Status::Stopped => play().await,
     }
 }
 
 #[instrument]
 /// Play the player.
 pub async fn play() -> Result<()> {
+    if let Some(current_track_id) = current_tracklist().await.currently_playing() {
+        let client = get_client().await;
+        let track_url = track_url(client, current_track_id).await?;
+        query_track_url(&track_url).await?;
+    }
+
     if chrono::Utc::now() - *CURRENT_TRACK_URL_TIME.read().await > TRACK_URL_LIFE_SPAN {
         let current_position = PLAYBIN.query_position::<ClockTime>().unwrap_or_default();
 
@@ -333,7 +327,7 @@ pub fn set_volume(value: f64) {
     tokio::task::spawn(async move {
         BROADCAST_CHANNELS
             .tx
-            .send(Notification::Volume { volume: volume_pow })
+            .send(Notification::Volume { volume: value })
             .unwrap();
     });
 }

@@ -1,4 +1,4 @@
-const events = ["position", "status", "tracklist", "volume"];
+const events = ["status", "tracklist"];
 
 let evtSource;
 
@@ -10,6 +10,25 @@ function initSse() {
       handleSse(event);
     });
   }
+
+  evtSource.addEventListener("volume", (event) => {
+    const slider = document.getElementById("volume-slider");
+    slider.value = event.data;
+  });
+
+  evtSource.addEventListener("position", (event) => {
+    const slider = document.getElementById("progress-slider");
+    slider.value = event.data;
+
+    const positionElement = document.getElementById("position");
+
+    const minutes = Math.floor(event.data / 60)
+      .toString()
+      .padStart(2, "0");
+    const seconds = (event.data % 60).toString().padStart(2, "0");
+
+    positionElement.innerText = `${minutes}:${seconds}`;
+  });
 }
 
 initSse();
