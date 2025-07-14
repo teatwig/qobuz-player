@@ -80,7 +80,7 @@ pub(crate) fn unauthorized_page(children: Children) -> impl IntoView {
 
 #[component]
 fn head(load_htmx: bool) -> impl IntoView {
-    let style_url = "/assets/styles.css?version=15";
+    let style_url = "/assets/styles.css?version=16";
     html! {
         <head>
             <title>Qobuz Player</title>

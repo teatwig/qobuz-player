@@ -9,8 +9,8 @@ repository.workspace = true
 [dependencies]
 qobuz-player-client = { version = "*", path = "../qobuz-player-client" }
 
-gstreamer = { workspace = true, features = ["serde", "v1_16"] }
-cached = { workspace = true, features = ["async", "serde", "serde_json"] } 
+gstreamer = { workspace = true }
+cached = { workspace = true } 
 futures = { workspace = true }
 tokio = { workspace = true }
 rand = { workspace = true }

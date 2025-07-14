@@ -10,5 +10,5 @@ qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 qobuz-player-database = { version = "*", path = "../qobuz-player-database" }
 
 tokio = { workspace = true }
-sqlx = { workspace = true, features = ["runtime-tokio-rustls", "sqlite", "migrate", "macros"] }
+sqlx = { workspace = true }
 dialoguer = { workspace = true }
