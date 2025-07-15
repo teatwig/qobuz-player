@@ -41,6 +41,7 @@ fn volume_slider(current_volume: u32) -> impl IntoView {
         <input
             id="volume-slider"
             class="w-full accent-blue-500"
+            autocomplete="off"
             hx-post="volume"
             hx-trigger="input delay:100ms"
             hx-swap="none"
@@ -193,6 +194,7 @@ fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> imp
             <input
                 id="progress-slider"
                 class="w-full accent-gray-500"
+                autocomplete="off"
                 hx-post="position"
                 hx-trigger="input delay:100ms"
                 hx-swap="none"
@@ -214,7 +216,7 @@ fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> imp
 pub(crate) fn state(playing: bool) -> impl IntoView {
     html! {
         <div
-            hx-trigger="sse"
+            hx-trigger="status"
             data-sse="status"
             hx-get="/status"
             hx-swap="innerHTML"
@@ -286,7 +288,7 @@ fn now_playing(
             class="flex flex-col gap-4 p-4 mx-auto touch-none"
             style="max-width: calc(600px + 2rem); height: calc(100% - 4rem - env(safe-area-inset-bottom))"
             hx-get="/now-playing"
-            hx-trigger="sse"
+            hx-trigger="tracklist"
             data-sse="tracklist"
             hx-swap="outerHTML"
         >

@@ -117,7 +117,7 @@ fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> 
     html! {
         <div
             class="w-full"
-            hx-trigger="sse"
+            hx-trigger="tracklist"
             data-sse="tracklist"
             hx-swap="morph:outerHTML"
             hx-get=format!("/playlist/{}/tracks", playlist_id)

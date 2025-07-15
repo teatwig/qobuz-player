@@ -68,7 +68,12 @@ fn queue(current_tracklist: Tracklist) -> impl IntoView {
     };
 
     html! {
-        <div hx-get="/queue/list" hx-trigger="sse" data-sse="tracklist" hx-target="#queue-list">
+        <div
+            hx-get="/queue/list"
+            hx-trigger="tracklist"
+            data-sse="tracklist"
+            hx-target="#queue-list"
+        >
             <div class="flex flex-col gap-4 p-4">
                 <div class="sticky top-0 pb-2 pt-safe bg-black/20 backdrop-blur">
                     <a hx-target="unset" href=entity_link class="text-2xl">

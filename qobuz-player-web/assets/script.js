@@ -1,23 +1,37 @@
-const events = ["status", "tracklist"];
-
 let evtSource;
 
 function initSse() {
   evtSource = new EventSource("/sse");
 
-  for (const event of events) {
-    evtSource.addEventListener(event, (_event) => {
-      handleSse(event);
-    });
-  }
+  evtSource.addEventListener("status", (_event) => {
+    const elements = document.querySelectorAll("[data-sse=status]");
+
+    for (const element of elements) {
+      htmx.trigger(element, "status");
+    }
+  });
+
+  evtSource.addEventListener("tracklist", (_event) => {
+    const elements = document.querySelectorAll("[data-sse=tracklist]");
+
+    for (const element of elements) {
+      htmx.trigger(element, "tracklist");
+    }
+  });
 
   evtSource.addEventListener("volume", (event) => {
     const slider = document.getElementById("volume-slider");
+    if (slider === null) {
+      return;
+    }
     slider.value = event.data;
   });
 
   evtSource.addEventListener("position", (event) => {
     const slider = document.getElementById("progress-slider");
+    if (slider === null) {
+      return;
+    }
     slider.value = event.data;
 
     const positionElement = document.getElementById("position");
@@ -33,19 +47,20 @@ function initSse() {
 
 initSse();
 
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) {
-    initSse();
-  }
-});
-
-function handleSse(query) {
-  const elements = document.querySelectorAll(`[data-sse="${query}"]`);
+function refreshSse() {
+  const elements = document.querySelectorAll("[hx-trigger='sse'");
 
   for (const element of elements) {
     htmx.trigger(element, "sse");
   }
 }
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    initSse();
+    refreshSse();
+  }
+});
 
 function focusSearchInput() {
   document.getElementById("query").focus();

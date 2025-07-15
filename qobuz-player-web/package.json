@@ -5,7 +5,7 @@
   },
   "devDependencies": {
     "tailwindcss": "^4.0.2",
-    "tailwindcss-safe-area": "^0.6.0",
+    "tailwindcss-safe-area": "^0.8.0",
     "@tailwindcss/cli": "^4.0.2"
   }
 }

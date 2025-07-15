@@ -1096,9 +1096,6 @@ async fn handle_message(msg: &Message) -> Result<()> {
 
             if buffering.percent() >= 100 {
                 tracing::info!("Done buffering");
-
-                let tracklist = TRACKLIST.read().await;
-                broadcast_track_list(&tracklist).await?;
                 play().await?;
             }
         }
