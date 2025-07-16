@@ -48,10 +48,16 @@ function initSse() {
 initSse();
 
 function refreshSse() {
-  const elements = document.querySelectorAll("[hx-trigger='sse'");
+  const elements = document.querySelectorAll("[hx-trigger='tracklist'");
 
   for (const element of elements) {
-    htmx.trigger(element, "sse");
+    htmx.trigger(element, "tracklist");
+  }
+
+  const statusElements = document.querySelectorAll("[hx-trigger='status'");
+
+  for (const element of statusElements) {
+    htmx.trigger(element, "status");
   }
 }
 
