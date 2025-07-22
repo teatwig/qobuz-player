@@ -67,21 +67,22 @@ impl SubTab {
 
 impl DiscoverState {
     pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect) {
+        let title = format!("<{}>", self.sub_tab);
         let (table, state) = match self.sub_tab {
             SubTab::PressAwards => (
-                album_simple_table(&self.press_awards.items, "Press awards"),
+                album_simple_table(&self.press_awards.items, &title),
                 &mut self.press_awards.state,
             ),
             SubTab::NewReleases => (
-                album_simple_table(&self.new_releases.items, "New releases full"),
+                album_simple_table(&self.new_releases.items, &title),
                 &mut self.new_releases.state,
             ),
             SubTab::Qobuzissims => (
-                album_simple_table(&self.qobuzissims.items, "Qobuzissims"),
+                album_simple_table(&self.qobuzissims.items, &title),
                 &mut self.qobuzissims.state,
             ),
             SubTab::IdealDiscography => (
-                album_simple_table(&self.ideal_discography.items, "Ideal discography"),
+                album_simple_table(&self.ideal_discography.items, &title),
                 &mut self.ideal_discography.state,
             ),
             SubTab::EditorPicks => (
@@ -91,7 +92,7 @@ impl DiscoverState {
                         .iter()
                         .map(|playlist| Row::new(Line::from(playlist.title.clone())))
                         .collect::<Vec<_>>(),
-                    "Editor picks",
+                    &title,
                 ),
                 &mut self.editor_picks.state,
             ),

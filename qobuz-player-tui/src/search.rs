@@ -79,7 +79,7 @@ impl SearchState {
 
         let (table, state) = match self.sub_tab {
             SubTab::Albums => (
-                album_table(&self.albums.items, "<Favorite: Albums>"),
+                album_table(&self.albums.items, &title),
                 &mut self.albums.state,
             ),
             SubTab::Artists => (
