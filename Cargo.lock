@@ -1561,22 +1561,22 @@ checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 
 [[package]]
 name = "gio-sys"
-version = "0.20.10"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "521e93a7e56fc89e84aea9a52cfc9436816a4b363b030260b699950ff1336c83"
+checksum = "2c8130f5810a839d74afc3a929c34a700bf194972bb034f2ecfe639682dd13cc"
 dependencies = [
  "glib-sys",
  "gobject-sys",
  "libc",
  "system-deps 7.0.5",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
 name = "glib"
-version = "0.20.12"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffc4b6e352d4716d84d7dde562dd9aee2a7d48beb872dd9ece7f2d1515b2d683"
+checksum = "690e8bcf8a819b5911d6ae79879226191d01253a4f602748072603defd5b9553"
 dependencies = [
  "bitflags 2.9.1",
  "futures-channel",
@@ -1595,9 +1595,9 @@ dependencies = [
 
 [[package]]
 name = "glib-macros"
-version = "0.20.12"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8084af62f09475a3f529b1629c10c429d7600ee1398ae12dd3bf175d74e7145"
+checksum = "e772291ebea14c28eb11bb75741f62f4a4894f25e60ce80100797b6b010ef0f9"
 dependencies = [
  "heck",
  "proc-macro-crate",
@@ -1608,9 +1608,9 @@ dependencies = [
 
 [[package]]
 name = "glib-sys"
-version = "0.20.10"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ab79e1ed126803a8fb827e3de0e2ff95191912b8db65cee467edb56fc4cc215"
+checksum = "4b2be4c74454fb4a6bd3328320737d0fa3d6939e2d570f5d846da00cb222f6a0"
 dependencies = [
  "libc",
  "system-deps 7.0.5",
@@ -1652,9 +1652,9 @@ dependencies = [
 
 [[package]]
 name = "gobject-sys"
-version = "0.20.10"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec9aca94bb73989e3cfdbf8f2e0f1f6da04db4d291c431f444838925c4c63eda"
+checksum = "ab318a786f9abd49d388013b9161fa0ef8218ea6118ee7111c95e62186f7d31f"
 dependencies = [
  "glib-sys",
  "libc",
@@ -1663,9 +1663,9 @@ dependencies = [
 
 [[package]]
 name = "gstreamer"
-version = "0.23.7"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8757a87f3706560037a01a9f06a59fcc7bdb0864744dcf73546606e60c4316e1"
+checksum = "1394d2bb79b4e7a662329c0afbb0f4be528f9a2289d094a31b4bd308e8c0972a"
 dependencies = [
  "cfg-if",
  "futures-channel",
@@ -1674,11 +1674,11 @@ dependencies = [
  "glib",
  "gstreamer-sys",
  "itertools 0.14.0",
+ "kstring",
  "libc",
  "muldiv",
  "num-integer",
  "num-rational",
- "once_cell",
  "option-operations",
  "paste",
  "pin-project-lite",
@@ -1690,10 +1690,11 @@ dependencies = [
 
 [[package]]
 name = "gstreamer-sys"
-version = "0.23.6"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "feea73b4d92dbf9c24a203c9cd0bcc740d584f6b5960d5faf359febf288919b2"
+checksum = "36f46b35f9dc4b5a0dca3f19d2118bb5355c3112f228a99a84ed555f48ce5cf9"
 dependencies = [
+ "cfg-if",
  "glib-sys",
  "gobject-sys",
  "libc",
@@ -2288,6 +2289,15 @@ checksum = "1cfaf33c695fc6e08064efbc1f72ec937429614f25eef83af942d0e227c3a28f"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kstring"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "558bf9508a558512042d3095138b1f7b8fe90c5467d94f9f1da28b3731c5dbd1"
+dependencies = [
+ "static_assertions",
 ]
 
 [[package]]
@@ -3446,7 +3456,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3950,7 +3960,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3963,7 +3973,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.9.4",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4802,7 +4812,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix 1.0.7",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5628,7 +5638,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
