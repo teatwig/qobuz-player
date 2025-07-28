@@ -7,7 +7,7 @@ repository.workspace = true
 
 [dependencies]
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
-qobuz-player-database = { version = "*", path = "../qobuz-player-database" }
+qobuz-player-state = { version = "*", path = "../qobuz-player-state" }
 
 tokio = { workspace = true }
 sqlx = { workspace = true }

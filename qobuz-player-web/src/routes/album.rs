@@ -59,7 +59,7 @@ async fn play(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn link(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_rfid::link(qobuz_player_rfid::LinkRequest::Album(id)).await;
+    qobuz_player_rfid::link(qobuz_player_state::database::LinkRequest::Album(id)).await;
 }
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {

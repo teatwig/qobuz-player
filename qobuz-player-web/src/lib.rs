@@ -24,7 +24,7 @@ mod page;
 mod routes;
 mod view;
 
-pub async fn init(state: qobuz_player_controls::state::State) {
+pub async fn init(state: Arc<qobuz_player_state::State>) {
     let listener = tokio::net::TcpListener::bind(&state.web_interface)
         .await
         .unwrap();
@@ -47,11 +47,11 @@ pub async fn init(state: qobuz_player_controls::state::State) {
         .unwrap();
 }
 
-async fn create_router(state: qobuz_player_controls::state::State) -> Router {
+async fn create_router(state: Arc<qobuz_player_state::State>) -> Router {
     let (tx, _rx) = broadcast::channel::<ServerSentEvent>(100);
     let shared_state = Arc::new(AppState {
         tx: tx.clone(),
-        player_state: state,
+        player_state: state.clone(),
     });
     tokio::spawn(background_task(tx));
 
@@ -172,7 +172,7 @@ async fn sse_handler(
 
 pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
-    pub player_state: qobuz_player_controls::state::State,
+    pub player_state: Arc<qobuz_player_state::State>,
 }
 
 #[derive(Clone)]

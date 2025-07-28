@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
-use qobuz_player_controls::{AudioQuality, notification::Notification, state::State};
+use qobuz_player_controls::{AudioQuality, notification::Notification};
+use qobuz_player_state::State;
 use snafu::prelude::*;
 
 #[derive(Parser)]
@@ -111,11 +114,7 @@ impl From<qobuz_player_controls::error::Error> for Error {
 pub async fn run() -> Result<(), Error> {
     let cli = Cli::parse();
 
-    let state = State {
-        rfid: cli.rfid,
-        web_interface: cli.interface,
-        web_secret: cli.web_secret,
-    };
+    let state = Arc::new(State::new(cli.rfid, cli.interface, cli.web_secret).await);
 
     tracing_subscriber::fmt()
         .with_max_level(cli.verbosity)
@@ -123,13 +122,11 @@ pub async fn run() -> Result<(), Error> {
         .compact()
         .init();
 
-    qobuz_player_database::init().await;
-
     match cli.command {
         Commands::Open => {
-            let database_credentials = qobuz_player_database::get_credentials().await;
-            let database_configuration = qobuz_player_database::get_configuration().await;
-            let loaded_tracklist = qobuz_player_database::get_tracklist().await;
+            let database_credentials = state.database.get_credentials().await;
+            let database_configuration = state.database.get_configuration().await;
+            let loaded_tracklist = state.database.get_tracklist().await;
 
             let username = cli.username.unwrap_or_else(|| {
                 database_credentials
@@ -155,8 +152,9 @@ pub async fn run() -> Result<(), Error> {
             }
 
             if cli.web {
+                let state_rfid = state.clone();
                 tokio::spawn(async {
-                    qobuz_player_web::init(state).await;
+                    qobuz_player_web::init(state_rfid).await;
                 });
             }
 
@@ -180,12 +178,13 @@ pub async fn run() -> Result<(), Error> {
                 }
             });
 
+            let state_persist = state.clone();
             tokio::spawn(async {
-                store_state_loop().await;
+                store_state_loop(state_persist).await;
             });
 
             if cli.rfid {
-                qobuz_player_rfid::init().await;
+                qobuz_player_rfid::init(state.clone()).await;
                 qobuz_player_controls::quit().await?
             } else if !cli.disable_tui {
                 qobuz_player_tui::init().await;
@@ -209,7 +208,7 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your username / email")
                     .interact_text()
                 {
-                    qobuz_player_database::set_username(username).await;
+                    state.database.set_username(username).await;
 
                     println!("Username saved.");
                 }
@@ -220,14 +219,14 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your password (hidden)")
                     .interact()
                 {
-                    qobuz_player_database::set_password(password).await;
+                    state.database.set_password(password).await;
 
                     println!("Password saved.");
                 }
                 Ok(())
             }
             ConfigCommands::MaxAudioQuality { quality } => {
-                qobuz_player_database::set_max_audio_quality(quality).await;
+                state.database.set_max_audio_quality(quality).await;
 
                 println!("Max audio quality saved.");
 
@@ -237,12 +236,12 @@ pub async fn run() -> Result<(), Error> {
     }
 }
 
-async fn store_state_loop() {
+async fn store_state_loop(state: Arc<State>) {
     let mut broadcast_receiver = qobuz_player_controls::notify_receiver();
 
     loop {
         if let Ok(Notification::CurrentTrackList { list }) = broadcast_receiver.recv().await {
-            qobuz_player_database::set_tracklist(list).await;
+            state.database.set_tracklist(list).await;
         }
     }
 }

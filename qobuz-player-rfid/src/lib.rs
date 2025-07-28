@@ -1,11 +1,15 @@
 use dialoguer::Input;
 use qobuz_player_controls::tracklist;
-use std::sync::LazyLock;
+use qobuz_player_state::{
+    State,
+    database::{LinkRequest, ReferenceType},
+};
+use std::sync::{Arc, LazyLock};
 use tokio::sync::RwLock;
 
 static SCAN_REQUEST: LazyLock<RwLock<Option<LinkRequest>>> = LazyLock::new(|| RwLock::new(None));
 
-pub async fn init() {
+pub async fn init(state: Arc<State>) {
     loop {
         match Input::<String>::new()
             .with_prompt("Scan rfid")
@@ -13,10 +17,12 @@ pub async fn init() {
         {
             Ok(res) => match &*SCAN_REQUEST.read().await {
                 Some(request) => match request {
-                    LinkRequest::Album(album) => submit_link_album(&res, album),
-                    LinkRequest::Playlist(playlist) => submit_link_playlist(&res, *playlist),
+                    LinkRequest::Album(album) => submit_link_album(state.clone(), &res, album),
+                    LinkRequest::Playlist(playlist) => {
+                        submit_link_playlist(state.clone(), &res, *playlist)
+                    }
                 },
-                None => handle_play_scan(&res).await,
+                None => handle_play_scan(&state, &res).await,
             },
 
             Err(_) => continue,
@@ -24,8 +30,8 @@ pub async fn init() {
     }
 }
 
-async fn handle_play_scan(res: &str) {
-    let reference = match get_reference(res).await {
+async fn handle_play_scan(state: &State, res: &str) {
+    let reference = match state.database.get_reference(res).await {
         Some(reference) => reference,
         None => {
             return;
@@ -89,22 +95,12 @@ async fn set_state(request: Option<LinkRequest>) {
     *request_lock = request;
 }
 
-fn submit_link_album(rfid_id: &str, id: &str) {
+fn submit_link_album(state: Arc<State>, rfid_id: &str, id: &str) {
     let rfid_id = rfid_id.to_owned();
-    let id = id.to_owned();
+    let reference = ReferenceType::Album(id.to_owned());
 
     tokio::spawn(async move {
-        let mut conn = qobuz_player_database::get_pool().await;
-
-        let reference_id = Some(id);
-        sqlx::query_as!(
-                    RFIDReference,
-                    "INSERT INTO rfid_references (id, reference_type, album_id, playlist_id) VALUES ($1, $2, $3, $4) ON CONFLICT(id) DO UPDATE SET reference_type = excluded.reference_type, album_id = excluded.album_id, playlist_id = excluded.playlist_id RETURNING *;",
-                    rfid_id,
-                    1,
-                    reference_id,
-                    None::<u32>,
-                ).fetch_one(&mut *conn).await.unwrap();
+        state.database.add_rfid_reference(rfid_id, reference).await;
 
         qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Success(
             "Link completed".to_string(),
@@ -114,78 +110,16 @@ fn submit_link_album(rfid_id: &str, id: &str) {
     });
 }
 
-fn submit_link_playlist(rfid_id: &str, id: u32) {
+fn submit_link_playlist(state: Arc<State>, rfid_id: &str, id: u32) {
     let rfid_id = rfid_id.to_owned();
+    let reference = ReferenceType::Playlist(id);
 
     tokio::spawn(async move {
-        let mut conn = qobuz_player_database::get_pool().await;
-
-        let reference_id = Some(id);
-        sqlx::query_as!(
-                    RFIDReference,
-                    "INSERT INTO rfid_references (id, reference_type, album_id, playlist_id) VALUES ($1, $2, $3, $4) ON CONFLICT(id) DO UPDATE SET reference_type = excluded.reference_type, album_id = excluded.album_id, playlist_id = excluded.playlist_id RETURNING *;",
-                    rfid_id,
-                    2,
-                    None::<String>,
-                    reference_id,
-                ).fetch_one(&mut *conn).await.unwrap();
+        state.database.add_rfid_reference(rfid_id, reference).await;
 
         qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Success(
             "Link completed".to_string(),
         ));
         set_state(None).await;
     });
-}
-
-async fn get_reference(id: &str) -> Option<LinkRequest> {
-    let mut conn = qobuz_player_database::get_pool().await;
-
-    let db_reference = match sqlx::query_as!(
-        RFIDReference,
-        "SELECT * FROM rfid_references WHERE ID = $1;",
-        id
-    )
-    .fetch_one(&mut *conn)
-    .await
-    {
-        Ok(res) => res,
-        Err(_) => return None,
-    };
-
-    match db_reference.reference_type {
-        ReferenceType::Album => Some(LinkRequest::Album(db_reference.album_id.unwrap())),
-        ReferenceType::Playlist => Some(LinkRequest::Playlist(
-            db_reference.playlist_id.unwrap() as u32
-        )),
-    }
-}
-
-#[derive(sqlx::FromRow)]
-struct RFIDReference {
-    #[allow(dead_code)]
-    id: String,
-    reference_type: ReferenceType,
-    album_id: Option<String>,
-    playlist_id: Option<i64>,
-}
-
-enum ReferenceType {
-    Album = 1,
-    Playlist = 2,
-}
-
-impl From<i64> for ReferenceType {
-    fn from(value: i64) -> Self {
-        match value {
-            1 => ReferenceType::Album,
-            2 => ReferenceType::Playlist,
-            _ => panic!("Unable to parse reference type!"),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum LinkRequest {
-    Album(String),
-    Playlist(u32),
 }
