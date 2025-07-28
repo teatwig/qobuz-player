@@ -4,10 +4,7 @@ use qobuz_player_state::{
     State,
     database::{LinkRequest, ReferenceType},
 };
-use std::sync::{Arc, LazyLock};
-use tokio::sync::RwLock;
-
-static SCAN_REQUEST: LazyLock<RwLock<Option<LinkRequest>>> = LazyLock::new(|| RwLock::new(None));
+use std::sync::Arc;
 
 pub async fn init(state: Arc<State>) {
     loop {
@@ -15,7 +12,7 @@ pub async fn init(state: Arc<State>) {
             .with_prompt("Scan rfid")
             .interact_text()
         {
-            Ok(res) => match &*SCAN_REQUEST.read().await {
+            Ok(res) => match &*state.link_request.lock().await {
                 Some(request) => match request {
                     LinkRequest::Album(album) => submit_link_album(state.clone(), &res, album),
                     LinkRequest::Playlist(playlist) => {
@@ -64,8 +61,8 @@ async fn handle_play_scan(state: &State, res: &str) {
     }
 }
 
-pub async fn link(request: LinkRequest) {
-    set_state(Some(request.clone())).await;
+pub async fn link(state: Arc<State>, request: LinkRequest) {
+    set_state(state.clone(), Some(request.clone())).await;
 
     let type_string = match request {
         LinkRequest::Album(_) => "album",
@@ -79,19 +76,19 @@ pub async fn link(request: LinkRequest) {
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
-        let request_ongoing = { SCAN_REQUEST.read().await.is_some() };
+        let request_ongoing = state.link_request.lock().await.is_some();
 
         if request_ongoing {
             qobuz_player_controls::send_message(
                 qobuz_player_controls::notification::Message::Warning("Scan cancelled".to_string()),
             );
-            set_state(None).await;
+            set_state(state, None).await;
         }
     });
 }
 
-async fn set_state(request: Option<LinkRequest>) {
-    let mut request_lock = SCAN_REQUEST.write().await;
+async fn set_state(state: Arc<State>, request: Option<LinkRequest>) {
+    let mut request_lock = state.link_request.lock().await;
     *request_lock = request;
 }
 
@@ -106,7 +103,7 @@ fn submit_link_album(state: Arc<State>, rfid_id: &str, id: &str) {
             "Link completed".to_string(),
         ));
 
-        set_state(None).await;
+        set_state(state, None).await;
     });
 }
 
@@ -120,6 +117,6 @@ fn submit_link_playlist(state: Arc<State>, rfid_id: &str, id: u32) {
         qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Success(
             "Link completed".to_string(),
         ));
-        set_state(None).await;
+        set_state(state, None).await;
     });
 }

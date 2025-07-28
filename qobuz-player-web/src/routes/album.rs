@@ -58,8 +58,12 @@ async fn play(Path(id): Path<String>) -> impl IntoResponse {
     qobuz_player_controls::play_album(&id, 0).await.unwrap();
 }
 
-async fn link(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_rfid::link(qobuz_player_state::database::LinkRequest::Album(id)).await;
+async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
+    qobuz_player_rfid::link(
+        state.player_state.clone(),
+        qobuz_player_state::database::LinkRequest::Album(id),
+    )
+    .await;
 }
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {

@@ -47,8 +47,12 @@ async fn play(Path(id): Path<u32>) -> impl IntoResponse {
         .unwrap();
 }
 
-async fn link(Path(id): Path<u32>) -> impl IntoResponse {
-    qobuz_player_rfid::link(qobuz_player_state::database::LinkRequest::Playlist(id)).await;
+async fn link(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
+    qobuz_player_rfid::link(
+        state.player_state.clone(),
+        qobuz_player_state::database::LinkRequest::Playlist(id),
+    )
+    .await;
 }
 
 async fn shuffle(Path(id): Path<u32>) -> impl IntoResponse {
