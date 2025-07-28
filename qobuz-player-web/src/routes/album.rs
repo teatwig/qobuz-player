@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
-    extract::Path,
+    extract::{Path, State},
     response::IntoResponse,
     routing::{get, put},
 };
@@ -9,6 +11,7 @@ use qobuz_player_controls::models::{Album, AlbumSimple, Track};
 use tokio::join;
 
 use crate::{
+    AppState,
     components::{
         ButtonGroup, Description, ToggleFavorite, button_class,
         list::{ListAlbumsVertical, ListTracks, TrackNumberDisplay},
@@ -59,7 +62,7 @@ async fn link(Path(id): Path<String>) -> impl IntoResponse {
     qobuz_player_rfid::link(qobuz_player_rfid::LinkRequest::Album(id)).await;
 }
 
-async fn index(Path(id): Path<String>) -> impl IntoResponse {
+async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
     let (album, suggested_albums, favorites, current_tracklist, current_status) = join!(
         qobuz_player_controls::album(id.clone()),
         qobuz_player_controls::suggested_albums(id.clone()),
@@ -85,6 +88,7 @@ async fn index(Path(id): Path<String>) -> impl IntoResponse {
                 suggested_albums=suggested_albums
                 is_favorite=is_favorite
                 now_playing_id=current_tracklist.currently_playing()
+                rfid=state.player_state.rfid
             />
         </Page>
     })
@@ -137,12 +141,12 @@ fn album(
     album: Album,
     suggested_albums: Vec<AlbumSimple>,
     is_favorite: bool,
+    rfid: bool,
 ) -> impl IntoView {
     let duration = parse_duration(album.duration_seconds);
 
     let album_id_clone_1 = album.id.clone();
     let album_id_clone_2 = album.id.clone();
-    let rfid = qobuz_player_rfid::is_initiated();
 
     html! {
         <div class="flex flex-wrap gap-4 justify-center items-end w-full p-safe-or-4 *:max-w-sm">

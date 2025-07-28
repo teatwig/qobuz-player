@@ -30,6 +30,7 @@ pub use qobuz_player_client::client::{AlbumFeaturedType, AudioQuality, PlaylistF
 pub mod error;
 pub mod models;
 pub mod notification;
+pub mod state;
 pub mod tracklist;
 
 type Result<T, E = Error> = std::result::Result<T, E>;

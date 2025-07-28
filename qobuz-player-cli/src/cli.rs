@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
-use qobuz_player_controls::{AudioQuality, notification::Notification};
+use qobuz_player_controls::{AudioQuality, notification::Notification, state::State};
 use snafu::prelude::*;
 
 #[derive(Parser)]
@@ -111,6 +111,12 @@ impl From<qobuz_player_controls::error::Error> for Error {
 pub async fn run() -> Result<(), Error> {
     let cli = Cli::parse();
 
+    let state = State {
+        rfid: cli.rfid,
+        web_interface: cli.interface,
+        web_secret: cli.web_secret,
+    };
+
     tracing_subscriber::fmt()
         .with_max_level(cli.verbosity)
         .with_target(false)
@@ -150,7 +156,7 @@ pub async fn run() -> Result<(), Error> {
 
             if cli.web {
                 tokio::spawn(async {
-                    qobuz_player_web::init(cli.interface, cli.web_secret).await;
+                    qobuz_player_web::init(state).await;
                 });
             }
 

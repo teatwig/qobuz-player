@@ -1,21 +1,11 @@
 use dialoguer::Input;
 use qobuz_player_controls::tracklist;
-use std::sync::{
-    LazyLock,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::LazyLock;
 use tokio::sync::RwLock;
 
-static INITIATED: AtomicBool = AtomicBool::new(false);
 static SCAN_REQUEST: LazyLock<RwLock<Option<LinkRequest>>> = LazyLock::new(|| RwLock::new(None));
 
-pub fn is_initiated() -> bool {
-    INITIATED.load(Ordering::Relaxed)
-}
-
 pub async fn init() {
-    INITIATED.store(true, Ordering::Relaxed);
-
     loop {
         match Input::<String>::new()
             .with_prompt("Scan rfid")

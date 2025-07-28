@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
-    extract::Path,
+    extract::{Path, State},
     response::IntoResponse,
     routing::{get, put},
 };
@@ -9,6 +11,7 @@ use qobuz_player_controls::models::{Playlist, Track};
 use tokio::join;
 
 use crate::{
+    AppState,
     components::{
         ButtonGroup, ToggleFavorite, button_class,
         list::{ListTracks, TrackNumberDisplay},
@@ -68,7 +71,7 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
 
-async fn index(Path(id): Path<u32>) -> impl IntoResponse {
+async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
     let (playlist, favorites) = join!(
         qobuz_player_controls::playlist(id),
         qobuz_player_controls::favorites()
@@ -94,6 +97,7 @@ async fn index(Path(id): Path<u32>) -> impl IntoResponse {
                 now_playing_id=current_tracklist.currently_playing()
                 playlist=playlist
                 is_favorite=is_favorite
+                rfid=state.player_state.rfid
             />
         </Page>
     })
@@ -135,9 +139,13 @@ fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> 
 }
 
 #[component]
-fn playlist(now_playing_id: Option<u32>, playlist: Playlist, is_favorite: bool) -> impl IntoView {
+fn playlist(
+    now_playing_id: Option<u32>,
+    playlist: Playlist,
+    is_favorite: bool,
+    rfid: bool,
+) -> impl IntoView {
     let duration = parse_duration(playlist.duration_seconds);
-    let rfid = qobuz_player_rfid::is_initiated();
 
     html! {
         <div class="flex flex-wrap gap-4 justify-center items-end w-full p-safe-or-4 *:max-w-sm">

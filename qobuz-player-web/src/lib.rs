@@ -24,9 +24,13 @@ mod page;
 mod routes;
 mod view;
 
-pub async fn init(address: String, secret: Option<String>) {
-    let router = create_router(secret).await;
-    let listener = tokio::net::TcpListener::bind(address).await.unwrap();
+pub async fn init(state: qobuz_player_controls::state::State) {
+    let listener = tokio::net::TcpListener::bind(&state.web_interface)
+        .await
+        .unwrap();
+
+    let router = create_router(state).await;
+
     axum::serve(listener, router)
         .with_graceful_shutdown(async {
             let mut broadcast_receiver = qobuz_player_controls::notify_receiver();
@@ -43,11 +47,11 @@ pub async fn init(address: String, secret: Option<String>) {
         .unwrap();
 }
 
-async fn create_router(secret: Option<String>) -> Router {
+async fn create_router(state: qobuz_player_controls::state::State) -> Router {
     let (tx, _rx) = broadcast::channel::<ServerSentEvent>(100);
     let shared_state = Arc::new(AppState {
         tx: tx.clone(),
-        secret,
+        player_state: state,
     });
     tokio::spawn(background_task(tx));
 
@@ -168,7 +172,7 @@ async fn sse_handler(
 
 pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
-    pub secret: Option<String>,
+    pub player_state: qobuz_player_controls::state::State,
 }
 
 #[derive(Clone)]
