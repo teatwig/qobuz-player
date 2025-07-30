@@ -36,15 +36,15 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let tracklist_clone = tracklist.clone();
 
     render(html! {
-        <Page active_page=Page::Queue current_status=current_status current_tracklist=&tracklist>
-            <Queue current_tracklist=tracklist_clone />
+        <Page active_page=Page::Queue current_status=current_status tracklist=&tracklist>
+            <Queue tracklist=tracklist_clone />
         </Page>
     })
 }
 
 #[component]
-fn queue(current_tracklist: Tracklist) -> impl IntoView {
-    let (entity_title, entity_link) = match current_tracklist.list_type() {
+fn queue(tracklist: Tracklist) -> impl IntoView {
+    let (entity_title, entity_link) = match tracklist.list_type() {
         TracklistType::Album(tracklist) => (
             tracklist.title.clone(),
             Some(format!("/album/{}", tracklist.id)),
@@ -79,7 +79,7 @@ fn queue(current_tracklist: Tracklist) -> impl IntoView {
                 </div>
 
                 <div id="queue-list">
-                    <QueueList current_tracklist=current_tracklist />
+                    <QueueList tracklist=tracklist />
                 </div>
             </div>
         </div>
@@ -89,13 +89,13 @@ fn queue(current_tracklist: Tracklist) -> impl IntoView {
 async fn queue_partial() -> impl IntoResponse {
     let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
 
-    render(html! { <QueueList current_tracklist=tracklist /> })
+    render(html! { <QueueList tracklist=tracklist /> })
 }
 
 #[component]
-fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
-    let now_playing_id = current_tracklist.currently_playing();
-    let tracks = current_tracklist.queue().to_vec();
+fn queue_list(tracklist: Tracklist) -> impl IntoView {
+    let now_playing_id = tracklist.currently_playing();
+    let tracks = tracklist.queue().to_vec();
 
     html! {
         <List>

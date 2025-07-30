@@ -31,11 +31,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(tab): Path<Tab>) -> impl
     let current_status = qobuz_player_controls::current_state().await;
 
     render(html! {
-        <Page
-            active_page=Page::Favorites
-            current_status=current_status
-            current_tracklist=&tracklist
-        >
+        <Page active_page=Page::Favorites current_status=current_status tracklist=&tracklist>
             <Favorites favorites=favorites tab=tab />
         </Page>
     })

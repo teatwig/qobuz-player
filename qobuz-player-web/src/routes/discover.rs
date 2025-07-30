@@ -41,7 +41,7 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let current_status = qobuz_player_controls::current_state().await;
 
     render(html! {
-        <Page active_page=Page::Discover current_status=current_status current_tracklist=&tracklist>
+        <Page active_page=Page::Discover current_status=current_status tracklist=&tracklist>
             <div class="flex flex-col gap-8 px-4">
                 <div class="flex sticky top-0 flex-col flex-grow gap-4 pb-2 max-h-full pt-safe-or-4 bg-black/80 backdrop-blur">
                     <h1 class="text-2xl">Discover</h1>

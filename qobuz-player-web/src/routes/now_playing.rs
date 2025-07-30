@@ -155,13 +155,9 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
 
     render(html! {
-        <Page
-            active_page=Page::NowPlaying
-            current_status=current_status
-            current_tracklist=&tracklist
-        >
+        <Page active_page=Page::NowPlaying current_status=current_status tracklist=&tracklist>
             <NowPlaying
-                current_tracklist=tracklist_clone
+                tracklist=tracklist_clone
                 current_track=current_track
                 position_seconds=position_seconds
                 current_status=current_status
@@ -180,7 +176,7 @@ async fn now_playing_partial() -> impl IntoResponse {
 
     render(html! {
         <NowPlaying
-            current_tracklist=tracklist
+            tracklist=tracklist
             current_track=current_track
             position_seconds=position_seconds
             current_status=current_status
@@ -235,7 +231,7 @@ pub(crate) fn player_state(playing: bool) -> impl IntoView {
 
 #[component]
 fn now_playing(
-    current_tracklist: Tracklist,
+    tracklist: Tracklist,
     current_track: Option<models::Track>,
     position_seconds: Option<u64>,
     current_status: tracklist::Status,
@@ -247,9 +243,9 @@ fn now_playing(
         .and_then(|track| track.artist_name.clone());
     let artist_id = current_track.as_ref().and_then(|track| track.artist_id);
 
-    let current_position = current_tracklist.current_position();
+    let current_position = tracklist.current_position();
 
-    let (entity_title, entity_link) = match current_tracklist.list_type() {
+    let (entity_title, entity_link) = match tracklist.list_type() {
         TracklistType::Album(tracklist) => (
             Some(tracklist.title.clone()),
             Some(format!("/album/{}", tracklist.id)),
@@ -286,7 +282,7 @@ fn now_playing(
             )
         });
 
-    let number_of_tracks = current_tracklist.total();
+    let number_of_tracks = tracklist.total();
 
     html! {
         <div

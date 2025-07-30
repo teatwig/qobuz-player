@@ -85,7 +85,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
     let is_favorite = favorites.albums.iter().any(|album| album.id == id);
 
     render(html! {
-        <Page active_page=Page::None current_status=current_status current_tracklist=&tracklist>
+        <Page active_page=Page::None current_status=current_status tracklist=&tracklist>
             <Album
                 album=album
                 suggested_albums=suggested_albums

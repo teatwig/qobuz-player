@@ -14,10 +14,7 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 }
 
 #[component]
-pub(crate) fn controls<'a>(
-    current_status: Status,
-    current_tracklist: &'a Tracklist,
-) -> impl IntoView {
+pub(crate) fn controls<'a>(current_status: Status, tracklist: &'a Tracklist) -> impl IntoView {
     html! {
         <div
             hx-get="/controls"
@@ -27,7 +24,7 @@ pub(crate) fn controls<'a>(
             hx-preserve
             id="controls"
         >
-            <ControlsPartial current_status=current_status current_tracklist=current_tracklist />
+            <ControlsPartial current_status=current_status tracklist=tracklist />
         </div>
     }
 }
@@ -36,14 +33,12 @@ async fn controls() -> impl IntoResponse {
     let current_status = qobuz_player_controls::current_state().await;
     let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
 
-    render(html! { <ControlsPartial current_status=current_status current_tracklist=&tracklist /> })
+    render(html! { <ControlsPartial current_status=current_status tracklist=&tracklist /> })
 }
 
 #[component]
-fn controls_partial<'a>(current_status: Status, current_tracklist: &'a Tracklist) -> impl IntoView {
-    let track_title = current_tracklist
-        .current_track()
-        .map(|track| track.title.clone());
+fn controls_partial<'a>(current_status: Status, tracklist: &'a Tracklist) -> impl IntoView {
+    let track_title = tracklist.current_track().map(|track| track.title.clone());
 
     let (playing, show) = match current_status {
         tracklist::Status::Stopped => (false, false),
@@ -51,7 +46,7 @@ fn controls_partial<'a>(current_status: Status, current_tracklist: &'a Tracklist
         tracklist::Status::Playing => (true, true),
     };
 
-    let (image, title, entity_link) = match current_tracklist.list_type() {
+    let (image, title, entity_link) = match tracklist.list_type() {
         TracklistType::Album(tracklist) => (
             image(tracklist.image.clone(), false).into_any(),
             Some(tracklist.title.clone()),
