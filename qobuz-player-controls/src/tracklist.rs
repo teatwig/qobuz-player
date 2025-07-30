@@ -41,8 +41,8 @@ pub enum TracklistType {
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Tracklist {
-    pub queue: Vec<Track>,
-    pub list_type: TracklistType,
+    pub(crate) queue: Vec<Track>,
+    pub(crate) list_type: TracklistType,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
@@ -56,6 +56,10 @@ pub enum Status {
 impl Tracklist {
     pub fn new() -> Self {
         Default::default()
+    }
+
+    pub fn queue(&self) -> &Vec<Track> {
+        &self.queue
     }
 
     pub fn total(&self) -> u32 {

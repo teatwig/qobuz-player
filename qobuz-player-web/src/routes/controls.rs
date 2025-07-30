@@ -4,7 +4,8 @@ use qobuz_player_controls::tracklist::{self, Status, Tracklist, TracklistType};
 
 use crate::{
     html,
-    routes::now_playing::{Next, Previous, State},
+    now_playing::PlayerState,
+    routes::now_playing::{Next, Previous},
     view::render,
 };
 
@@ -13,7 +14,10 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 }
 
 #[component]
-pub(crate) fn controls(current_status: Status, current_tracklist: Tracklist) -> impl IntoView {
+pub(crate) fn controls<'a>(
+    current_status: Status,
+    current_tracklist: &'a Tracklist,
+) -> impl IntoView {
     html! {
         <div
             hx-get="/controls"
@@ -30,14 +34,13 @@ pub(crate) fn controls(current_status: Status, current_tracklist: Tracklist) -> 
 
 async fn controls() -> impl IntoResponse {
     let current_status = qobuz_player_controls::current_state().await;
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-    render(
-        html! { <ControlsPartial current_status=current_status current_tracklist=current_tracklist /> },
-    )
+    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
+
+    render(html! { <ControlsPartial current_status=current_status current_tracklist=&tracklist /> })
 }
 
 #[component]
-fn controls_partial(current_status: Status, current_tracklist: Tracklist) -> impl IntoView {
+fn controls_partial<'a>(current_status: Status, current_tracklist: &'a Tracklist) -> impl IntoView {
     let track_title = current_tracklist
         .current_track()
         .map(|track| track.title.clone());
@@ -48,26 +51,26 @@ fn controls_partial(current_status: Status, current_tracklist: Tracklist) -> imp
         tracklist::Status::Playing => (true, true),
     };
 
-    let (image, title, entity_link) = match current_tracklist.list_type {
+    let (image, title, entity_link) = match current_tracklist.list_type() {
         TracklistType::Album(tracklist) => (
-            image(tracklist.image, false).into_any(),
-            Some(tracklist.title),
+            image(tracklist.image.clone(), false).into_any(),
+            Some(tracklist.title.clone()),
             Some(format!("/album/{}", tracklist.id)),
         ),
         TracklistType::Playlist(tracklist) => (
-            image(tracklist.image, false).into_any(),
-            Some(tracklist.title),
+            image(tracklist.image.clone(), false).into_any(),
+            Some(tracklist.title.clone()),
             Some(format!("/playlist/{}", tracklist.id)),
         ),
         TracklistType::TopTracks(tracklist) => (
-            image(tracklist.image, true).into_any(),
-            Some(tracklist.artist_name),
+            image(tracklist.image.clone(), true).into_any(),
+            Some(tracklist.artist_name.clone()),
             Some(format!("/artist/{}", tracklist.id)),
         ),
         TracklistType::Track(tracklist) => (
-            image(tracklist.image, false).into_any(),
-            Some(tracklist.track_title),
-            tracklist.album_id.map(|id| format!("/album/{id}")),
+            image(tracklist.image.clone(), false).into_any(),
+            Some(tracklist.track_title.clone()),
+            tracklist.album_id.as_ref().map(|id| format!("/album/{id}")),
         ),
         TracklistType::None => (image(None, false).into_any(), None, None),
     };
@@ -95,7 +98,7 @@ fn controls_partial(current_status: Status, current_tracklist: Tracklist) -> imp
                                     <Previous />
                                 </span>
                                 <span class="flex w-8">
-                                    <State playing=playing />
+                                    <PlayerState playing=playing />
                                 </span>
                                 <span class="flex w-8">
                                     <Next />

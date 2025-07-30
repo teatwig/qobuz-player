@@ -18,11 +18,11 @@ pub(crate) enum Page {
 }
 
 #[component]
-pub(crate) fn page(
+pub(crate) fn page<'a>(
     children: Children,
     active_page: Page,
     current_status: Status,
-    current_tracklist: Tracklist,
+    current_tracklist: &'a Tracklist,
 ) -> impl IntoView {
     html! {
         <!DOCTYPE html>

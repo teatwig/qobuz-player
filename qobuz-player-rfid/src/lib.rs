@@ -35,7 +35,8 @@ async fn handle_play_scan(state: &State, res: &str) {
         }
     };
 
-    let now_playing = qobuz_player_controls::current_tracklist().await.list_type;
+    let tracklist = state.tracklist.read().await;
+    let now_playing = tracklist.list_type();
     match reference {
         LinkRequest::Album(id) => {
             if let tracklist::TracklistType::Album(now_playing) = now_playing {

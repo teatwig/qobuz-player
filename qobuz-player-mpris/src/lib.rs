@@ -3,7 +3,12 @@ use mpris_server::{
     Server, Time, TrackId, Volume,
     zbus::{self, fdo},
 };
-use qobuz_player_controls::{ClockTime, models::Track, notification::Notification, tracklist};
+use qobuz_player_controls::{
+    ClockTime,
+    models::Track,
+    notification::Notification,
+    tracklist::{self, Tracklist},
+};
 
 struct MprisPlayer;
 
@@ -146,7 +151,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn metadata(&self) -> fdo::Result<Metadata> {
-        let tracklist = qobuz_player_controls::current_tracklist().await;
+        let tracklist = Tracklist::default();
         let current_track = tracklist.current_track();
 
         if let Some(current_track) = current_track {
@@ -241,8 +246,8 @@ pub async fn init() {
                 }
                 Notification::Position { clock: _ } => {}
                 Notification::CurrentTrackList { list } => {
-                    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-                    let current_track = current_tracklist.current_track();
+                    let tracklist = Tracklist::default();
+                    let current_track = tracklist.current_track();
 
                     if let Some(current_track) = current_track {
                         let metadata = track_to_metadata(current_track);
@@ -270,6 +275,7 @@ pub async fn init() {
                         .await
                         .unwrap();
                 }
+                Notification::Play(_play_notification) => (),
             }
         }
     }

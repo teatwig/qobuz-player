@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
-use qobuz_player_controls::{AudioQuality, notification::Notification};
-use qobuz_player_state::State;
+use qobuz_player_controls::{AudioQuality, Player, notification::Notification};
+use qobuz_player_state::{State, database::Database};
 use snafu::prelude::*;
 
 #[derive(Parser)]
@@ -114,7 +114,7 @@ impl From<qobuz_player_controls::error::Error> for Error {
 pub async fn run() -> Result<(), Error> {
     let cli = Cli::parse();
 
-    let state = Arc::new(State::new(cli.rfid, cli.interface, cli.web_secret).await);
+    let database = Database::new().await;
 
     tracing_subscriber::fmt()
         .with_max_level(cli.verbosity)
@@ -124,9 +124,14 @@ pub async fn run() -> Result<(), Error> {
 
     match cli.command {
         Commands::Open => {
-            let database_credentials = state.database.get_credentials().await;
-            let database_configuration = state.database.get_configuration().await;
-            let loaded_tracklist = state.database.get_tracklist().await;
+            let database_credentials = database.get_credentials().await;
+            let database_configuration = database.get_configuration().await;
+            let tracklist = database.get_tracklist().await.unwrap_or_default();
+            let tracklist_player_clone = tracklist.clone();
+
+            let state = Arc::new(
+                State::new(cli.rfid, cli.interface, cli.web_secret, tracklist, database).await,
+            );
 
             let username = cli.username.unwrap_or_else(|| {
                 database_credentials
@@ -152,9 +157,9 @@ pub async fn run() -> Result<(), Error> {
             }
 
             if cli.web {
-                let state_rfid = state.clone();
+                let state_web = state.clone();
                 tokio::spawn(async {
-                    qobuz_player_web::init(state_rfid).await;
+                    qobuz_player_web::init(state_web).await;
                 });
             }
 
@@ -166,12 +171,15 @@ pub async fn run() -> Result<(), Error> {
             }
 
             tokio::spawn(async {
-                match qobuz_player_controls::player_loop(
-                    qobuz_player_controls::Credentials { username, password },
-                    qobuz_player_controls::Configuration { max_audio_quality },
-                    loaded_tracklist,
-                )
-                .await
+                let mut player = Player {
+                    tracklist: tracklist_player_clone,
+                };
+                match player
+                    .player_loop(
+                        qobuz_player_controls::Credentials { username, password },
+                        qobuz_player_controls::Configuration { max_audio_quality },
+                    )
+                    .await
                 {
                     Ok(_) => debug!("player loop exited successfully"),
                     Err(error) => debug!("player loop error {error}"),
@@ -187,7 +195,7 @@ pub async fn run() -> Result<(), Error> {
                 qobuz_player_rfid::init(state.clone()).await;
                 qobuz_player_controls::quit().await?
             } else if !cli.disable_tui {
-                qobuz_player_tui::init().await;
+                qobuz_player_tui::init(state.clone()).await;
 
                 debug!("tui exited, quitting");
                 qobuz_player_controls::quit().await?
@@ -208,7 +216,7 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your username / email")
                     .interact_text()
                 {
-                    state.database.set_username(username).await;
+                    database.set_username(username).await;
 
                     println!("Username saved.");
                 }
@@ -219,14 +227,14 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your password (hidden)")
                     .interact()
                 {
-                    state.database.set_password(password).await;
+                    database.set_password(password).await;
 
                     println!("Password saved.");
                 }
                 Ok(())
             }
             ConfigCommands::MaxAudioQuality { quality } => {
-                state.database.set_max_audio_quality(quality).await;
+                database.set_max_audio_quality(quality).await;
 
                 println!("Max audio quality saved.");
 

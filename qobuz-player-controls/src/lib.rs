@@ -4,7 +4,7 @@ use error::Error;
 use futures::prelude::*;
 use gstreamer::{Element, Message, MessageView, SeekFlags, Structure, prelude::*};
 use models::{Album, AlbumSimple, ArtistPage, image_to_string, parse_playlist};
-use notification::Notification;
+use notification::{Notification, PlayNotification};
 use qobuz_player_client::client::Client;
 use rand::seq::SliceRandom;
 use std::{
@@ -120,7 +120,6 @@ static TRACK_ABOUT_TO_FINISH: LazyLock<TrackAboutToFinish> = LazyLock::new(|| {
 static SHOULD_QUIT: AtomicBool = AtomicBool::new(false);
 static TARGET_STATUS: LazyLock<RwLock<tracklist::Status>> =
     LazyLock::new(|| RwLock::new(Default::default()));
-static TRACKLIST: LazyLock<RwLock<Tracklist>> = LazyLock::new(|| RwLock::new(Tracklist::new()));
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
@@ -183,6 +182,655 @@ async fn get_client() -> &'static Client {
     CLIENT.get().unwrap()
 }
 
+#[derive(Debug)]
+pub struct Player {
+    pub tracklist: Tracklist,
+}
+
+impl Player {
+    pub async fn quit(&self) -> Result<()> {
+        tracing::debug!("stopping player");
+
+        SHOULD_QUIT.store(true, Ordering::Relaxed);
+
+        if is_player_playing().await {
+            tracing::debug!("pausing player");
+            self.pause().await?;
+        }
+
+        if is_paused().await {
+            tracing::debug!("readying player");
+            ready().await?;
+        }
+
+        if is_player_ready() {
+            tracing::debug!("stopping player");
+            stop().await?;
+        }
+
+        BROADCAST_CHANNELS
+            .tx
+            .send(Notification::Quit)
+            .expect("error sending broadcast");
+
+        Ok(())
+    }
+
+    #[instrument]
+    /// Toggle play and pause.
+    pub async fn play_pause(&self) -> Result<()> {
+        match current_state().await {
+            tracklist::Status::Playing => self.pause().await,
+            tracklist::Status::Paused | tracklist::Status::Stopped => self.play().await,
+        }
+    }
+
+    #[instrument]
+    /// Play the player.
+    pub async fn play(&self) -> Result<()> {
+        if let Some(current_track_id) = self.tracklist.currently_playing() {
+            let client = get_client().await;
+            let track_url = track_url(client, current_track_id).await?;
+            query_track_url(&track_url).await?;
+        }
+
+        if chrono::Utc::now() - *CURRENT_TRACK_URL_TIME.read().await > TRACK_URL_LIFE_SPAN {
+            let current_position = PLAYBIN.query_position::<ClockTime>().unwrap_or_default();
+
+            let client = get_client().await;
+            if let Some(track_id) = self.tracklist.currently_playing() {
+                ready().await?;
+                let track_url = track_url(client, track_id).await?;
+                query_track_url(&track_url).await?;
+
+                seek(current_position, None).await?;
+            }
+        }
+
+        set_target_state(tracklist::Status::Playing).await;
+        set_player_state(gstreamer::State::Playing).await?;
+        Ok(())
+    }
+
+    #[instrument]
+    /// Pause the player.
+    pub async fn pause(&self) -> Result<()> {
+        set_target_state(tracklist::Status::Paused).await;
+        set_player_state(gstreamer::State::Paused).await?;
+        Ok(())
+    }
+
+    async fn handle_message(&mut self, msg: &Message) -> Result<()> {
+        match msg.view() {
+            MessageView::Eos(_) => {
+                tracing::debug!("END OF STREAM");
+
+                if let Some(last_track) = self.tracklist.queue.last_mut() {
+                    last_track.status = TrackStatus::Played;
+                }
+
+                if let Some(first_track) = self.tracklist.queue.first_mut() {
+                    first_track.status = TrackStatus::Playing;
+                    let client = get_client().await;
+                    let track_url = client.track_url(first_track.id).await?;
+                    PLAYBIN.set_property("uri", track_url);
+                }
+
+                ready().await?;
+                set_target_state(tracklist::Status::Paused).await;
+                self.broadcast_track_list().await?;
+            }
+            MessageView::StreamStart(_) => {
+                tracing::debug!("STREAM START");
+                if is_player_playing().await {
+                    tracing::debug!("Starting next song");
+
+                    self.skip_to_next_track();
+                    self.broadcast_track_list().await?;
+                }
+            }
+            MessageView::AsyncDone(msg) => {
+                tracing::debug!("ASYNC DONE");
+
+                let position = if let Some(p) = msg.running_time() {
+                    p
+                } else {
+                    position().unwrap_or_default()
+                };
+
+                BROADCAST_CHANNELS
+                    .tx
+                    .send(Notification::Position { clock: position })?;
+            }
+            MessageView::Buffering(buffering) => {
+                if is_playing().await {
+                    tracing::debug!("Playing, ignore buffering");
+                    return Ok(());
+                }
+
+                tracing::debug!("Buffering");
+
+                if buffering.percent() >= 100 {
+                    tracing::info!("Done buffering");
+                    self.play().await?;
+                }
+            }
+            MessageView::StateChanged(_) => {}
+            MessageView::ClockLost(_) => {
+                tracing::warn!("clock lost, restarting playback");
+                self.pause().await?;
+                self.play().await?;
+            }
+            MessageView::Error(err) => {
+                BROADCAST_CHANNELS.tx.send(Notification::Message {
+                    message: notification::Message::Error(err.to_string()),
+                })?;
+
+                ready().await?;
+                self.pause().await?;
+                self.play().await?;
+
+                tracing::error!(
+                    "Error from {:?}: {} ({:?})",
+                    err.src().map(|s| s.path_string()),
+                    err.error(),
+                    err.debug()
+                );
+            }
+            _ => (),
+        }
+
+        Ok(())
+    }
+
+    async fn broadcast_track_list(&self) -> Result<()> {
+        BROADCAST_CHANNELS.tx.send(Notification::CurrentTrackList {
+            list: self.tracklist.clone(),
+        })?;
+
+        Ok(())
+    }
+
+    fn skip_to_next_track(&mut self) {
+        let current_position = self.tracklist.current_position();
+        let new_position = current_position + 1;
+
+        for queue_item in self.tracklist.queue.iter_mut().enumerate() {
+            let queue_item_position = queue_item.0 as u32;
+            match queue_item_position.cmp(&new_position) {
+                std::cmp::Ordering::Less => {
+                    queue_item.1.status = TrackStatus::Played;
+                }
+                std::cmp::Ordering::Equal => {
+                    queue_item.1.status = TrackStatus::Playing;
+                }
+                std::cmp::Ordering::Greater => {
+                    queue_item.1.status = TrackStatus::Unplayed;
+                }
+            }
+        }
+    }
+
+    #[instrument]
+    /// Skip to a specific track in the tracklist.
+    pub async fn skip_to_position(&mut self, new_position: u32, force: bool) -> Result<()> {
+        let current_position = self.tracklist.current_position();
+
+        if !force && new_position < current_position && current_position == 1 {
+            seek(ClockTime::default(), None).await?;
+            return Ok(());
+        }
+
+        let total_tracks = self.tracklist.total();
+
+        // Typical previous skip functionality where if,
+        // the track is greater than 1 second into playing,
+        // then it goes to the beginning. If triggered again
+        // within a second after playing, it will skip to the previous track.
+        // Ignore if going from the last track to the first (EOS).
+        if !force
+            && new_position < current_position
+            && total_tracks != current_position
+            && new_position != 0
+        {
+            if let Some(current_player_position) = position() {
+                if current_player_position.seconds() > 1 {
+                    seek(ClockTime::default(), None).await?;
+                    return Ok(());
+                }
+            }
+        }
+
+        ready().await?;
+
+        let client = get_client().await;
+
+        if let Some(next_track) = self.skip_to_track(new_position) {
+            let next_track_url = track_url(client, next_track.id).await?;
+            query_track_url(&next_track_url).await?;
+        } else if let Some(first_track) = self.tracklist.queue.first_mut() {
+            first_track.status = TrackStatus::Playing;
+            let first_track_url = track_url(client, first_track.id).await?;
+
+            PLAYBIN.set_property("uri", first_track_url);
+        }
+
+        self.broadcast_track_list().await?;
+
+        Ok(())
+    }
+
+    fn skip_to_track(&mut self, new_position: u32) -> Option<&Track> {
+        let mut new_track: Option<&Track> = None;
+        for queue_item in self.tracklist.queue.iter_mut().enumerate() {
+            let queue_item_position = queue_item.0 as u32;
+            match queue_item_position.cmp(&new_position) {
+                std::cmp::Ordering::Less => {
+                    queue_item.1.status = TrackStatus::Played;
+                }
+                std::cmp::Ordering::Equal => {
+                    queue_item.1.status = TrackStatus::Playing;
+                    new_track = Some(queue_item.1)
+                }
+                std::cmp::Ordering::Greater => {
+                    queue_item.1.status = TrackStatus::Unplayed;
+                }
+            }
+        }
+
+        new_track
+    }
+
+    #[instrument]
+    pub async fn next(&mut self) -> Result<()> {
+        let current_position = self.tracklist.current_position();
+        self.skip_to_position(current_position + 1, true).await
+    }
+
+    #[instrument]
+    pub async fn previous(&mut self) -> Result<()> {
+        let current_position = self.tracklist.current_position();
+
+        let next = if current_position == 0 {
+            0
+        } else {
+            current_position - 1
+        };
+
+        self.skip_to_position(next, false).await
+    }
+
+    #[instrument]
+    /// Plays a single track.
+    pub async fn play_track(&mut self, track_id: u32) -> Result<()> {
+        ready().await?;
+
+        let client = get_client().await;
+        let track_url = track_url(client, track_id).await?;
+        query_track_url(&track_url).await?;
+
+        let mut track: Track = client.track(track_id).await?.into();
+
+        self.tracklist.list_type = TracklistType::Track(SingleTracklist {
+            track_title: track.title.clone(),
+            album_id: track.album_id.clone(),
+            image: track.image.clone(),
+        });
+
+        track.status = TrackStatus::Playing;
+
+        self.tracklist.queue = vec![track];
+
+        self.broadcast_track_list().await?;
+
+        Ok(())
+    }
+
+    #[instrument]
+    /// Plays a full album.
+    pub async fn play_album(&mut self, album_id: &str, index: u32) -> Result<()> {
+        ready().await?;
+
+        let client = get_client().await;
+
+        let album: Album = client.album(album_id).await?.into();
+
+        let unstreambale_tracks_to_index = album
+            .tracks
+            .iter()
+            .take(index as usize)
+            .filter(|t| !t.available)
+            .count() as u32;
+
+        self.tracklist.queue = album.tracks.into_iter().filter(|t| t.available).collect();
+
+        if let Some(track) = self.skip_to_track(index - unstreambale_tracks_to_index) {
+            let track_url = track_url(client, track.id).await?;
+            query_track_url(&track_url).await?;
+
+            self.tracklist.list_type = TracklistType::Album(tracklist::AlbumTracklist {
+                title: album.title,
+                id: album.id,
+                image: Some(album.image),
+            });
+
+            self.broadcast_track_list().await?;
+        }
+
+        Ok(())
+    }
+
+    #[instrument]
+    /// Plays top tracks from artist starting from index.
+    pub async fn play_top_tracks(&mut self, artist_id: u32, index: u32) -> Result<()> {
+        ready().await?;
+
+        let client = get_client().await;
+
+        let artist = client.artist(artist_id).await?;
+        let tracks: Vec<_> = artist
+            .top_tracks
+            .iter()
+            .map(|track| Track {
+                id: track.id,
+                title: track.title.clone(),
+                number: track.physical_support.track_number,
+                explicit: track.parental_warning,
+                hires_available: track.rights.hires_streamable,
+                available: track.rights.streamable,
+                status: Default::default(),
+                image: Some(track.album.image.large.clone()),
+                image_thumbnail: Some(track.album.image.small.clone()),
+                duration_seconds: track.duration,
+                artist_name: Some(artist.name.display.clone()),
+                artist_id: Some(artist.id),
+                album_title: Some(track.album.title.clone()),
+                album_id: Some(track.album.id.clone()),
+            })
+            .collect();
+
+        let unstreambale_tracks_to_index = tracks
+            .iter()
+            .take(index as usize)
+            .filter(|t| !t.available)
+            .count() as u32;
+
+        self.tracklist.queue = tracks.into_iter().filter(|t| t.available).collect();
+
+        if let Some(track) = self.skip_to_track(index - unstreambale_tracks_to_index) {
+            let track_url = track_url(client, track.id).await?;
+            query_track_url(&track_url).await?;
+
+            self.tracklist.list_type = TracklistType::TopTracks(tracklist::TopTracklist {
+                artist_name: artist.name.display,
+                id: artist_id,
+                image: artist.images.portrait.map(image_to_string),
+            });
+
+            self.broadcast_track_list().await?;
+        }
+
+        Ok(())
+    }
+
+    #[instrument]
+    /// Plays all tracks in a playlist.
+    pub async fn play_playlist(
+        &mut self,
+        playlist_id: u32,
+        index: u32,
+        shuffle: bool,
+    ) -> Result<()> {
+        ready().await?;
+
+        let client = get_client().await;
+
+        let playlist = client.playlist(playlist_id).await?;
+        let playlist = parse_playlist(playlist, client.get_user_id());
+
+        let unstreambale_tracks_to_index = playlist
+            .tracks
+            .iter()
+            .take(index as usize)
+            .filter(|t| !t.available)
+            .count() as u32;
+
+        let mut tracks: Vec<Track> = playlist
+            .tracks
+            .into_iter()
+            .filter(|t| t.available)
+            .collect();
+
+        if shuffle {
+            let mut rng = rand::rng();
+            tracks.shuffle(&mut rng);
+        }
+
+        self.tracklist.queue = tracks;
+
+        if let Some(track) = self.skip_to_track(index - unstreambale_tracks_to_index) {
+            let track_url = track_url(client, track.id).await?;
+            query_track_url(&track_url).await?;
+
+            self.tracklist.list_type = TracklistType::Playlist(tracklist::PlaylistTracklist {
+                title: playlist.title,
+                id: playlist.id,
+                image: playlist.image,
+            });
+
+            self.broadcast_track_list().await?;
+        }
+
+        Ok(())
+    }
+
+    #[instrument]
+    /// In response to the about-to-finish signal,
+    /// prepare the next track by downloading the stream url.
+    async fn prep_next_track(&self) {
+        tracing::info!("Prepping for next track");
+
+        let client = get_client().await;
+
+        let total_tracks = self.tracklist.total();
+        let current_position = self.tracklist.current_position();
+
+        tracing::info!(
+            "Total tracks: {}, current position: {}",
+            total_tracks,
+            current_position
+        );
+
+        if total_tracks == current_position {
+            tracing::info!("No more tracks left");
+        }
+
+        let next_track = self
+            .tracklist
+            .queue
+            .iter()
+            .enumerate()
+            .find(|t| t.0 as u32 == current_position + 1)
+            .map(|t| t.1);
+
+        if let Some(next_track) = next_track {
+            if let Ok(url) = track_url(client, next_track.id).await {
+                PLAYBIN.set_property("uri", url);
+            }
+        }
+    }
+
+    /// Handles messages from GStreamer, receives player actions from external controls
+    /// receives the about-to-finish event and takes necessary action.
+    pub async fn player_loop(
+        &mut self,
+        credentials: Credentials,
+        configuration: Configuration,
+    ) -> Result<()> {
+        CREDENTIALS.set(credentials).unwrap();
+        CONFIGURATION.set(configuration).unwrap();
+
+        let mut messages = PLAYBIN.bus().unwrap().stream();
+        let mut about_to_finish = TRACK_ABOUT_TO_FINISH.rx.resubscribe();
+
+        let clock_loop = tokio::spawn(async { clock_loop().await });
+
+        let mut receiver = notify_receiver();
+
+        loop {
+            select! {
+                 Ok(almost_done) = about_to_finish.recv() => {
+                    if almost_done {
+                         self.prep_next_track().await;
+                    }
+                }
+                Some(msg) = messages.next() => {
+                        match self.handle_message(&msg).await {
+                            Ok(_) => {},
+                            Err(error) => tracing:: debug!(?error),
+                        }
+                }
+                Ok(notification) = receiver.recv() => {
+                    match notification {
+                        Notification::Play(play) => {
+                            match play {
+                                PlayNotification::Album { id, index } => {
+                                    self.play_album(&id, index).await.unwrap();
+                                },
+                                PlayNotification::Playlist { id, index, shuffle } => {
+                                    self.play_playlist(id, index, shuffle).await.unwrap();
+                                },
+                                PlayNotification::ArtistTopTracks { artist_id, index } => {
+                                    self.play_top_tracks(artist_id, index).await.unwrap();
+                                },
+                                PlayNotification::Track { id } => {
+                                    self.play_track(id).await.unwrap();
+                                },
+                                PlayNotification::Next => {
+                                    self.next().await.unwrap();
+                                },
+                                PlayNotification::Previous => {
+                                    self.previous().await.unwrap();
+                                },
+                                PlayNotification::PlayPause => {
+                                    self.play_pause().await.unwrap();
+                                },
+                                PlayNotification::Play => {
+                                    self.play().await.unwrap();
+                                },
+                                PlayNotification::Pause => {
+                                    self.pause().await.unwrap();
+                                },
+                                PlayNotification::SkipToPosition {new_position, force} => {
+                                    self.skip_to_position(new_position, force).await.unwrap();
+                                }
+                            }
+                        },
+                        Notification::Quit => {
+                            clock_loop.abort();
+                            break;
+                        },
+                        Notification::Status { status: _ } => (),
+                        Notification::Position { clock: _ } => (),
+                        Notification::CurrentTrackList{ list: _ } => (),
+                        Notification::Message { message: _ } => (),
+                        Notification::Volume { volume: _ } => (),
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+pub async fn quit() -> Result<()> {
+    BROADCAST_CHANNELS.tx.send(Notification::Quit)?;
+    Ok(())
+}
+
+pub async fn next() -> Result<()> {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::Next))?;
+    Ok(())
+}
+
+pub async fn previous() -> Result<()> {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::Previous))?;
+    Ok(())
+}
+
+pub async fn play_pause() -> Result<()> {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::PlayPause))?;
+    Ok(())
+}
+
+pub async fn play() -> Result<()> {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::Play))?;
+    Ok(())
+}
+
+pub async fn pause() -> Result<()> {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::Pause))?;
+    Ok(())
+}
+
+pub async fn play_album(id: &str, index: u32) -> Result<()> {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::Album {
+            id: id.to_string(),
+            index,
+        }))?;
+    Ok(())
+}
+
+pub async fn play_playlist(id: u32, index: u32, shuffle: bool) -> Result<()> {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::Playlist {
+            id,
+            index,
+            shuffle,
+        }))?;
+    Ok(())
+}
+
+pub async fn play_track(id: u32) -> Result<()> {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::Track { id }))?;
+    Ok(())
+}
+
+pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::ArtistTopTracks {
+            artist_id,
+            index,
+        }))?;
+    Ok(())
+}
+
+pub async fn skip_to_position(index: u32, force: bool) -> Result<()> {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::SkipToPosition {
+            new_position: index,
+            force,
+        }))?;
+    Ok(())
+}
+
 #[instrument]
 /// Ready the player.
 async fn ready() -> Result<()> {
@@ -212,50 +860,6 @@ async fn set_player_state(state: gstreamer::State) -> Result<()> {
     Ok(())
 }
 
-async fn broadcast_track_list(list: &Tracklist) -> Result<()> {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::CurrentTrackList { list: list.clone() })?;
-
-    Ok(())
-}
-
-#[instrument]
-/// Toggle play and pause.
-pub async fn play_pause() -> Result<()> {
-    match current_state().await {
-        tracklist::Status::Playing => pause().await,
-        tracklist::Status::Paused | tracklist::Status::Stopped => play().await,
-    }
-}
-
-#[instrument]
-/// Play the player.
-pub async fn play() -> Result<()> {
-    if let Some(current_track_id) = current_tracklist().await.currently_playing() {
-        let client = get_client().await;
-        let track_url = track_url(client, current_track_id).await?;
-        query_track_url(&track_url).await?;
-    }
-
-    if chrono::Utc::now() - *CURRENT_TRACK_URL_TIME.read().await > TRACK_URL_LIFE_SPAN {
-        let current_position = PLAYBIN.query_position::<ClockTime>().unwrap_or_default();
-
-        let client = get_client().await;
-        if let Some(track_id) = current_tracklist().await.currently_playing() {
-            ready().await?;
-            let track_url = track_url(client, track_id).await?;
-            query_track_url(&track_url).await?;
-
-            seek(current_position, None).await?;
-        }
-    }
-
-    set_target_state(tracklist::Status::Playing).await;
-    set_player_state(gstreamer::State::Playing).await?;
-    Ok(())
-}
-
 #[instrument]
 async fn track_url(client: &Client, track_id: u32) -> Result<String, qobuz_player_client::Error> {
     let mut time = CURRENT_TRACK_URL_TIME.write().await;
@@ -267,14 +871,6 @@ async fn track_url(client: &Client, track_id: u32) -> Result<String, qobuz_playe
 async fn query_track_url(track_url: &str) -> Result<()> {
     PLAYBIN.set_property("uri", track_url);
     set_player_state(gstreamer::State::Playing).await?;
-    Ok(())
-}
-
-#[instrument]
-/// Pause the player.
-pub async fn pause() -> Result<()> {
-    set_target_state(tracklist::Status::Paused).await;
-    set_player_state(gstreamer::State::Paused).await?;
     Ok(())
 }
 
@@ -379,332 +975,9 @@ pub async fn jump_backward() -> Result<()> {
 }
 
 #[instrument]
-/// Skip to a specific track in the tracklist.
-pub async fn skip_to_position(new_position: u32, force: bool) -> Result<()> {
-    let mut tracklist = TRACKLIST.write().await;
-    let current_position = tracklist.current_position();
-
-    if !force && new_position < current_position && current_position == 1 {
-        seek(ClockTime::default(), None).await?;
-        return Ok(());
-    }
-
-    let total_tracks = tracklist.total();
-
-    // Typical previous skip functionality where if,
-    // the track is greater than 1 second into playing,
-    // then it goes to the beginning. If triggered again
-    // within a second after playing, it will skip to the previous track.
-    // Ignore if going from the last track to the first (EOS).
-    if !force
-        && new_position < current_position
-        && total_tracks != current_position
-        && new_position != 0
-    {
-        if let Some(current_player_position) = position() {
-            if current_player_position.seconds() > 1 {
-                seek(ClockTime::default(), None).await?;
-                return Ok(());
-            }
-        }
-    }
-
-    ready().await?;
-
-    let client = get_client().await;
-
-    if let Some(next_track) = skip_to_track(&mut tracklist, new_position) {
-        let next_track_url = track_url(client, next_track.id).await?;
-        query_track_url(&next_track_url).await?;
-    } else if let Some(first_track) = tracklist.queue.first_mut() {
-        first_track.status = TrackStatus::Playing;
-        let first_track_url = track_url(client, first_track.id).await?;
-
-        PLAYBIN.set_property("uri", first_track_url);
-    }
-
-    broadcast_track_list(&tracklist).await?;
-
-    Ok(())
-}
-
-#[instrument]
-pub async fn next() -> Result<()> {
-    let current_position = {
-        let lock = TRACKLIST.read().await;
-        lock.current_position()
-    };
-
-    skip_to_position(current_position + 1, true).await
-}
-
-#[instrument]
-pub async fn previous() -> Result<()> {
-    let current_position = {
-        let lock = TRACKLIST.read().await;
-        lock.current_position()
-    };
-
-    let next = if current_position == 0 {
-        0
-    } else {
-        current_position - 1
-    };
-
-    skip_to_position(next, false).await
-}
-
-fn skip_to_track(tracklist: &mut Tracklist, new_position: u32) -> Option<&Track> {
-    let mut new_track: Option<&Track> = None;
-    for queue_item in tracklist.queue.iter_mut().enumerate() {
-        let queue_item_position = queue_item.0 as u32;
-        match queue_item_position.cmp(&new_position) {
-            std::cmp::Ordering::Less => {
-                queue_item.1.status = TrackStatus::Played;
-            }
-            std::cmp::Ordering::Equal => {
-                queue_item.1.status = TrackStatus::Playing;
-                new_track = Some(queue_item.1)
-            }
-            std::cmp::Ordering::Greater => {
-                queue_item.1.status = TrackStatus::Unplayed;
-            }
-        }
-    }
-
-    new_track
-}
-
-fn skip_to_next_track(tracklist: &mut Tracklist) {
-    let current_position = tracklist.current_position();
-    let new_position = current_position + 1;
-
-    for queue_item in tracklist.queue.iter_mut().enumerate() {
-        let queue_item_position = queue_item.0 as u32;
-        match queue_item_position.cmp(&new_position) {
-            std::cmp::Ordering::Less => {
-                queue_item.1.status = TrackStatus::Played;
-            }
-            std::cmp::Ordering::Equal => {
-                queue_item.1.status = TrackStatus::Playing;
-            }
-            std::cmp::Ordering::Greater => {
-                queue_item.1.status = TrackStatus::Unplayed;
-            }
-        }
-    }
-}
-
-#[instrument]
-/// Plays a single track.
-pub async fn play_track(track_id: u32) -> Result<()> {
-    ready().await?;
-
-    let client = get_client().await;
-    let track_url = track_url(client, track_id).await?;
-    query_track_url(&track_url).await?;
-
-    let mut tracklist = TRACKLIST.write().await;
-
-    let mut track: Track = client.track(track_id).await?.into();
-
-    tracklist.list_type = TracklistType::Track(SingleTracklist {
-        track_title: track.title.clone(),
-        album_id: track.album_id.clone(),
-        image: track.image.clone(),
-    });
-
-    track.status = TrackStatus::Playing;
-
-    tracklist.queue = vec![track];
-
-    broadcast_track_list(&tracklist).await?;
-
-    Ok(())
-}
-
-#[instrument]
-/// Plays a full album.
-pub async fn play_album(album_id: &str, index: u32) -> Result<()> {
-    ready().await?;
-
-    let client = get_client().await;
-    let mut tracklist = TRACKLIST.write().await;
-
-    let album: Album = client.album(album_id).await?.into();
-
-    let unstreambale_tracks_to_index = album
-        .tracks
-        .iter()
-        .take(index as usize)
-        .filter(|t| !t.available)
-        .count() as u32;
-
-    tracklist.queue = album.tracks.into_iter().filter(|t| t.available).collect();
-
-    if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
-        let track_url = track_url(client, track.id).await?;
-        query_track_url(&track_url).await?;
-
-        tracklist.list_type = TracklistType::Album(tracklist::AlbumTracklist {
-            title: album.title,
-            id: album.id,
-            image: Some(album.image),
-        });
-
-        broadcast_track_list(&tracklist).await?;
-    }
-
-    Ok(())
-}
-
-#[instrument]
-/// Plays top tracks from artist starting from index.
-pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
-    ready().await?;
-
-    let client = get_client().await;
-    let mut tracklist = TRACKLIST.write().await;
-
-    let artist = client.artist(artist_id).await?;
-    let tracks: Vec<_> = artist
-        .top_tracks
-        .iter()
-        .map(|track| Track {
-            id: track.id,
-            title: track.title.clone(),
-            number: track.physical_support.track_number,
-            explicit: track.parental_warning,
-            hires_available: track.rights.hires_streamable,
-            available: track.rights.streamable,
-            status: Default::default(),
-            image: Some(track.album.image.large.clone()),
-            image_thumbnail: Some(track.album.image.small.clone()),
-            duration_seconds: track.duration,
-            artist_name: Some(artist.name.display.clone()),
-            artist_id: Some(artist.id),
-            album_title: Some(track.album.title.clone()),
-            album_id: Some(track.album.id.clone()),
-        })
-        .collect();
-
-    let unstreambale_tracks_to_index = tracks
-        .iter()
-        .take(index as usize)
-        .filter(|t| !t.available)
-        .count() as u32;
-
-    tracklist.queue = tracks.into_iter().filter(|t| t.available).collect();
-
-    if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
-        let track_url = track_url(client, track.id).await?;
-        query_track_url(&track_url).await?;
-
-        tracklist.list_type = TracklistType::TopTracks(tracklist::TopTracklist {
-            artist_name: artist.name.display,
-            id: artist_id,
-            image: artist.images.portrait.map(image_to_string),
-        });
-
-        broadcast_track_list(&tracklist).await?;
-    }
-
-    Ok(())
-}
-
-#[instrument]
-/// Plays all tracks in a playlist.
-pub async fn play_playlist(playlist_id: u32, index: u32, shuffle: bool) -> Result<()> {
-    ready().await?;
-
-    let client = get_client().await;
-    let mut tracklist = TRACKLIST.write().await;
-
-    let playlist = client.playlist(playlist_id).await?;
-    let playlist = parse_playlist(playlist, client.get_user_id());
-
-    let unstreambale_tracks_to_index = playlist
-        .tracks
-        .iter()
-        .take(index as usize)
-        .filter(|t| !t.available)
-        .count() as u32;
-
-    let mut tracks: Vec<Track> = playlist
-        .tracks
-        .into_iter()
-        .filter(|t| t.available)
-        .collect();
-
-    if shuffle {
-        let mut rng = rand::rng();
-        tracks.shuffle(&mut rng);
-    }
-
-    tracklist.queue = tracks;
-
-    if let Some(track) = skip_to_track(&mut tracklist, index - unstreambale_tracks_to_index) {
-        let track_url = track_url(client, track.id).await?;
-        query_track_url(&track_url).await?;
-
-        tracklist.list_type = TracklistType::Playlist(tracklist::PlaylistTracklist {
-            title: playlist.title,
-            id: playlist.id,
-            image: playlist.image,
-        });
-
-        broadcast_track_list(&tracklist).await?;
-    }
-
-    Ok(())
-}
-
-#[instrument]
-/// In response to the about-to-finish signal,
-/// prepare the next track by downloading the stream url.
-async fn prep_next_track() {
-    tracing::info!("Prepping for next track");
-
-    let client = get_client().await;
-    let tracklist = TRACKLIST.read().await;
-
-    let total_tracks = tracklist.total();
-    let current_position = tracklist.current_position();
-
-    tracing::info!(
-        "Total tracks: {}, current position: {}",
-        total_tracks,
-        current_position
-    );
-
-    if total_tracks == current_position {
-        tracing::info!("No more tracks left");
-    }
-
-    let next_track = tracklist
-        .queue
-        .iter()
-        .enumerate()
-        .find(|t| t.0 as u32 == current_position + 1)
-        .map(|t| t.1);
-
-    if let Some(next_track) = next_track {
-        if let Ok(url) = track_url(client, next_track.id).await {
-            PLAYBIN.set_property("uri", url);
-        }
-    }
-}
-
-#[instrument]
 /// Get a notification channel receiver
 pub fn notify_receiver() -> Receiver<Notification> {
     BROADCAST_CHANNELS.rx.resubscribe()
-}
-
-#[instrument]
-/// Returns the current track list loaded in the player.
-pub async fn current_tracklist() -> Tracklist {
-    TRACKLIST.read().await.clone()
 }
 
 #[instrument]
@@ -964,165 +1237,9 @@ async fn clock_loop() {
     }
 }
 
-pub async fn quit() -> Result<()> {
-    tracing::debug!("stopping player");
-
-    SHOULD_QUIT.store(true, Ordering::Relaxed);
-
-    if is_player_playing().await {
-        tracing::debug!("pausing player");
-        pause().await?;
-    }
-
-    if is_paused().await {
-        tracing::debug!("readying player");
-        ready().await?;
-    }
-
-    if is_player_ready() {
-        tracing::debug!("stopping player");
-        stop().await?;
-    }
-
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Quit)
-        .expect("error sending broadcast");
-
-    Ok(())
-}
-
-/// Handles messages from GStreamer, receives player actions from external controls
-/// receives the about-to-finish event and takes necessary action.
-pub async fn player_loop(
-    credentials: Credentials,
-    configuration: Configuration,
-    load_tracklist: Option<Tracklist>,
-) -> Result<()> {
-    CREDENTIALS.set(credentials).unwrap();
-    CONFIGURATION.set(configuration).unwrap();
-
-    let mut messages = PLAYBIN.bus().unwrap().stream();
-    let mut about_to_finish = TRACK_ABOUT_TO_FINISH.rx.resubscribe();
-
-    let clock_loop = tokio::spawn(async { clock_loop().await });
-
-    if let Some(load_tracklist) = load_tracklist {
-        let mut tracklist = TRACKLIST.write().await;
-        *tracklist = load_tracklist;
-    }
-
-    loop {
-        if SHOULD_QUIT.load(Ordering::Relaxed) {
-            clock_loop.abort();
-            break;
-        }
-
-        select! {
-             Ok(almost_done) = about_to_finish.recv()=> {
-                if almost_done {
-                     prep_next_track().await;
-                }
-            }
-            Some(msg) = messages.next() => {
-                    match handle_message(&msg).await {
-                        Ok(_) => {},
-                        Err(error) => tracing:: debug!(?error),
-                    }
-            }
-        }
-    }
-    Ok(())
-}
-
 pub fn send_message(message: notification::Message) {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Message { message })
         .unwrap();
-}
-
-async fn handle_message(msg: &Message) -> Result<()> {
-    match msg.view() {
-        MessageView::Eos(_) => {
-            tracing::debug!("END OF STREAM");
-            let mut tracklist = TRACKLIST.write().await;
-
-            if let Some(last_track) = tracklist.queue.last_mut() {
-                last_track.status = TrackStatus::Played;
-            }
-
-            if let Some(first_track) = tracklist.queue.first_mut() {
-                first_track.status = TrackStatus::Playing;
-                let client = get_client().await;
-                let track_url = client.track_url(first_track.id).await?;
-                PLAYBIN.set_property("uri", track_url);
-            }
-
-            ready().await?;
-            set_target_state(tracklist::Status::Paused).await;
-            broadcast_track_list(&tracklist).await?;
-        }
-        MessageView::StreamStart(_) => {
-            tracing::debug!("STREAM START");
-            if is_player_playing().await {
-                tracing::debug!("Starting next song");
-
-                let mut tracklist = TRACKLIST.write().await;
-                skip_to_next_track(&mut tracklist);
-                broadcast_track_list(&tracklist).await?;
-            }
-        }
-        MessageView::AsyncDone(msg) => {
-            tracing::debug!("ASYNC DONE");
-
-            let position = if let Some(p) = msg.running_time() {
-                p
-            } else {
-                position().unwrap_or_default()
-            };
-
-            BROADCAST_CHANNELS
-                .tx
-                .send(Notification::Position { clock: position })?;
-        }
-        MessageView::Buffering(buffering) => {
-            if is_playing().await {
-                tracing::debug!("Playing, ignore buffering");
-                return Ok(());
-            }
-
-            tracing::debug!("Buffering");
-
-            if buffering.percent() >= 100 {
-                tracing::info!("Done buffering");
-                play().await?;
-            }
-        }
-        MessageView::StateChanged(_) => {}
-        MessageView::ClockLost(_) => {
-            tracing::warn!("clock lost, restarting playback");
-            pause().await?;
-            play().await?;
-        }
-        MessageView::Error(err) => {
-            BROADCAST_CHANNELS.tx.send(Notification::Message {
-                message: notification::Message::Error(err.to_string()),
-            })?;
-
-            ready().await?;
-            pause().await?;
-            play().await?;
-
-            tracing::error!(
-                "Error from {:?}: {} ({:?})",
-                err.src().map(|s| s.path_string()),
-                err.error(),
-                err.debug()
-            );
-        }
-        _ => (),
-    }
-
-    Ok(())
 }

@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
+    extract::State,
     response::IntoResponse,
     routing::{get, post, put},
 };
@@ -10,6 +13,7 @@ use qobuz_player_controls::{
 };
 
 use crate::{
+    AppState,
     components::Info,
     html,
     icons::{Backward, Forward, Pause, Play},
@@ -141,9 +145,10 @@ async fn next() -> impl IntoResponse {
     qobuz_player_controls::next().await.unwrap();
 }
 
-async fn index() -> impl IntoResponse {
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-    let current_track = current_tracklist.current_track().cloned();
+async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist_clone = tracklist.clone();
+    let current_track = tracklist.current_track().cloned();
 
     let position_seconds = qobuz_player_controls::position().map(|position| position.seconds());
     let current_status = qobuz_player_controls::current_state().await;
@@ -153,10 +158,10 @@ async fn index() -> impl IntoResponse {
         <Page
             active_page=Page::NowPlaying
             current_status=current_status
-            current_tracklist=current_tracklist.clone()
+            current_tracklist=&tracklist
         >
             <NowPlaying
-                current_tracklist=current_tracklist
+                current_tracklist=tracklist_clone
                 current_track=current_track
                 position_seconds=position_seconds
                 current_status=current_status
@@ -167,15 +172,15 @@ async fn index() -> impl IntoResponse {
 }
 
 async fn now_playing_partial() -> impl IntoResponse {
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-    let current_track = current_tracklist.current_track().cloned();
+    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
+    let current_track = tracklist.current_track().cloned();
     let position_seconds = qobuz_player_controls::position().map(|position| position.seconds());
     let current_status = qobuz_player_controls::current_state().await;
     let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
 
     render(html! {
         <NowPlaying
-            current_tracklist=current_tracklist
+            current_tracklist=tracklist
             current_track=current_track
             position_seconds=position_seconds
             current_status=current_status
@@ -213,7 +218,7 @@ fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> imp
 }
 
 #[component]
-pub(crate) fn state(playing: bool) -> impl IntoView {
+pub(crate) fn player_state(playing: bool) -> impl IntoView {
     html! {
         <div
             hx-trigger="status"
@@ -332,7 +337,7 @@ fn now_playing(
                 <div class="flex flex-col gap-4">
                     <div class="flex flex-row gap-2 justify-center h-10">
                         <Previous />
-                        <State playing=playing />
+                        <PlayerState playing=playing />
                         <Next />
                     </div>
                     <VolumeSlider current_volume=current_volume />

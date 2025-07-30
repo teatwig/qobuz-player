@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use app::{App, FilteredListState, UnfilteredListState, get_current_state};
 use favorites::FavoritesState;
 use queue::QueueState;
@@ -15,7 +17,7 @@ mod queue;
 mod search;
 mod ui;
 
-pub async fn init() {
+pub async fn init(state: Arc<qobuz_player_state::State>) {
     let mut terminal = ratatui::init();
 
     draw_loading_screen(&mut terminal);
@@ -41,7 +43,7 @@ pub async fn init() {
         )
         .unwrap();
 
-    let tracklist = qobuz_player_controls::current_tracklist().await;
+    let tracklist = state.tracklist.read().await;
     let now_playing = get_current_state(&tracklist).await;
 
     let mut app = App {

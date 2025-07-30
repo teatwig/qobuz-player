@@ -1,14 +1,16 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
-    extract::Path,
+    extract::{Path, State},
     response::IntoResponse,
     routing::{get, put},
 };
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::tracklist::{Tracklist, TracklistType};
-use tokio::join;
 
 use crate::{
+    AppState,
     components::list::{List, ListTracks, TrackNumberDisplay},
     html,
     page::Page,
@@ -28,19 +30,14 @@ async fn skip_to(Path(track_number): Path<u32>) -> impl IntoResponse {
         .unwrap();
 }
 
-async fn index() -> impl IntoResponse {
-    let (current_tracklist, current_status) = join!(
-        qobuz_player_controls::current_tracklist(),
-        qobuz_player_controls::current_state()
-    );
+async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let current_status = qobuz_player_controls::current_state().await;
+    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist_clone = tracklist.clone();
 
     render(html! {
-        <Page
-            active_page=Page::Queue
-            current_status=current_status
-            current_tracklist=current_tracklist.clone()
-        >
-            <Queue current_tracklist=current_tracklist />
+        <Page active_page=Page::Queue current_status=current_status current_tracklist=&tracklist>
+            <Queue current_tracklist=tracklist_clone />
         </Page>
     })
 }
@@ -90,15 +87,15 @@ fn queue(current_tracklist: Tracklist) -> impl IntoView {
 }
 
 async fn queue_partial() -> impl IntoResponse {
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
+    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
 
-    render(html! { <QueueList current_tracklist=current_tracklist /> })
+    render(html! { <QueueList current_tracklist=tracklist /> })
 }
 
 #[component]
 fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
     let now_playing_id = current_tracklist.currently_playing();
-    let tracks = current_tracklist.queue;
+    let tracks = current_tracklist.queue().to_vec();
 
     html! {
         <List>

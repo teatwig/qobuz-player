@@ -86,22 +86,18 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
 
     let is_favorite = favorites.playlists.iter().any(|playlist| playlist.id == id);
 
-    let (current_tracklist, current_status) = join!(
-        qobuz_player_controls::current_tracklist(),
-        qobuz_player_controls::current_state()
-    );
+    let current_status = qobuz_player_controls::current_state().await;
+    let rfid = state.player_state.rfid;
+    let tracklist = state.player_state.tracklist.read().await;
+    let currently_playing = tracklist.currently_playing();
 
     render(html! {
-        <Page
-            active_page=Page::None
-            current_status=current_status
-            current_tracklist=current_tracklist.clone()
-        >
+        <Page active_page=Page::None current_status=current_status current_tracklist=&tracklist>
             <Playlist
-                now_playing_id=current_tracklist.currently_playing()
+                now_playing_id=currently_playing
                 playlist=playlist
                 is_favorite=is_favorite
-                rfid=state.player_state.rfid
+                rfid=rfid
             />
         </Page>
     })
@@ -109,13 +105,13 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
 
 async fn tracks_partial(Path(id): Path<u32>) -> impl IntoResponse {
     let playlist = qobuz_player_controls::playlist(id).await.unwrap();
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
+    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
 
     render(html! {
         <Tracks
             tracks=playlist.tracks
             playlist_id=playlist.id
-            now_playing_id=current_tracklist.currently_playing()
+            now_playing_id=tracklist.currently_playing()
         />
     })
 }

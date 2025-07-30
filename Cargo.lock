@@ -3370,6 +3370,7 @@ dependencies = [
  "futures",
  "image",
  "qobuz-player-controls",
+ "qobuz-player-state",
  "ratatui",
  "ratatui-image",
  "reqwest",

@@ -96,7 +96,7 @@ impl App {
                             },
                             qobuz_player_controls::notification::Notification::CurrentTrackList { list } => {
                                 self.now_playing = get_current_state(&list).await;
-                                self.queue.queue.items = list.queue;
+                                self.queue.queue.items = list.queue().to_vec();
                                 self.should_draw = true;
                             }
                             qobuz_player_controls::notification::Notification::Quit => {
@@ -104,6 +104,7 @@ impl App {
                             }
                             qobuz_player_controls::notification::Notification::Message { message: _ } => (),
                             qobuz_player_controls::notification::Notification::Volume { volume: _ } => (),
+                            qobuz_player_controls::notification::Notification::Play(_play_notification) => {},
                         }
                     }
                 }
@@ -262,7 +263,7 @@ async fn fetch_image(image_url: &str) -> Option<(StatefulProtocol, f32)> {
 }
 
 pub(crate) async fn get_current_state(tracklist: &Tracklist) -> NowPlayingState {
-    let (entity, image_url, show_tracklist_position) = match &tracklist.list_type {
+    let (entity, image_url, show_tracklist_position) = match &tracklist.list_type() {
         qobuz_player_controls::tracklist::TracklistType::Album(tracklist) => (
             Some(tracklist.title.clone()),
             tracklist.image.clone(),

@@ -1,9 +1,12 @@
-use axum::{Router, response::IntoResponse, routing::get};
+use std::sync::Arc;
+
+use axum::{Router, extract::State, response::IntoResponse, routing::get};
 use leptos::prelude::*;
 use qobuz_player_controls::models::{AlbumSimple, Playlist};
-use tokio::{join, try_join};
+use tokio::try_join;
 
 use crate::{
+    AppState,
     components::list::{ListAlbumsVertical, ListPlaylistsVertical},
     html,
     page::Page,
@@ -14,7 +17,7 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new().route("/discover", get(index))
 }
 
-async fn index() -> impl IntoResponse {
+async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let (press_awards, new_releases, qobuzissims, ideal_discography, editor_picks) = try_join!(
         qobuz_player_controls::featured_albums(
             qobuz_player_controls::AlbumFeaturedType::PressAwards
@@ -34,17 +37,11 @@ async fn index() -> impl IntoResponse {
     )
     .unwrap();
 
-    let (current_tracklist, current_status) = join!(
-        qobuz_player_controls::current_tracklist(),
-        qobuz_player_controls::current_state()
-    );
+    let tracklist = state.player_state.tracklist.read().await;
+    let current_status = qobuz_player_controls::current_state().await;
 
     render(html! {
-        <Page
-            active_page=Page::Discover
-            current_status=current_status
-            current_tracklist=current_tracklist
-        >
+        <Page active_page=Page::Discover current_status=current_status current_tracklist=&tracklist>
             <div class="flex flex-col gap-8 px-4">
                 <div class="flex sticky top-0 flex-col flex-grow gap-4 pb-2 max-h-full pt-safe-or-4 bg-black/80 backdrop-blur">
                     <h1 class="text-2xl">Discover</h1>

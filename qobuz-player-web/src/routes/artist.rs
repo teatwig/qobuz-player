@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
-    extract::Path,
+    extract::{Path, State},
     response::IntoResponse,
     routing::{get, put},
 };
@@ -9,6 +11,7 @@ use qobuz_player_controls::models::{self, AlbumSimple, Artist, ArtistPage};
 use tokio::join;
 
 use crate::{
+    AppState,
     components::{
         ButtonGroup, Description, Info, ToggleFavorite, button_class,
         list::{ListAlbumsVertical, ListArtistsVertical},
@@ -32,13 +35,10 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 }
 
 async fn top_tracks_partial(Path(id): Path<u32>) -> impl IntoResponse {
-    let (artist, tracklist) = join!(
-        qobuz_player_controls::artist_page(id),
-        qobuz_player_controls::current_tracklist(),
-    );
+    let artist = qobuz_player_controls::artist_page(id).await.unwrap();
 
+    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
     let now_playing_id = tracklist.currently_playing();
-    let artist = artist.unwrap();
 
     render(
         html! { <ListTracks artist_id=artist.id tracks=artist.top_tracks now_playing_id=now_playing_id /> },
@@ -66,17 +66,17 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
 
-async fn index(Path(id): Path<u32>) -> impl IntoResponse {
-    let (artist, albums, similar_artists, favorites, current_tracklist, current_status) = join!(
+async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
+    let (artist, albums, similar_artists, favorites, current_status) = join!(
         qobuz_player_controls::artist_page(id),
         qobuz_player_controls::artist_albums(id),
         qobuz_player_controls::similar_artists(id),
         qobuz_player_controls::favorites(),
-        qobuz_player_controls::current_tracklist(),
         qobuz_player_controls::current_state()
     );
 
-    let now_playing_id = current_tracklist.currently_playing();
+    let tracklist = state.player_state.tracklist.read().await;
+    let now_playing_id = tracklist.currently_playing();
 
     let artist = artist.unwrap();
     let similar_artists = similar_artists.unwrap();
@@ -86,11 +86,7 @@ async fn index(Path(id): Path<u32>) -> impl IntoResponse {
     let is_favorite = favorites.artists.iter().any(|artist| artist.id == id);
 
     render(html! {
-        <Page
-            active_page=Page::None
-            current_status=current_status
-            current_tracklist=current_tracklist
-        >
+        <Page active_page=Page::None current_status=current_status current_tracklist=&tracklist>
             <Artist
                 artist=artist
                 albums=albums

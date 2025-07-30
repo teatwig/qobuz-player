@@ -67,11 +67,10 @@ async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> imp
 }
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
-    let (album, suggested_albums, favorites, current_tracklist, current_status) = join!(
+    let (album, suggested_albums, favorites, current_status) = join!(
         qobuz_player_controls::album(id.clone()),
         qobuz_player_controls::suggested_albums(id.clone()),
         qobuz_player_controls::favorites(),
-        qobuz_player_controls::current_tracklist(),
         qobuz_player_controls::current_state()
     );
 
@@ -79,20 +78,20 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
     let suggested_albums = suggested_albums.unwrap();
     let favorites = favorites.unwrap();
 
+    let rfid = state.player_state.rfid;
+    let tracklist = state.player_state.tracklist.read().await;
+    let currently_playing = tracklist.currently_playing();
+
     let is_favorite = favorites.albums.iter().any(|album| album.id == id);
 
     render(html! {
-        <Page
-            active_page=Page::None
-            current_status=current_status
-            current_tracklist=current_tracklist.clone()
-        >
+        <Page active_page=Page::None current_status=current_status current_tracklist=&tracklist>
             <Album
                 album=album
                 suggested_albums=suggested_albums
                 is_favorite=is_favorite
-                now_playing_id=current_tracklist.currently_playing()
-                rfid=state.player_state.rfid
+                now_playing_id=currently_playing
+                rfid=rfid
             />
         </Page>
     })
@@ -100,11 +99,11 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
 
 async fn album_tracks_partial(Path(id): Path<String>) -> impl IntoResponse {
     let album = qobuz_player_controls::album(id).await.unwrap();
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
+    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
 
     render(html! {
         <AlbumTracks
-            now_playing_id=current_tracklist.currently_playing()
+            now_playing_id=tracklist.currently_playing()
             tracks=album.tracks
             album_id=album.id
         />
