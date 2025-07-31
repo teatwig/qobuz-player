@@ -285,7 +285,7 @@ impl Player {
                 if is_player_playing().await {
                     tracing::debug!("Starting next song");
 
-                    self.skip_to_next_track();
+                    self.skip_to_next_track().await;
                     self.broadcast_track_list().await?;
                 }
             }
@@ -351,24 +351,10 @@ impl Player {
         Ok(())
     }
 
-    fn skip_to_next_track(&mut self) {
+    async fn skip_to_next_track(&mut self) {
         let current_position = self.tracklist.current_position();
         let new_position = current_position + 1;
-
-        for queue_item in self.tracklist.queue.iter_mut().enumerate() {
-            let queue_item_position = queue_item.0 as u32;
-            match queue_item_position.cmp(&new_position) {
-                std::cmp::Ordering::Less => {
-                    queue_item.1.status = TrackStatus::Played;
-                }
-                std::cmp::Ordering::Equal => {
-                    queue_item.1.status = TrackStatus::Playing;
-                }
-                std::cmp::Ordering::Greater => {
-                    queue_item.1.status = TrackStatus::Unplayed;
-                }
-            }
-        }
+        self.tracklist.skip_to_track(new_position);
     }
 
     #[instrument]
@@ -405,7 +391,7 @@ impl Player {
 
         let client = get_client().await;
 
-        if let Some(next_track) = self.skip_to_track(new_position) {
+        if let Some(next_track) = self.tracklist.skip_to_track(new_position) {
             let next_track_url = track_url(client, next_track.id).await?;
             query_track_url(&next_track_url).await?;
         } else if let Some(first_track) = self.tracklist.queue.first_mut() {
@@ -418,27 +404,6 @@ impl Player {
         self.broadcast_track_list().await?;
 
         Ok(())
-    }
-
-    fn skip_to_track(&mut self, new_position: u32) -> Option<&Track> {
-        let mut new_track: Option<&Track> = None;
-        for queue_item in self.tracklist.queue.iter_mut().enumerate() {
-            let queue_item_position = queue_item.0 as u32;
-            match queue_item_position.cmp(&new_position) {
-                std::cmp::Ordering::Less => {
-                    queue_item.1.status = TrackStatus::Played;
-                }
-                std::cmp::Ordering::Equal => {
-                    queue_item.1.status = TrackStatus::Playing;
-                    new_track = Some(queue_item.1)
-                }
-                std::cmp::Ordering::Greater => {
-                    queue_item.1.status = TrackStatus::Unplayed;
-                }
-            }
-        }
-
-        new_track
     }
 
     #[instrument]
@@ -504,7 +469,10 @@ impl Player {
 
         self.tracklist.queue = album.tracks.into_iter().filter(|t| t.available).collect();
 
-        if let Some(track) = self.skip_to_track(index - unstreambale_tracks_to_index) {
+        if let Some(track) = self
+            .tracklist
+            .skip_to_track(index - unstreambale_tracks_to_index)
+        {
             let track_url = track_url(client, track.id).await?;
             query_track_url(&track_url).await?;
 
@@ -557,7 +525,10 @@ impl Player {
 
         self.tracklist.queue = tracks.into_iter().filter(|t| t.available).collect();
 
-        if let Some(track) = self.skip_to_track(index - unstreambale_tracks_to_index) {
+        if let Some(track) = self
+            .tracklist
+            .skip_to_track(index - unstreambale_tracks_to_index)
+        {
             let track_url = track_url(client, track.id).await?;
             query_track_url(&track_url).await?;
 
@@ -608,7 +579,10 @@ impl Player {
 
         self.tracklist.queue = tracks;
 
-        if let Some(track) = self.skip_to_track(index - unstreambale_tracks_to_index) {
+        if let Some(track) = self
+            .tracklist
+            .skip_to_track(index - unstreambale_tracks_to_index)
+        {
             let track_url = track_url(client, track.id).await?;
             query_track_url(&track_url).await?;
 
