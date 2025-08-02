@@ -46,7 +46,7 @@ async fn handle_play_scan(state: &State, res: &str) {
                 }
             }
 
-            qobuz_player_controls::play_album(&id, 0).await.unwrap()
+            qobuz_player_controls::play_album(&id, 0).await
         }
         LinkRequest::Playlist(id) => {
             if let tracklist::TracklistType::Playlist(now_playing) = now_playing {

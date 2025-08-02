@@ -86,10 +86,9 @@ fn queue(tracklist: Tracklist) -> impl IntoView {
     }
 }
 
-async fn queue_partial() -> impl IntoResponse {
-    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
-
-    render(html! { <QueueList tracklist=tracklist /> })
+async fn queue_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let tracklist = state.player_state.tracklist.read().await;
+    render(html! { <QueueList tracklist=tracklist.clone() /> })
 }
 
 #[component]

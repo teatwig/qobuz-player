@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property, RootInterface,
     Server, Time, TrackId, Volume,
@@ -7,10 +9,13 @@ use qobuz_player_controls::{
     ClockTime,
     models::Track,
     notification::Notification,
-    tracklist::{self, Tracklist},
+    tracklist::{self},
 };
+use qobuz_player_state::State;
 
-struct MprisPlayer;
+struct MprisPlayer {
+    state: Arc<State>,
+}
 
 impl RootInterface for MprisPlayer {
     async fn identity(&self) -> fdo::Result<String> {
@@ -151,7 +156,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn metadata(&self) -> fdo::Result<Metadata> {
-        let tracklist = Tracklist::default();
+        let tracklist = self.state.tracklist.read().await;
         let current_track = tracklist.current_track();
 
         if let Some(current_track) = current_track {
@@ -211,8 +216,8 @@ impl PlayerInterface for MprisPlayer {
     }
 }
 
-pub async fn init() {
-    let server = Server::new("com.github.sofusa-quboz-player", MprisPlayer)
+pub async fn init(state: Arc<State>) {
+    let server = Server::new("com.github.sofusa-quboz-player", MprisPlayer { state })
         .await
         .unwrap();
 
@@ -245,15 +250,14 @@ pub async fn init() {
                         .unwrap();
                 }
                 Notification::Position { clock: _ } => {}
-                Notification::CurrentTrackList { list } => {
-                    let tracklist = Tracklist::default();
+                Notification::CurrentTrackList { tracklist } => {
                     let current_track = tracklist.current_track();
 
                     if let Some(current_track) = current_track {
                         let metadata = track_to_metadata(current_track);
 
-                        let current_position = list.current_position();
-                        let total_tracks = list.total();
+                        let current_position = tracklist.current_position();
+                        let total_tracks = tracklist.total();
 
                         let can_previous = current_position != 0;
                         let can_next = !(total_tracks != 0 && current_position == total_tracks - 1);

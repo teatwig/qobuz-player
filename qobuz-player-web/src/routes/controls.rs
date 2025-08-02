@@ -1,9 +1,11 @@
-use axum::{Router, response::IntoResponse, routing::get};
+use std::sync::Arc;
+
+use axum::{Router, extract::State, response::IntoResponse, routing::get};
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::tracklist::{self, Status, Tracklist, TracklistType};
 
 use crate::{
-    html,
+    AppState, html,
     now_playing::PlayerState,
     routes::now_playing::{Next, Previous},
     view::render,
@@ -29,9 +31,9 @@ pub(crate) fn controls<'a>(current_status: Status, tracklist: &'a Tracklist) -> 
     }
 }
 
-async fn controls() -> impl IntoResponse {
+async fn controls(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let current_status = qobuz_player_controls::current_state().await;
-    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
+    let tracklist = state.player_state.tracklist.read().await;
 
     render(html! { <ControlsPartial current_status=current_status tracklist=&tracklist /> })
 }

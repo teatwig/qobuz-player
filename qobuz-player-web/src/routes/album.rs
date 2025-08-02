@@ -35,9 +35,7 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 }
 
 async fn play_track(Path((id, track_position)): Path<(String, u32)>) -> impl IntoResponse {
-    qobuz_player_controls::play_album(&id, track_position)
-        .await
-        .unwrap();
+    qobuz_player_controls::play_album(&id, track_position).await;
 }
 
 async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
@@ -55,7 +53,7 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn play(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::play_album(&id, 0).await.unwrap();
+    qobuz_player_controls::play_album(&id, 0).await;
 }
 
 async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
@@ -97,9 +95,12 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
     })
 }
 
-async fn album_tracks_partial(Path(id): Path<String>) -> impl IntoResponse {
+async fn album_tracks_partial(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
     let album = qobuz_player_controls::album(id).await.unwrap();
-    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
+    let tracklist = state.player_state.tracklist.read().await;
 
     render(html! {
         <AlbumTracks

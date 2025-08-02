@@ -102,7 +102,7 @@ async fn background_task(tx: Sender<ServerSentEvent>) {
 
                     _ = tx.send(event);
                 }
-                Notification::CurrentTrackList { list: _ } => {
+                Notification::CurrentTrackList { tracklist: _ } => {
                     let event = ServerSentEvent {
                         event_name: "tracklist".into(),
                         event_data: Default::default(),

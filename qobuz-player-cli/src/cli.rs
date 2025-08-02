@@ -5,6 +5,7 @@ use dialoguer::{Input, Password};
 use qobuz_player_controls::{AudioQuality, Player, notification::Notification};
 use qobuz_player_state::{State, database::Database};
 use snafu::prelude::*;
+use tokio::sync::RwLock;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -126,11 +127,19 @@ pub async fn run() -> Result<(), Error> {
         Commands::Open => {
             let database_credentials = database.get_credentials().await;
             let database_configuration = database.get_configuration().await;
-            let tracklist = database.get_tracklist().await.unwrap_or_default();
-            let tracklist_player_clone = tracklist.clone();
+            let tracklist = Arc::new(RwLock::new(
+                database.get_tracklist().await.unwrap_or_default(),
+            ));
 
             let state = Arc::new(
-                State::new(cli.rfid, cli.interface, cli.web_secret, tracklist, database).await,
+                State::new(
+                    cli.rfid,
+                    cli.interface,
+                    cli.web_secret,
+                    tracklist.clone(),
+                    database,
+                )
+                .await,
             );
 
             let username = cli.username.unwrap_or_else(|| {
@@ -151,15 +160,16 @@ pub async fn run() -> Result<(), Error> {
 
             #[cfg(target_os = "linux")]
             if !cli.disable_mpris {
+                let state = state.clone();
                 tokio::spawn(async {
-                    qobuz_player_mpris::init().await;
+                    qobuz_player_mpris::init(state).await;
                 });
             }
 
             if cli.web {
-                let state_web = state.clone();
+                let state = state.clone();
                 tokio::spawn(async {
-                    qobuz_player_web::init(state_web).await;
+                    qobuz_player_web::init(state).await;
                 });
             }
 
@@ -170,10 +180,9 @@ pub async fn run() -> Result<(), Error> {
                 });
             }
 
+            let tracklist = tracklist.clone();
             tokio::spawn(async {
-                let mut player = Player {
-                    tracklist: tracklist_player_clone,
-                };
+                let mut player = Player::new(tracklist);
                 match player
                     .player_loop(
                         qobuz_player_controls::Credentials { username, password },
@@ -248,8 +257,8 @@ async fn store_state_loop(state: Arc<State>) {
     let mut broadcast_receiver = qobuz_player_controls::notify_receiver();
 
     loop {
-        if let Ok(Notification::CurrentTrackList { list }) = broadcast_receiver.recv().await {
-            state.database.set_tracklist(list).await;
+        if let Ok(Notification::CurrentTrackList { tracklist }) = broadcast_receiver.recv().await {
+            state.database.set_tracklist(&tracklist).await;
         }
     }
 }

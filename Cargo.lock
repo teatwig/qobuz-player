@@ -3335,6 +3335,7 @@ version = "0.3.2"
 dependencies = [
  "mpris-server",
  "qobuz-player-controls",
+ "qobuz-player-state",
  "tracing",
 ]
 

@@ -7,7 +7,7 @@ pub enum Notification {
     Play(PlayNotification),
     Status { status: tracklist::Status },
     Position { clock: ClockTime },
-    CurrentTrackList { list: Tracklist },
+    CurrentTrackList { tracklist: Tracklist },
     Quit,
     Message { message: Message },
     Volume { volume: f64 },

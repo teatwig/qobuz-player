@@ -103,9 +103,12 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
     })
 }
 
-async fn tracks_partial(Path(id): Path<u32>) -> impl IntoResponse {
+async fn tracks_partial(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<u32>,
+) -> impl IntoResponse {
     let playlist = qobuz_player_controls::playlist(id).await.unwrap();
-    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
+    let tracklist = state.player_state.tracklist.read().await;
 
     render(html! {
         <Tracks

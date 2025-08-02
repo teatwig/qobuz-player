@@ -77,7 +77,7 @@ impl Database {
         .expect("database failure");
     }
 
-    pub async fn set_tracklist(&self, tracklist: Tracklist) {
+    pub async fn set_tracklist(&self, tracklist: &Tracklist) {
         let serialized = to_string(&tracklist).unwrap();
 
         sqlx::query!(

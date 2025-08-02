@@ -167,8 +167,8 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     })
 }
 
-async fn now_playing_partial() -> impl IntoResponse {
-    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
+async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let tracklist = state.player_state.tracklist.read().await;
     let current_track = tracklist.current_track().cloned();
     let position_seconds = qobuz_player_controls::position().map(|position| position.seconds());
     let current_status = qobuz_player_controls::current_state().await;
@@ -176,7 +176,7 @@ async fn now_playing_partial() -> impl IntoResponse {
 
     render(html! {
         <NowPlaying
-            tracklist=tracklist
+            tracklist=tracklist.clone()
             current_track=current_track
             position_seconds=position_seconds
             current_status=current_status

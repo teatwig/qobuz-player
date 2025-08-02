@@ -39,6 +39,14 @@ pub(crate) enum Output {
     Consumed,
     NotConsumed,
     Popup(Popup),
+    PlayOutcome(PlayOutcome),
+}
+
+pub(crate) enum PlayOutcome {
+    Album(String),
+    Playlist((u32, bool)),
+    Track(u32),
+    SkipToPosition(u32),
 }
 
 #[derive(Default, PartialEq)]
@@ -94,9 +102,9 @@ impl App {
                                 self.now_playing.duration_s = clock.seconds() as u32;
                                 self.should_draw = true;
                             },
-                            qobuz_player_controls::notification::Notification::CurrentTrackList { list } => {
-                                self.now_playing = get_current_state(&list).await;
-                                self.queue.queue.items = list.queue().to_vec();
+                            qobuz_player_controls::notification::Notification::CurrentTrackList { tracklist } => {
+                                self.queue.queue.items = tracklist.queue().to_vec();
+                                self.now_playing = get_current_state(tracklist).await;
                                 self.should_draw = true;
                             }
                             qobuz_player_controls::notification::Notification::Quit => {
@@ -143,7 +151,8 @@ impl App {
                             return Ok(());
                         }
 
-                        if popup.handle_event(key_event.code).await {
+                        if let Some(outcome) = popup.handle_event(key_event.code).await {
+                            self.handle_playoutcome(outcome).await;
                             self.state = State::Normal;
                         };
 
@@ -170,6 +179,9 @@ impl App {
                         self.state = State::Popup(popup);
                         self.should_draw = true;
                         return Ok(());
+                    }
+                    Output::PlayOutcome(outcome) => {
+                        self.handle_playoutcome(outcome).await;
                     }
                 }
 
@@ -228,6 +240,30 @@ impl App {
         Ok(())
     }
 
+    async fn handle_playoutcome(&mut self, outcome: PlayOutcome) {
+        match outcome {
+            PlayOutcome::Album(id) => {
+                qobuz_player_controls::play_album(&id, 0).await;
+            }
+
+            PlayOutcome::Playlist(outcome) => {
+                qobuz_player_controls::play_playlist(outcome.0, 0, outcome.1)
+                    .await
+                    .unwrap();
+            }
+
+            PlayOutcome::Track(id) => {
+                qobuz_player_controls::play_track(id).await.unwrap();
+            }
+
+            PlayOutcome::SkipToPosition(index) => {
+                qobuz_player_controls::skip_to_position(index, true)
+                    .await
+                    .unwrap();
+            }
+        }
+    }
+
     fn navigate_to_favorites(&mut self) {
         self.current_screen = Tab::Favorites;
     }
@@ -262,7 +298,7 @@ async fn fetch_image(image_url: &str) -> Option<(StatefulProtocol, f32)> {
     Some((picker.new_resize_protocol(image), ratio))
 }
 
-pub(crate) async fn get_current_state(tracklist: &Tracklist) -> NowPlayingState {
+pub(crate) async fn get_current_state(tracklist: Tracklist) -> NowPlayingState {
     let (entity, image_url, show_tracklist_position) = match &tracklist.list_type() {
         qobuz_player_controls::tracklist::TracklistType::Album(tracklist) => (
             Some(tracklist.title.clone()),

@@ -34,10 +34,13 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         )
 }
 
-async fn top_tracks_partial(Path(id): Path<u32>) -> impl IntoResponse {
+async fn top_tracks_partial(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<u32>,
+) -> impl IntoResponse {
     let artist = qobuz_player_controls::artist_page(id).await.unwrap();
+    let tracklist = state.player_state.tracklist.read().await;
 
-    let tracklist = qobuz_player_controls::tracklist::Tracklist::default();
     let now_playing_id = tracklist.currently_playing();
 
     render(
