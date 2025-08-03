@@ -38,7 +38,7 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 }
 
 async fn play_track(Path(track_id): Path<u32>) -> impl IntoResponse {
-    qobuz_player_controls::play_track(track_id).await.unwrap();
+    qobuz_player_controls::play_track(track_id).await;
 }
 
 #[derive(Deserialize, Clone)]

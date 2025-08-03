@@ -60,7 +60,7 @@ fn volume_slider(current_volume: u32) -> impl IntoView {
 
 async fn set_position(axum::Form(parameters): axum::Form<SliderParameters>) -> impl IntoResponse {
     let time = ClockTime::from_seconds(parameters.value as u64);
-    qobuz_player_controls::seek(time, None).await.unwrap();
+    qobuz_player_controls::seek(time).await;
 }
 
 async fn set_volume(axum::Form(parameters): axum::Form<SliderParameters>) -> impl IntoResponse {
@@ -76,7 +76,7 @@ async fn set_volume(axum::Form(parameters): axum::Form<SliderParameters>) -> imp
 
     let formatted_volume = volume as f64 / 100.0;
 
-    qobuz_player_controls::set_volume(formatted_volume);
+    qobuz_player_controls::set_volume(formatted_volume).await;
 }
 
 async fn status_partial() -> impl IntoResponse {
@@ -124,25 +124,20 @@ pub(crate) fn previous() -> impl IntoView {
 }
 
 async fn play() -> impl IntoResponse {
-    match qobuz_player_controls::play().await {
-        Ok(_) => render(html! { <PlayPause play=true /> }),
-        Err(_) => render(html! { <PlayPause play=false /> }),
-    }
+    qobuz_player_controls::play().await;
 }
 
 async fn pause() -> impl IntoResponse {
-    match qobuz_player_controls::pause().await {
-        Ok(_) => render(html! { <PlayPause play=false /> }),
-        Err(_) => render(html! { <PlayPause play=true /> }),
-    }
+    qobuz_player_controls::pause().await;
+    render(html! { <PlayPause play=false /> })
 }
 
 async fn previous() -> impl IntoResponse {
-    qobuz_player_controls::previous().await.unwrap();
+    qobuz_player_controls::previous().await;
 }
 
 async fn next() -> impl IntoResponse {
-    qobuz_player_controls::next().await.unwrap();
+    qobuz_player_controls::next().await;
 }
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {

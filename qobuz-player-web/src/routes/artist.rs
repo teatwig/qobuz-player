@@ -49,9 +49,7 @@ async fn top_tracks_partial(
 }
 
 async fn play_top_track(Path((artist_id, track_index)): Path<(u32, u32)>) -> impl IntoResponse {
-    qobuz_player_controls::play_top_tracks(artist_id, track_index)
-        .await
-        .unwrap();
+    qobuz_player_controls::play_top_tracks(artist_id, track_index).await;
 }
 
 async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {

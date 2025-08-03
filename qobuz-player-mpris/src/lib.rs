@@ -25,10 +25,8 @@ impl RootInterface for MprisPlayer {
         Err(fdo::Error::NotSupported("Not supported".into()))
     }
     async fn quit(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::quit().await {
-            Ok(_) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        qobuz_player_controls::quit().await;
+        Ok(())
     }
     async fn can_quit(&self) -> fdo::Result<bool> {
         Ok(true)
@@ -61,54 +59,39 @@ impl RootInterface for MprisPlayer {
 
 impl PlayerInterface for MprisPlayer {
     async fn next(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::next().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        qobuz_player_controls::next().await;
+        Ok(())
     }
 
     async fn previous(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::previous().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        qobuz_player_controls::previous().await;
+        Ok(())
     }
 
     async fn pause(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::pause().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        qobuz_player_controls::pause().await;
+        Ok(())
     }
 
     async fn play_pause(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::play_pause().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        qobuz_player_controls::play_pause().await;
+        Ok(())
     }
 
     async fn stop(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::stop().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        qobuz_player_controls::stop().await;
+        Ok(())
     }
 
     async fn play(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::play().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        qobuz_player_controls::play().await;
+        Ok(())
     }
 
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
         let clock = ClockTime::from_seconds(offset.as_secs() as u64);
-
-        match qobuz_player_controls::seek(clock, None).await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        qobuz_player_controls::seek(clock).await;
+        Ok(())
     }
 
     async fn set_position(&self, _track_id: TrackId, _position: Time) -> fdo::Result<()> {
@@ -171,7 +154,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn set_volume(&self, volume: Volume) -> zbus::Result<()> {
-        qobuz_player_controls::set_volume(volume);
+        qobuz_player_controls::set_volume(volume).await;
         Ok(())
     }
 

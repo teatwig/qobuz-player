@@ -9,10 +9,7 @@ use qobuz_player_client::client::Client;
 use rand::seq::SliceRandom;
 use std::{
     str::FromStr,
-    sync::{
-        Arc, LazyLock, OnceLock,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{Arc, LazyLock, OnceLock},
     time::Duration,
 };
 use tokio::{
@@ -117,7 +114,6 @@ static TRACK_ABOUT_TO_FINISH: LazyLock<TrackAboutToFinish> = LazyLock::new(|| {
     TrackAboutToFinish { tx, rx }
 });
 
-static SHOULD_QUIT: AtomicBool = AtomicBool::new(false);
 static TARGET_STATUS: LazyLock<RwLock<tracklist::Status>> =
     LazyLock::new(|| RwLock::new(Default::default()));
 static USER_AGENTS: &[&str] = &[
@@ -213,50 +209,29 @@ impl Player {
         Self { tracklist }
     }
 
-    pub async fn quit(&self) -> Result<()> {
-        tracing::debug!("stopping player");
-
-        SHOULD_QUIT.store(true, Ordering::Relaxed);
-
-        if is_player_playing().await {
-            tracing::debug!("pausing player");
-            self.pause().await?;
-        }
-
-        if is_paused().await {
-            tracing::debug!("readying player");
-            ready().await?;
-        }
-
-        if is_player_ready() {
-            tracing::debug!("stopping player");
-            stop().await?;
-        }
-
-        BROADCAST_CHANNELS
-            .tx
-            .send(Notification::Quit)
-            .expect("error sending broadcast");
-
-        Ok(())
-    }
-
-    #[instrument]
-    /// Toggle play and pause.
-    pub async fn play_pause(&self) -> Result<()> {
+    async fn play_pause(&self) -> Result<()> {
         match current_state().await {
             tracklist::Status::Playing => self.pause().await,
             tracklist::Status::Paused | tracklist::Status::Stopped => self.play().await,
         }
     }
 
-    #[instrument]
-    /// Play the player.
-    pub async fn play(&self) -> Result<()> {
+    async fn seek(&self, time: ClockTime, flags: Option<SeekFlags>) -> Result<()> {
+        let flags = flags.unwrap_or(SeekFlags::FLUSH | SeekFlags::TRICKMODE_KEY_UNITS);
+
+        PLAYBIN.seek_simple(flags, time)?;
+        Ok(())
+    }
+
+    async fn ready(&self) -> Result<()> {
+        self.set_player_state(gstreamer::State::Ready).await
+    }
+
+    async fn play(&self) -> Result<()> {
         if let Some(current_track_id) = self.tracklist.read().await.currently_playing() {
             let client = get_client().await;
-            let track_url = track_url(client, current_track_id).await?;
-            query_track_url(&track_url).await?;
+            let track_url = self.track_url(client, current_track_id).await?;
+            self.query_track_url(&track_url).await?;
         }
 
         if chrono::Utc::now() - *CURRENT_TRACK_URL_TIME.read().await > TRACK_URL_LIFE_SPAN {
@@ -264,25 +239,71 @@ impl Player {
 
             let client = get_client().await;
             if let Some(track_id) = self.tracklist.read().await.currently_playing() {
-                ready().await?;
-                let track_url = track_url(client, track_id).await?;
-                query_track_url(&track_url).await?;
+                self.ready().await?;
+                let track_url = self.track_url(client, track_id).await?;
+                self.query_track_url(&track_url).await?;
 
-                seek(current_position, None).await?;
+                self.seek(current_position, None).await?;
             }
         }
 
-        set_target_state(tracklist::Status::Playing).await;
-        set_player_state(gstreamer::State::Playing).await?;
+        self.set_target_state(tracklist::Status::Playing).await;
+        self.set_player_state(gstreamer::State::Playing).await?;
         Ok(())
     }
 
-    #[instrument]
-    /// Pause the player.
-    pub async fn pause(&self) -> Result<()> {
-        set_target_state(tracklist::Status::Paused).await;
-        set_player_state(gstreamer::State::Paused).await?;
+    async fn pause(&self) -> Result<()> {
+        self.set_target_state(tracklist::Status::Paused).await;
+        self.set_player_state(gstreamer::State::Paused).await?;
         Ok(())
+    }
+
+    async fn stop(&self) -> Result<()> {
+        self.set_player_state(gstreamer::State::Null).await
+    }
+
+    async fn set_target_state(&self, state: tracklist::Status) {
+        let mut target_status = TARGET_STATUS.write().await;
+        *target_status = state;
+
+        BROADCAST_CHANNELS
+            .tx
+            .send(Notification::Status { status: state })
+            .unwrap();
+    }
+
+    async fn set_player_state(&self, state: gstreamer::State) -> Result<()> {
+        PLAYBIN.set_state(state)?;
+        Ok(())
+    }
+
+    async fn track_url(
+        &self,
+        client: &Client,
+        track_id: u32,
+    ) -> Result<String, qobuz_player_client::Error> {
+        let mut time = CURRENT_TRACK_URL_TIME.write().await;
+        *time = chrono::Utc::now();
+        client.track_url(track_id).await
+    }
+
+    async fn query_track_url(&self, track_url: &str) -> Result<()> {
+        PLAYBIN.set_property("uri", track_url);
+        self.set_player_state(gstreamer::State::Playing).await?;
+        Ok(())
+    }
+
+    async fn is_playing(&self) -> bool {
+        *TARGET_STATUS.read().await == tracklist::Status::Playing
+    }
+
+    async fn is_player_playing(&self) -> bool {
+        PLAYBIN.current_state() == gstreamer::State::Playing
+    }
+
+    fn set_volume(&self, volume: f64) {
+        let volume_pow = volume.powi(3);
+        PLAYBIN.set_property("volume", volume_pow);
     }
 
     async fn handle_message(&mut self, msg: &Message) -> Result<()> {
@@ -302,13 +323,13 @@ impl Player {
                     PLAYBIN.set_property("uri", track_url);
                 }
 
-                ready().await?;
-                set_target_state(tracklist::Status::Paused).await;
+                self.ready().await?;
+                self.set_target_state(tracklist::Status::Paused).await;
                 self.broadcast_tracklist(tracklist.clone()).await;
             }
             MessageView::StreamStart(_) => {
                 tracing::debug!("STREAM START");
-                if is_player_playing().await {
+                if self.is_player_playing().await {
                     tracing::debug!("Starting next song");
 
                     self.skip_to_next_track().await;
@@ -330,7 +351,7 @@ impl Player {
                     .send(Notification::Position { clock: position })?;
             }
             MessageView::Buffering(buffering) => {
-                if is_playing().await {
+                if self.is_playing().await {
                     tracing::debug!("Playing, ignore buffering");
                     return Ok(());
                 }
@@ -353,7 +374,7 @@ impl Player {
                     message: notification::Message::Error(err.to_string()),
                 })?;
 
-                ready().await?;
+                self.ready().await?;
                 self.pause().await?;
                 self.play().await?;
 
@@ -386,14 +407,46 @@ impl Player {
         self.broadcast_tracklist(tracklist.clone()).await;
     }
 
-    #[instrument]
+    async fn jump_forward(&mut self) -> Result<()> {
+        if let (Some(current_position), Some(duration)) = (
+            PLAYBIN.query_position::<ClockTime>(),
+            PLAYBIN.query_duration::<ClockTime>(),
+        ) {
+            let ten_seconds = ClockTime::from_seconds(10);
+            let next_position = current_position + ten_seconds;
+
+            if next_position < duration {
+                self.seek(next_position, None).await?;
+            } else {
+                self.seek(duration, None).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn jump_backward(&mut self) -> Result<()> {
+        if let Some(current_position) = PLAYBIN.query_position::<ClockTime>() {
+            if current_position.seconds() < 10 {
+                self.seek(ClockTime::default(), None).await?;
+            } else {
+                let ten_seconds = ClockTime::from_seconds(10);
+                let seek_position = current_position - ten_seconds;
+
+                self.seek(seek_position, None).await?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Skip to a specific track in the tracklist.
-    pub async fn skip_to_position(&mut self, new_position: u32, force: bool) -> Result<()> {
+    async fn skip_to_position(&mut self, new_position: u32, force: bool) -> Result<()> {
         let mut tracklist = self.tracklist.write().await;
         let current_position = tracklist.current_position();
 
         if !force && new_position < current_position && current_position == 1 {
-            seek(ClockTime::default(), None).await?;
+            self.seek(ClockTime::default(), None).await?;
             return Ok(());
         }
 
@@ -411,22 +464,22 @@ impl Player {
         {
             if let Some(current_player_position) = position() {
                 if current_player_position.seconds() > 1 {
-                    seek(ClockTime::default(), None).await?;
+                    self.seek(ClockTime::default(), None).await?;
                     return Ok(());
                 }
             }
         }
 
-        ready().await?;
+        self.ready().await?;
 
         let client = get_client().await;
 
         if let Some(next_track) = tracklist.skip_to_track(new_position) {
-            let next_track_url = track_url(client, next_track.id).await?;
-            query_track_url(&next_track_url).await?;
+            let next_track_url = self.track_url(client, next_track.id).await?;
+            self.query_track_url(&next_track_url).await?;
         } else if let Some(first_track) = tracklist.queue.first_mut() {
             first_track.status = TrackStatus::Playing;
-            let first_track_url = track_url(client, first_track.id).await?;
+            let first_track_url = self.track_url(client, first_track.id).await?;
 
             PLAYBIN.set_property("uri", first_track_url);
         }
@@ -436,15 +489,13 @@ impl Player {
         Ok(())
     }
 
-    #[instrument]
-    pub async fn next(&mut self) -> Result<()> {
+    async fn next(&mut self) -> Result<()> {
         let current_position = self.tracklist.read().await.current_position();
 
         self.skip_to_position(current_position + 1, true).await
     }
 
-    #[instrument]
-    pub async fn previous(&mut self) -> Result<()> {
+    async fn previous(&mut self) -> Result<()> {
         let current_position = self.tracklist.read().await.current_position();
 
         let next = if current_position == 0 {
@@ -456,14 +507,12 @@ impl Player {
         self.skip_to_position(next, false).await
     }
 
-    #[instrument]
-    /// Plays a single track.
-    pub async fn play_track(&mut self, track_id: u32) -> Result<()> {
-        ready().await?;
+    async fn play_track(&mut self, track_id: u32) -> Result<()> {
+        self.ready().await?;
 
         let client = get_client().await;
-        let track_url = track_url(client, track_id).await?;
-        query_track_url(&track_url).await?;
+        let track_url = self.track_url(client, track_id).await?;
+        self.query_track_url(&track_url).await?;
 
         let mut track: Track = client.track(track_id).await?.into();
         let mut tracklist = self.tracklist.write().await;
@@ -483,10 +532,8 @@ impl Player {
         Ok(())
     }
 
-    #[instrument]
-    /// Plays a full album.
-    pub async fn play_album(&mut self, album_id: &str, index: u32) -> Result<()> {
-        ready().await?;
+    async fn play_album(&mut self, album_id: &str, index: u32) -> Result<()> {
+        self.ready().await?;
 
         let client = get_client().await;
 
@@ -503,8 +550,8 @@ impl Player {
         tracklist.queue = album.tracks.into_iter().filter(|t| t.available).collect();
 
         if let Some(track) = tracklist.skip_to_track(index - unstreambale_tracks_to_index) {
-            let track_url = track_url(client, track.id).await?;
-            query_track_url(&track_url).await?;
+            let track_url = self.track_url(client, track.id).await?;
+            self.query_track_url(&track_url).await?;
 
             tracklist.list_type = TracklistType::Album(tracklist::AlbumTracklist {
                 title: album.title,
@@ -518,10 +565,8 @@ impl Player {
         Ok(())
     }
 
-    #[instrument]
-    /// Plays top tracks from artist starting from index.
-    pub async fn play_top_tracks(&mut self, artist_id: u32, index: u32) -> Result<()> {
-        ready().await?;
+    async fn play_top_tracks(&mut self, artist_id: u32, index: u32) -> Result<()> {
+        self.ready().await?;
 
         let client = get_client().await;
         let artist = client.artist(artist_id).await?;
@@ -554,8 +599,8 @@ impl Player {
 
         let mut tracklist = self.tracklist.write().await;
         if let Some(track) = tracklist.skip_to_track(index - unstreambale_tracks_to_index) {
-            let track_url = track_url(client, track.id).await?;
-            query_track_url(&track_url).await?;
+            let track_url = self.track_url(client, track.id).await?;
+            self.query_track_url(&track_url).await?;
 
             tracklist.list_type = TracklistType::TopTracks(tracklist::TopTracklist {
                 artist_name: artist.name.display,
@@ -569,15 +614,8 @@ impl Player {
         Ok(())
     }
 
-    #[instrument]
-    /// Plays all tracks in a playlist.
-    pub async fn play_playlist(
-        &mut self,
-        playlist_id: u32,
-        index: u32,
-        shuffle: bool,
-    ) -> Result<()> {
-        ready().await?;
+    async fn play_playlist(&mut self, playlist_id: u32, index: u32, shuffle: bool) -> Result<()> {
+        self.ready().await?;
 
         let client = get_client().await;
 
@@ -606,8 +644,8 @@ impl Player {
         tracklist.queue = tracks;
 
         if let Some(track) = tracklist.skip_to_track(index - unstreambale_tracks_to_index) {
-            let track_url = track_url(client, track.id).await?;
-            query_track_url(&track_url).await?;
+            let track_url = self.track_url(client, track.id).await?;
+            self.query_track_url(&track_url).await?;
 
             tracklist.list_type = TracklistType::Playlist(tracklist::PlaylistTracklist {
                 title: playlist.title,
@@ -651,7 +689,7 @@ impl Player {
             .map(|t| t.1);
 
         if let Some(next_track) = next_track {
-            if let Ok(url) = track_url(client, next_track.id).await {
+            if let Ok(url) = self.track_url(client, next_track.id).await {
                 PLAYBIN.set_property("uri", url);
             }
         }
@@ -718,9 +756,21 @@ impl Player {
                                 PlayNotification::Pause => {
                                     self.pause().await.unwrap();
                                 },
+                                PlayNotification::Stop => {
+                                    self.stop().await.unwrap();
+                                },
                                 PlayNotification::SkipToPosition {new_position, force} => {
                                     self.skip_to_position(new_position, force).await.unwrap();
-                                }
+                                },
+                                PlayNotification::JumpForward => {
+                                    self.jump_forward().await.unwrap();
+                                },
+                                PlayNotification::JumpBackward => {
+                                    self.jump_backward().await.unwrap();
+                                },
+                                PlayNotification::Seek { time } => {
+                                    self.seek(time, None).await.unwrap();
+                                },
                             }
                         },
                         Notification::Quit => {
@@ -731,7 +781,9 @@ impl Player {
                         Notification::Position { clock: _ } => (),
                         Notification::CurrentTrackList{ tracklist: _ } => (),
                         Notification::Message { message: _ } => (),
-                        Notification::Volume { volume: _ } => (),
+                        Notification::Volume { volume } => {
+                            self.set_volume(volume);
+                        },
                     }
                 }
             }
@@ -740,44 +792,43 @@ impl Player {
     }
 }
 
-pub async fn quit() -> Result<()> {
-    BROADCAST_CHANNELS.tx.send(Notification::Quit)?;
-    Ok(())
+pub async fn quit() {
+    BROADCAST_CHANNELS.tx.send(Notification::Quit).unwrap();
 }
 
-pub async fn next() -> Result<()> {
+pub async fn next() {
     BROADCAST_CHANNELS
         .tx
-        .send(Notification::Play(PlayNotification::Next))?;
-    Ok(())
+        .send(Notification::Play(PlayNotification::Next))
+        .unwrap();
 }
 
-pub async fn previous() -> Result<()> {
+pub async fn previous() {
     BROADCAST_CHANNELS
         .tx
-        .send(Notification::Play(PlayNotification::Previous))?;
-    Ok(())
+        .send(Notification::Play(PlayNotification::Previous))
+        .unwrap();
 }
 
-pub async fn play_pause() -> Result<()> {
+pub async fn play_pause() {
     BROADCAST_CHANNELS
         .tx
-        .send(Notification::Play(PlayNotification::PlayPause))?;
-    Ok(())
+        .send(Notification::Play(PlayNotification::PlayPause))
+        .unwrap();
 }
 
-pub async fn play() -> Result<()> {
+pub async fn play() {
     BROADCAST_CHANNELS
         .tx
-        .send(Notification::Play(PlayNotification::Play))?;
-    Ok(())
+        .send(Notification::Play(PlayNotification::Play))
+        .unwrap();
 }
 
-pub async fn pause() -> Result<()> {
+pub async fn pause() {
     BROADCAST_CHANNELS
         .tx
-        .send(Notification::Play(PlayNotification::Pause))?;
-    Ok(())
+        .send(Notification::Play(PlayNotification::Pause))
+        .unwrap();
 }
 
 pub async fn play_album(id: &str, index: u32) {
@@ -790,107 +841,51 @@ pub async fn play_album(id: &str, index: u32) {
         .unwrap();
 }
 
-pub async fn play_playlist(id: u32, index: u32, shuffle: bool) -> Result<()> {
+pub async fn play_playlist(id: u32, index: u32, shuffle: bool) {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::Playlist {
             id,
             index,
             shuffle,
-        }))?;
-    Ok(())
+        }))
+        .unwrap();
 }
 
-pub async fn play_track(id: u32) -> Result<()> {
+pub async fn play_track(id: u32) {
     BROADCAST_CHANNELS
         .tx
-        .send(Notification::Play(PlayNotification::Track { id }))?;
-    Ok(())
+        .send(Notification::Play(PlayNotification::Track { id }))
+        .unwrap();
 }
 
-pub async fn play_top_tracks(artist_id: u32, index: u32) -> Result<()> {
+pub async fn play_top_tracks(artist_id: u32, index: u32) {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::ArtistTopTracks {
             artist_id,
             index,
-        }))?;
-    Ok(())
+        }))
+        .unwrap();
 }
 
-pub async fn skip_to_position(index: u32, force: bool) -> Result<()> {
+pub async fn skip_to_position(index: u32, force: bool) {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::SkipToPosition {
             new_position: index,
             force,
-        }))?;
-    Ok(())
-}
-
-#[instrument]
-/// Ready the player.
-async fn ready() -> Result<()> {
-    set_player_state(gstreamer::State::Ready).await
-}
-
-#[instrument]
-/// Stop the player.
-pub async fn stop() -> Result<()> {
-    set_player_state(gstreamer::State::Null).await
-}
-
-async fn set_target_state(state: tracklist::Status) {
-    let mut target_status = TARGET_STATUS.write().await;
-    *target_status = state;
-
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Status { status: state })
+        }))
         .unwrap();
 }
 
 #[instrument]
-/// Sets the player to a specific state.
-async fn set_player_state(state: gstreamer::State) -> Result<()> {
-    PLAYBIN.set_state(state)?;
-    Ok(())
-}
-
-#[instrument]
-async fn track_url(client: &Client, track_id: u32) -> Result<String, qobuz_player_client::Error> {
-    let mut time = CURRENT_TRACK_URL_TIME.write().await;
-    *time = chrono::Utc::now();
-    client.track_url(track_id).await
-}
-
-#[instrument]
-async fn query_track_url(track_url: &str) -> Result<()> {
-    PLAYBIN.set_property("uri", track_url);
-    set_player_state(gstreamer::State::Playing).await?;
-    Ok(())
-}
-
-#[instrument]
-/// Is the player paused?
-async fn is_paused() -> bool {
-    *TARGET_STATUS.read().await != tracklist::Status::Playing
-}
-
-#[instrument]
-/// Is the player playing?
-async fn is_playing() -> bool {
-    *TARGET_STATUS.read().await == tracklist::Status::Playing
-}
-
-async fn is_player_playing() -> bool {
-    PLAYBIN.current_state() == gstreamer::State::Playing
-}
-
-#[instrument]
-/// Is the player ready?
-fn is_player_ready() -> bool {
-    PLAYBIN.current_state() == gstreamer::State::Ready
+/// Stop the player.
+pub async fn stop() {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::Stop))
+        .unwrap();
 }
 
 #[instrument]
@@ -913,62 +908,38 @@ pub fn volume() -> f64 {
 
 #[instrument]
 /// Set volume
-pub fn set_volume(value: f64) {
-    let volume_pow = value.powi(3);
-    PLAYBIN.set_property("volume", volume_pow);
-
-    tokio::task::spawn(async move {
-        BROADCAST_CHANNELS
-            .tx
-            .send(Notification::Volume { volume: value })
-            .unwrap();
-    });
+pub async fn set_volume(value: f64) {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Volume { volume: value })
+        .unwrap();
 }
 
 #[instrument]
 /// Seek to a specified time in the current track.
-pub async fn seek(time: ClockTime, flags: Option<SeekFlags>) -> Result<()> {
-    let flags = flags.unwrap_or(SeekFlags::FLUSH | SeekFlags::TRICKMODE_KEY_UNITS);
-
-    PLAYBIN.seek_simple(flags, time)?;
-    Ok(())
+pub async fn seek(time: ClockTime) {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::Seek { time }))
+        .unwrap();
 }
 
 #[instrument]
 /// Jump forward in the currently playing track +10 seconds.
-pub async fn jump_forward() -> Result<()> {
-    if let (Some(current_position), Some(duration)) = (
-        PLAYBIN.query_position::<ClockTime>(),
-        PLAYBIN.query_duration::<ClockTime>(),
-    ) {
-        let ten_seconds = ClockTime::from_seconds(10);
-        let next_position = current_position + ten_seconds;
-
-        if next_position < duration {
-            seek(next_position, None).await?;
-        } else {
-            seek(duration, None).await?;
-        }
-    }
-
-    Ok(())
+pub async fn jump_forward() {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::JumpForward))
+        .unwrap();
 }
 
 #[instrument]
 /// Jump forward in the currently playing track -10 seconds.
-pub async fn jump_backward() -> Result<()> {
-    if let Some(current_position) = PLAYBIN.query_position::<ClockTime>() {
-        if current_position.seconds() < 10 {
-            seek(ClockTime::default(), None).await?;
-        } else {
-            let ten_seconds = ClockTime::from_seconds(10);
-            let seek_position = current_position - ten_seconds;
-
-            seek(seek_position, None).await?;
-        }
-    }
-
-    Ok(())
+pub async fn jump_backward() {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::JumpBackward))
+        .unwrap();
 }
 
 #[instrument]

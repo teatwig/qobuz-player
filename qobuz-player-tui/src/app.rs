@@ -211,23 +211,23 @@ impl App {
                         self.should_draw = true;
                     }
                     KeyCode::Char(' ') => {
-                        qobuz_player_controls::play_pause().await.unwrap();
+                        qobuz_player_controls::play_pause().await;
                         self.should_draw = true;
                     }
                     KeyCode::Char('n') => {
-                        qobuz_player_controls::next().await.unwrap();
+                        qobuz_player_controls::next().await;
                         self.should_draw = true;
                     }
                     KeyCode::Char('p') => {
-                        qobuz_player_controls::previous().await.unwrap();
+                        qobuz_player_controls::previous().await;
                         self.should_draw = true;
                     }
                     KeyCode::Char('f') => {
-                        qobuz_player_controls::jump_forward().await.unwrap();
+                        qobuz_player_controls::jump_forward().await;
                         self.should_draw = true;
                     }
                     KeyCode::Char('b') => {
-                        qobuz_player_controls::jump_backward().await.unwrap();
+                        qobuz_player_controls::jump_backward().await;
                         self.should_draw = true;
                     }
                     _ => {}
@@ -247,19 +247,15 @@ impl App {
             }
 
             PlayOutcome::Playlist(outcome) => {
-                qobuz_player_controls::play_playlist(outcome.0, 0, outcome.1)
-                    .await
-                    .unwrap();
+                qobuz_player_controls::play_playlist(outcome.0, 0, outcome.1).await;
             }
 
             PlayOutcome::Track(id) => {
-                qobuz_player_controls::play_track(id).await.unwrap();
+                qobuz_player_controls::play_track(id).await;
             }
 
             PlayOutcome::SkipToPosition(index) => {
-                qobuz_player_controls::skip_to_position(index, true)
-                    .await
-                    .unwrap();
+                qobuz_player_controls::skip_to_position(index, true).await;
             }
         }
     }

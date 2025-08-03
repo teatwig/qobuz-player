@@ -202,19 +202,19 @@ pub async fn run() -> Result<(), Error> {
 
             if cli.rfid {
                 qobuz_player_rfid::init(state.clone()).await;
-                qobuz_player_controls::quit().await?
+                qobuz_player_controls::quit().await;
             } else if !cli.disable_tui {
                 qobuz_player_tui::init(state.clone()).await;
 
                 debug!("tui exited, quitting");
-                qobuz_player_controls::quit().await?
+                qobuz_player_controls::quit().await;
             } else {
                 debug!("waiting for ctrlc");
                 tokio::signal::ctrl_c()
                     .await
                     .expect("error waiting for ctrlc");
                 debug!("ctrlc received, quitting");
-                qobuz_player_controls::quit().await?
+                qobuz_player_controls::quit().await;
             };
 
             Ok(())
