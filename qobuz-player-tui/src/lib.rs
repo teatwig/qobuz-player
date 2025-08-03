@@ -44,14 +44,16 @@ pub async fn init(state: Arc<qobuz_player_state::State>) {
         .unwrap();
 
     let tracklist = state.tracklist.read().await.clone();
-    let now_playing = get_current_state(tracklist).await;
+    let status = *state.target_status.read().await;
+    let now_playing = get_current_state(tracklist, status).await;
 
     let mut app = App {
+        state,
         now_playing,
         current_screen: Default::default(),
         exit: Default::default(),
         should_draw: true,
-        state: Default::default(),
+        app_state: Default::default(),
         favorites: FavoritesState {
             editing: Default::default(),
             filter: Default::default(),

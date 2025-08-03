@@ -29,12 +29,12 @@ async fn skip_to(Path(track_number): Path<u32>) -> impl IntoResponse {
 }
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let current_status = qobuz_player_controls::current_state().await;
+    let current_status = state.player_state.target_status.read().await;
     let tracklist = state.player_state.tracklist.read().await;
     let tracklist_clone = tracklist.clone();
 
     render(html! {
-        <Page active_page=Page::Queue current_status=current_status tracklist=&tracklist>
+        <Page active_page=Page::Queue current_status=&current_status tracklist=&tracklist>
             <Queue tracklist=tracklist_clone />
         </Page>
     })

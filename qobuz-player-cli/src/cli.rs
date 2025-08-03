@@ -131,6 +131,8 @@ pub async fn run() -> Result<(), Error> {
                 database.get_tracklist().await.unwrap_or_default(),
             ));
 
+            let (mut player, status) = Player::new(tracklist.clone());
+
             let state = Arc::new(
                 State::new(
                     cli.rfid,
@@ -138,6 +140,7 @@ pub async fn run() -> Result<(), Error> {
                     cli.web_secret,
                     tracklist.clone(),
                     database,
+                    status.into(),
                 )
                 .await,
             );
@@ -180,9 +183,7 @@ pub async fn run() -> Result<(), Error> {
                 });
             }
 
-            let tracklist = tracklist.clone();
-            tokio::spawn(async {
-                let mut player = Player::new(tracklist);
+            tokio::spawn(async move {
                 match player
                     .player_loop(
                         qobuz_player_controls::Credentials { username, password },

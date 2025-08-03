@@ -80,13 +80,13 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
 
     let is_favorite = favorites.playlists.iter().any(|playlist| playlist.id == id);
 
-    let current_status = qobuz_player_controls::current_state().await;
+    let current_status = state.player_state.target_status.read().await;
     let rfid = state.player_state.rfid;
     let tracklist = state.player_state.tracklist.read().await;
     let currently_playing = tracklist.currently_playing();
 
     render(html! {
-        <Page active_page=Page::None current_status=current_status tracklist=&tracklist>
+        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
             <Playlist
                 now_playing_id=currently_playing
                 playlist=playlist

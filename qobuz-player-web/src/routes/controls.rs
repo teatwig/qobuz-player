@@ -16,7 +16,7 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 }
 
 #[component]
-pub(crate) fn controls<'a>(current_status: Status, tracklist: &'a Tracklist) -> impl IntoView {
+pub(crate) fn controls<'a>(current_status: &'a Status, tracklist: &'a Tracklist) -> impl IntoView {
     html! {
         <div
             hx-get="/controls"
@@ -26,20 +26,20 @@ pub(crate) fn controls<'a>(current_status: Status, tracklist: &'a Tracklist) -> 
             hx-preserve
             id="controls"
         >
-            <ControlsPartial current_status=current_status tracklist=tracklist />
+            <ControlsPartial current_status=&current_status tracklist=tracklist />
         </div>
     }
 }
 
 async fn controls(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let current_status = qobuz_player_controls::current_state().await;
+    let current_status = state.player_state.target_status.read().await;
     let tracklist = state.player_state.tracklist.read().await;
 
-    render(html! { <ControlsPartial current_status=current_status tracklist=&tracklist /> })
+    render(html! { <ControlsPartial current_status=&current_status tracklist=&tracklist /> })
 }
 
 #[component]
-fn controls_partial<'a>(current_status: Status, tracklist: &'a Tracklist) -> impl IntoView {
+fn controls_partial<'a>(current_status: &'a Status, tracklist: &'a Tracklist) -> impl IntoView {
     let track_title = tracklist.current_track().map(|track| track.title.clone());
 
     let (playing, show) = match current_status {

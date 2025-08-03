@@ -65,12 +65,13 @@ async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> imp
 }
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
-    let (album, suggested_albums, favorites, current_status) = join!(
+    let (album, suggested_albums, favorites) = join!(
         qobuz_player_controls::album(id.clone()),
         qobuz_player_controls::suggested_albums(id.clone()),
         qobuz_player_controls::favorites(),
-        qobuz_player_controls::current_state()
     );
+
+    let current_status = state.player_state.target_status.read().await;
 
     let album = album.unwrap();
     let suggested_albums = suggested_albums.unwrap();
@@ -83,7 +84,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
     let is_favorite = favorites.albums.iter().any(|album| album.id == id);
 
     render(html! {
-        <Page active_page=Page::None current_status=current_status tracklist=&tracklist>
+        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
             <Album
                 album=album
                 suggested_albums=suggested_albums

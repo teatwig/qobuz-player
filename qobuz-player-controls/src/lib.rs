@@ -114,8 +114,6 @@ static TRACK_ABOUT_TO_FINISH: LazyLock<TrackAboutToFinish> = LazyLock::new(|| {
     TrackAboutToFinish { tx, rx }
 });
 
-static TARGET_STATUS: LazyLock<RwLock<tracklist::Status>> =
-    LazyLock::new(|| RwLock::new(Default::default()));
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
@@ -202,15 +200,51 @@ impl<T> From<Arc<RwLock<T>>> for ReadOnly<T> {
 #[derive(Debug)]
 pub struct Player {
     tracklist: Arc<RwLock<Tracklist>>,
+    target_status: Arc<RwLock<tracklist::Status>>,
 }
 
 impl Player {
-    pub fn new(tracklist: Arc<RwLock<Tracklist>>) -> Self {
-        Self { tracklist }
+    async fn clock_loop(&self) {
+        tracing::debug!("starting clock loop");
+
+        let target_status = self.target_status.clone();
+
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(500));
+            let mut last_position = ClockTime::default();
+            loop {
+                interval.tick().await;
+                let target_status = *target_status.read().await;
+                if target_status == tracklist::Status::Playing {
+                    if let Some(position) = position() {
+                        if position.seconds() != last_position.seconds() {
+                            last_position = position;
+
+                            BROADCAST_CHANNELS
+                                .tx
+                                .send(Notification::Position { clock: position })
+                                .expect("failed to send notification");
+                        }
+                    }
+                }
+            }
+        });
+    }
+    pub fn new(tracklist: Arc<RwLock<Tracklist>>) -> (Self, Arc<RwLock<tracklist::Status>>) {
+        let target_status = Arc::new(RwLock::new(Default::default()));
+        (
+            Self {
+                tracklist,
+                target_status: target_status.clone(),
+            },
+            target_status,
+        )
     }
 
-    async fn play_pause(&self) -> Result<()> {
-        match current_state().await {
+    async fn play_pause(&mut self) -> Result<()> {
+        let target_status = *self.target_status.read().await;
+
+        match target_status {
             tracklist::Status::Playing => self.pause().await,
             tracklist::Status::Paused | tracklist::Status::Stopped => self.play().await,
         }
@@ -227,7 +261,7 @@ impl Player {
         self.set_player_state(gstreamer::State::Ready).await
     }
 
-    async fn play(&self) -> Result<()> {
+    async fn play(&mut self) -> Result<()> {
         if let Some(current_track_id) = self.tracklist.read().await.currently_playing() {
             let client = get_client().await;
             let track_url = self.track_url(client, current_track_id).await?;
@@ -252,7 +286,7 @@ impl Player {
         Ok(())
     }
 
-    async fn pause(&self) -> Result<()> {
+    async fn pause(&mut self) -> Result<()> {
         self.set_target_state(tracklist::Status::Paused).await;
         self.set_player_state(gstreamer::State::Paused).await?;
         Ok(())
@@ -263,7 +297,7 @@ impl Player {
     }
 
     async fn set_target_state(&self, state: tracklist::Status) {
-        let mut target_status = TARGET_STATUS.write().await;
+        let mut target_status = self.target_status.write().await;
         *target_status = state;
 
         BROADCAST_CHANNELS
@@ -294,7 +328,7 @@ impl Player {
     }
 
     async fn is_playing(&self) -> bool {
-        *TARGET_STATUS.read().await == tracklist::Status::Playing
+        *self.target_status.read().await == tracklist::Status::Playing
     }
 
     async fn is_player_playing(&self) -> bool {
@@ -310,6 +344,9 @@ impl Player {
         match msg.view() {
             MessageView::Eos(_) => {
                 tracing::debug!("END OF STREAM");
+                self.ready().await?;
+                self.set_target_state(tracklist::Status::Paused).await;
+
                 let mut tracklist = self.tracklist.write().await;
 
                 if let Some(last_track) = tracklist.queue.last_mut() {
@@ -323,8 +360,6 @@ impl Player {
                     PLAYBIN.set_property("uri", track_url);
                 }
 
-                self.ready().await?;
-                self.set_target_state(tracklist::Status::Paused).await;
                 self.broadcast_tracklist(tracklist.clone()).await;
             }
             MessageView::StreamStart(_) => {
@@ -708,7 +743,7 @@ impl Player {
         let mut messages = PLAYBIN.bus().unwrap().stream();
         let mut about_to_finish = TRACK_ABOUT_TO_FINISH.rx.resubscribe();
 
-        let clock_loop = tokio::spawn(async { clock_loop().await });
+        self.clock_loop().await;
 
         let mut receiver = notify_receiver();
 
@@ -774,7 +809,6 @@ impl Player {
                             }
                         },
                         Notification::Quit => {
-                            clock_loop.abort();
                             break;
                         },
                         Notification::Status { status: _ } => (),
@@ -886,12 +920,6 @@ pub async fn stop() {
         .tx
         .send(Notification::Play(PlayNotification::Stop))
         .unwrap();
-}
-
-#[instrument]
-/// Current player state
-pub async fn current_state() -> tracklist::Status {
-    *TARGET_STATUS.read().await
 }
 
 #[instrument]
@@ -1178,31 +1206,6 @@ pub async fn favorites() -> Result<Favorites> {
         artists: artists.into_iter().map(|x| x.into()).collect(),
         playlists: favorite_playlists,
     })
-}
-
-#[instrument]
-/// Inserts the most recent position into the state at a set interval.
-async fn clock_loop() {
-    tracing::debug!("starting clock loop");
-
-    let mut interval = tokio::time::interval(Duration::from_millis(250));
-    let mut last_position = ClockTime::default();
-
-    loop {
-        interval.tick().await;
-        if current_state().await == tracklist::Status::Playing {
-            if let Some(position) = position() {
-                if position.seconds() != last_position.seconds() {
-                    last_position = position;
-
-                    BROADCAST_CHANNELS
-                        .tx
-                        .send(Notification::Position { clock: position })
-                        .expect("failed to send notification");
-                }
-            }
-        }
-    }
 }
 
 pub fn send_message(message: notification::Message) {

@@ -79,10 +79,10 @@ async fn set_volume(axum::Form(parameters): axum::Form<SliderParameters>) -> imp
     qobuz_player_controls::set_volume(formatted_volume).await;
 }
 
-async fn status_partial() -> impl IntoResponse {
-    let current_status = qobuz_player_controls::current_state().await;
+async fn status_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let current_status = state.player_state.target_status.read().await;
 
-    if current_status == tracklist::Status::Playing {
+    if *current_status == tracklist::Status::Playing {
         render(html! { <PlayPause play=true /> })
     } else {
         render(html! { <PlayPause play=false /> })
@@ -146,16 +146,17 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let current_track = tracklist.current_track().cloned();
 
     let position_seconds = qobuz_player_controls::position().map(|position| position.seconds());
-    let current_status = qobuz_player_controls::current_state().await;
+    let current_status = state.player_state.target_status.read().await;
+    let current_status_copy = *current_status;
     let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
 
     render(html! {
-        <Page active_page=Page::NowPlaying current_status=current_status tracklist=&tracklist>
+        <Page active_page=Page::NowPlaying current_status=&current_status tracklist=&tracklist>
             <NowPlaying
                 tracklist=tracklist_clone
                 current_track=current_track
                 position_seconds=position_seconds
-                current_status=current_status
+                current_status=current_status_copy
                 current_volume=current_volume
             />
         </Page>
@@ -166,7 +167,7 @@ async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoRes
     let tracklist = state.player_state.tracklist.read().await;
     let current_track = tracklist.current_track().cloned();
     let position_seconds = qobuz_player_controls::position().map(|position| position.seconds());
-    let current_status = qobuz_player_controls::current_state().await;
+    let current_status = state.player_state.target_status.read().await;
     let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
 
     render(html! {
@@ -174,7 +175,7 @@ async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoRes
             tracklist=tracklist.clone()
             current_track=current_track
             position_seconds=position_seconds
-            current_status=current_status
+            current_status=*current_status
             current_volume=current_volume
         />
     })

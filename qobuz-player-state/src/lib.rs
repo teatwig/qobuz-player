@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use database::{Database, LinkRequest};
-use qobuz_player_controls::{ReadOnly, tracklist::Tracklist};
+use qobuz_player_controls::{
+    ReadOnly,
+    tracklist::{self, Tracklist},
+};
 use tokio::sync::{Mutex, RwLock};
 
 pub mod database;
@@ -13,6 +16,7 @@ pub struct State {
     pub database: Database,
     pub link_request: Mutex<Option<LinkRequest>>,
     pub tracklist: ReadOnly<Tracklist>,
+    pub target_status: ReadOnly<tracklist::Status>,
 }
 
 impl State {
@@ -22,6 +26,7 @@ impl State {
         web_secret: Option<String>,
         tracklist: Arc<RwLock<Tracklist>>,
         database: Database,
+        target_status: ReadOnly<tracklist::Status>,
     ) -> Self {
         let link_request = Mutex::new(None);
 
@@ -32,6 +37,7 @@ impl State {
             database,
             link_request,
             tracklist: tracklist.into(),
+            target_status,
         }
     }
 }

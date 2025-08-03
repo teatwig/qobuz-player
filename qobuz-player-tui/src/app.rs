@@ -4,7 +4,8 @@ use crate::{
 };
 use core::fmt;
 use image::load_from_memory;
-use qobuz_player_controls::tracklist::Tracklist;
+use qobuz_player_controls::tracklist::{self, Tracklist};
+use qobuz_player_state::State;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
@@ -12,14 +13,15 @@ use ratatui::{
 };
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 use reqwest::Client;
-use std::io;
+use std::{io, sync::Arc};
 use tokio::time::{self, Duration};
 
 pub(crate) struct App {
+    pub(crate) state: Arc<State>,
     pub(crate) current_screen: Tab,
     pub(crate) exit: bool,
     pub(crate) should_draw: bool,
-    pub(crate) state: State,
+    pub(crate) app_state: AppState,
     pub(crate) now_playing: NowPlayingState,
     pub(crate) favorites: FavoritesState,
     pub(crate) search: SearchState,
@@ -28,7 +30,7 @@ pub(crate) struct App {
 }
 
 #[derive(Default, PartialEq)]
-pub(crate) enum State {
+pub(crate) enum AppState {
     #[default]
     Normal,
     Popup(Popup),
@@ -104,7 +106,8 @@ impl App {
                             },
                             qobuz_player_controls::notification::Notification::CurrentTrackList { tracklist } => {
                                 self.queue.queue.items = tracklist.queue().to_vec();
-                                self.now_playing = get_current_state(tracklist).await;
+                                let status = self.state.target_status.read().await;
+                                self.now_playing = get_current_state(tracklist, *status).await;
                                 self.should_draw = true;
                             }
                             qobuz_player_controls::notification::Notification::Quit => {
@@ -138,22 +141,22 @@ impl App {
 
         match event {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                match &mut self.state {
-                    State::Help => {
-                        self.state = State::Normal;
+                match &mut self.app_state {
+                    AppState::Help => {
+                        self.app_state = AppState::Normal;
                         self.should_draw = true;
                         return Ok(());
                     }
-                    State::Popup(popup) => {
+                    AppState::Popup(popup) => {
                         if key_event.code == KeyCode::Esc {
-                            self.state = State::Normal;
+                            self.app_state = AppState::Normal;
                             self.should_draw = true;
                             return Ok(());
                         }
 
                         if let Some(outcome) = popup.handle_event(key_event.code).await {
                             self.handle_playoutcome(outcome).await;
-                            self.state = State::Normal;
+                            self.app_state = AppState::Normal;
                         };
 
                         self.should_draw = true;
@@ -176,7 +179,7 @@ impl App {
                     }
                     Output::NotConsumed => {}
                     Output::Popup(popup) => {
-                        self.state = State::Popup(popup);
+                        self.app_state = AppState::Popup(popup);
                         self.should_draw = true;
                         return Ok(());
                     }
@@ -187,7 +190,7 @@ impl App {
 
                 match key_event.code {
                     KeyCode::Char('h') => {
-                        self.state = State::Help;
+                        self.app_state = AppState::Help;
                         self.should_draw = true;
                     }
                     KeyCode::Char('q') => {
@@ -294,7 +297,10 @@ async fn fetch_image(image_url: &str) -> Option<(StatefulProtocol, f32)> {
     Some((picker.new_resize_protocol(image), ratio))
 }
 
-pub(crate) async fn get_current_state(tracklist: Tracklist) -> NowPlayingState {
+pub(crate) async fn get_current_state(
+    tracklist: Tracklist,
+    status: tracklist::Status,
+) -> NowPlayingState {
     let (entity, image_url, show_tracklist_position) = match &tracklist.list_type() {
         qobuz_player_controls::tracklist::TracklistType::Album(tracklist) => (
             Some(tracklist.title.clone()),
@@ -314,8 +320,6 @@ pub(crate) async fn get_current_state(tracklist: Tracklist) -> NowPlayingState {
         }
         qobuz_player_controls::tracklist::TracklistType::None => (None, None, false),
     };
-
-    let status = qobuz_player_controls::current_state().await;
 
     let track = tracklist.current_track().cloned();
 

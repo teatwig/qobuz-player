@@ -68,14 +68,14 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
-    let (artist, albums, similar_artists, favorites, current_status) = join!(
+    let (artist, albums, similar_artists, favorites) = join!(
         qobuz_player_controls::artist_page(id),
         qobuz_player_controls::artist_albums(id),
         qobuz_player_controls::similar_artists(id),
         qobuz_player_controls::favorites(),
-        qobuz_player_controls::current_state()
     );
 
+    let current_status = state.player_state.target_status.read().await;
     let tracklist = state.player_state.tracklist.read().await;
     let now_playing_id = tracklist.currently_playing();
 
@@ -87,7 +87,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
     let is_favorite = favorites.artists.iter().any(|artist| artist.id == id);
 
     render(html! {
-        <Page active_page=Page::None current_status=current_status tracklist=&tracklist>
+        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
             <Artist
                 artist=artist
                 albums=albums

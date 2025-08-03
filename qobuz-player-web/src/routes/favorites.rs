@@ -28,10 +28,10 @@ async fn index(State(state): State<Arc<AppState>>, Path(tab): Path<Tab>) -> impl
     let favorites = qobuz_player_controls::favorites().await.unwrap();
 
     let tracklist = state.player_state.tracklist.read().await;
-    let current_status = qobuz_player_controls::current_state().await;
+    let current_status = state.player_state.target_status.read().await;
 
     render(html! {
-        <Page active_page=Page::Favorites current_status=current_status tracklist=&tracklist>
+        <Page active_page=Page::Favorites current_status=&current_status tracklist=&tracklist>
             <Favorites favorites=favorites tab=tab />
         </Page>
     })

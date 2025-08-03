@@ -3,7 +3,7 @@ use ratatui::{layout::Flex, prelude::*, widgets::*};
 use tui_input::Input;
 
 use crate::{
-    app::{App, State, Tab},
+    app::{App, AppState, Tab},
     now_playing::{self},
 };
 
@@ -54,11 +54,11 @@ impl App {
             Tab::Discover => self.discover.render(frame, tab_content_area),
         }
 
-        if let State::Popup(popup) = &mut self.state {
+        if let AppState::Popup(popup) = &mut self.app_state {
             popup.render(frame);
         }
 
-        if matches!(self.state, State::Help) {
+        if matches!(self.app_state, AppState::Help) {
             render_help(frame);
         }
     }
