@@ -41,21 +41,21 @@ async fn handle_play_scan(state: &State, res: &str) {
         LinkRequest::Album(id) => {
             if let tracklist::TracklistType::Album(now_playing) = now_playing {
                 if now_playing.id == id {
-                    qobuz_player_controls::play_pause().await;
+                    qobuz_player_controls::play_pause();
                     return;
                 }
             }
 
-            qobuz_player_controls::play_album(&id, 0).await
+            qobuz_player_controls::play_album(&id, 0)
         }
         LinkRequest::Playlist(id) => {
             if let tracklist::TracklistType::Playlist(now_playing) = now_playing {
                 if now_playing.id == id {
-                    qobuz_player_controls::play_pause().await;
+                    qobuz_player_controls::play_pause();
                     return;
                 }
             }
-            qobuz_player_controls::play_playlist(id, 0, false).await;
+            qobuz_player_controls::play_playlist(id, 0, false);
         }
     }
 }

@@ -35,7 +35,7 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 }
 
 async fn play_track(Path((id, track_position)): Path<(String, u32)>) -> impl IntoResponse {
-    qobuz_player_controls::play_album(&id, track_position).await;
+    qobuz_player_controls::play_album(&id, track_position);
 }
 
 async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
@@ -53,7 +53,7 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
 }
 
 async fn play(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::play_album(&id, 0).await;
+    qobuz_player_controls::play_album(&id, 0);
 }
 
 async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {

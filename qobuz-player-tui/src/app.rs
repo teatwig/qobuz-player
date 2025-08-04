@@ -214,23 +214,23 @@ impl App {
                         self.should_draw = true;
                     }
                     KeyCode::Char(' ') => {
-                        qobuz_player_controls::play_pause().await;
+                        qobuz_player_controls::play_pause();
                         self.should_draw = true;
                     }
                     KeyCode::Char('n') => {
-                        qobuz_player_controls::next().await;
+                        qobuz_player_controls::next();
                         self.should_draw = true;
                     }
                     KeyCode::Char('p') => {
-                        qobuz_player_controls::previous().await;
+                        qobuz_player_controls::previous();
                         self.should_draw = true;
                     }
                     KeyCode::Char('f') => {
-                        qobuz_player_controls::jump_forward().await;
+                        qobuz_player_controls::jump_forward();
                         self.should_draw = true;
                     }
                     KeyCode::Char('b') => {
-                        qobuz_player_controls::jump_backward().await;
+                        qobuz_player_controls::jump_backward();
                         self.should_draw = true;
                     }
                     _ => {}
@@ -246,19 +246,19 @@ impl App {
     async fn handle_playoutcome(&mut self, outcome: PlayOutcome) {
         match outcome {
             PlayOutcome::Album(id) => {
-                qobuz_player_controls::play_album(&id, 0).await;
+                qobuz_player_controls::play_album(&id, 0);
             }
 
             PlayOutcome::Playlist(outcome) => {
-                qobuz_player_controls::play_playlist(outcome.0, 0, outcome.1).await;
+                qobuz_player_controls::play_playlist(outcome.0, 0, outcome.1);
             }
 
             PlayOutcome::Track(id) => {
-                qobuz_player_controls::play_track(id).await;
+                qobuz_player_controls::play_track(id);
             }
 
             PlayOutcome::SkipToPosition(index) => {
-                qobuz_player_controls::skip_to_position(index, true).await;
+                qobuz_player_controls::skip_to_position(index, true);
             }
         }
     }

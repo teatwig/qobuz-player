@@ -25,7 +25,7 @@ impl RootInterface for MprisPlayer {
         Err(fdo::Error::NotSupported("Not supported".into()))
     }
     async fn quit(&self) -> fdo::Result<()> {
-        qobuz_player_controls::quit().await;
+        qobuz_player_controls::quit();
         Ok(())
     }
     async fn can_quit(&self) -> fdo::Result<bool> {
@@ -59,38 +59,38 @@ impl RootInterface for MprisPlayer {
 
 impl PlayerInterface for MprisPlayer {
     async fn next(&self) -> fdo::Result<()> {
-        qobuz_player_controls::next().await;
+        qobuz_player_controls::next();
         Ok(())
     }
 
     async fn previous(&self) -> fdo::Result<()> {
-        qobuz_player_controls::previous().await;
+        qobuz_player_controls::previous();
         Ok(())
     }
 
     async fn pause(&self) -> fdo::Result<()> {
-        qobuz_player_controls::pause().await;
+        qobuz_player_controls::pause();
         Ok(())
     }
 
     async fn play_pause(&self) -> fdo::Result<()> {
-        qobuz_player_controls::play_pause().await;
+        qobuz_player_controls::play_pause();
         Ok(())
     }
 
     async fn stop(&self) -> fdo::Result<()> {
-        qobuz_player_controls::stop().await;
+        qobuz_player_controls::stop();
         Ok(())
     }
 
     async fn play(&self) -> fdo::Result<()> {
-        qobuz_player_controls::play().await;
+        qobuz_player_controls::play();
         Ok(())
     }
 
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
         let clock = ClockTime::from_seconds(offset.as_secs() as u64);
-        qobuz_player_controls::seek(clock).await;
+        qobuz_player_controls::seek(clock);
         Ok(())
     }
 
@@ -154,7 +154,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn set_volume(&self, volume: Volume) -> zbus::Result<()> {
-        qobuz_player_controls::set_volume(volume).await;
+        qobuz_player_controls::set_volume(volume);
         Ok(())
     }
 

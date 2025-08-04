@@ -83,10 +83,7 @@ static PLAYBIN: LazyLock<Element> = LazyLock::new(|| {
     // can setup the next track to play. Enables gapless playback.
     playbin.connect("about-to-finish", false, move |_| {
         tracing::debug!("about to finish");
-        TRACK_ABOUT_TO_FINISH
-            .tx
-            .send(true)
-            .expect("failed to send about to finish message");
+        track_about_to_finish();
 
         None
     });
@@ -102,16 +99,6 @@ struct Broadcast {
 static BROADCAST_CHANNELS: LazyLock<Broadcast> = LazyLock::new(|| {
     let (tx, rx) = broadcast::channel(20);
     Broadcast { tx, rx }
-});
-
-struct TrackAboutToFinish {
-    tx: Sender<bool>,
-    rx: Receiver<bool>,
-}
-
-static TRACK_ABOUT_TO_FINISH: LazyLock<TrackAboutToFinish> = LazyLock::new(|| {
-    let (tx, rx) = broadcast::channel(1);
-    TrackAboutToFinish { tx, rx }
 });
 
 static USER_AGENTS: &[&str] = &[
@@ -360,7 +347,7 @@ impl Player {
                     PLAYBIN.set_property("uri", track_url);
                 }
 
-                self.broadcast_tracklist(tracklist.clone()).await;
+                self.broadcast_tracklist(tracklist.clone());
             }
             MessageView::StreamStart(_) => {
                 tracing::debug!("STREAM START");
@@ -368,8 +355,7 @@ impl Player {
                     tracing::debug!("Starting next song");
 
                     self.skip_to_next_track().await;
-                    self.broadcast_tracklist(self.tracklist.read().await.clone())
-                        .await;
+                    self.broadcast_tracklist(self.tracklist.read().await.clone());
                 }
             }
             MessageView::AsyncDone(msg) => {
@@ -426,7 +412,7 @@ impl Player {
         Ok(())
     }
 
-    async fn broadcast_tracklist(&self, tracklist: Tracklist) {
+    fn broadcast_tracklist(&self, tracklist: Tracklist) {
         BROADCAST_CHANNELS
             .tx
             .send(Notification::CurrentTrackList { tracklist })
@@ -439,7 +425,7 @@ impl Player {
         let current_position = tracklist.current_position();
         let new_position = current_position + 1;
         tracklist.skip_to_track(new_position);
-        self.broadcast_tracklist(tracklist.clone()).await;
+        self.broadcast_tracklist(tracklist.clone());
     }
 
     async fn jump_forward(&mut self) -> Result<()> {
@@ -519,7 +505,7 @@ impl Player {
             PLAYBIN.set_property("uri", first_track_url);
         }
 
-        self.broadcast_tracklist(tracklist.clone()).await;
+        self.broadcast_tracklist(tracklist.clone());
 
         Ok(())
     }
@@ -562,7 +548,7 @@ impl Player {
 
         tracklist.queue = vec![track];
 
-        self.broadcast_tracklist(tracklist.clone()).await;
+        self.broadcast_tracklist(tracklist.clone());
 
         Ok(())
     }
@@ -594,7 +580,7 @@ impl Player {
                 image: Some(album.image),
             });
 
-            self.broadcast_tracklist(tracklist.clone()).await;
+            self.broadcast_tracklist(tracklist.clone());
         }
 
         Ok(())
@@ -643,7 +629,7 @@ impl Player {
                 image: artist.images.portrait.map(image_to_string),
             });
 
-            self.broadcast_tracklist(tracklist.clone()).await;
+            self.broadcast_tracklist(tracklist.clone());
         }
 
         Ok(())
@@ -688,7 +674,7 @@ impl Player {
                 image: playlist.image,
             });
 
-            self.broadcast_tracklist(tracklist.clone()).await;
+            self.broadcast_tracklist(tracklist.clone());
         }
 
         Ok(())
@@ -740,20 +726,12 @@ impl Player {
         CREDENTIALS.set(credentials).unwrap();
         CONFIGURATION.set(configuration).unwrap();
 
-        let mut messages = PLAYBIN.bus().unwrap().stream();
-        let mut about_to_finish = TRACK_ABOUT_TO_FINISH.rx.resubscribe();
-
         self.clock_loop().await;
-
+        let mut messages = PLAYBIN.bus().unwrap().stream();
         let mut receiver = notify_receiver();
 
         loop {
             select! {
-                 Ok(almost_done) = about_to_finish.recv() => {
-                    if almost_done {
-                         self.prep_next_track().await;
-                    }
-                }
                 Some(msg) = messages.next() => {
                         match self.handle_message(&msg).await {
                             Ok(_) => {},
@@ -806,6 +784,9 @@ impl Player {
                                 PlayNotification::Seek { time } => {
                                     self.seek(time, None).await.unwrap();
                                 },
+                                PlayNotification::TrackAboutToFinish=> {
+                                     self.prep_next_track().await;
+                                },
                             }
                         },
                         Notification::Quit => {
@@ -826,46 +807,53 @@ impl Player {
     }
 }
 
-pub async fn quit() {
+pub fn quit() {
     BROADCAST_CHANNELS.tx.send(Notification::Quit).unwrap();
 }
 
-pub async fn next() {
+pub fn track_about_to_finish() {
+    BROADCAST_CHANNELS
+        .tx
+        .send(Notification::Play(PlayNotification::TrackAboutToFinish))
+        .unwrap();
+}
+
+pub fn next() {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::Next))
         .unwrap();
 }
 
-pub async fn previous() {
+pub fn previous() {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::Previous))
         .unwrap();
 }
 
-pub async fn play_pause() {
+pub fn play_pause() {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::PlayPause))
         .unwrap();
 }
 
-pub async fn play() {
+pub fn play() {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::Play))
         .unwrap();
 }
 
-pub async fn pause() {
+pub fn pause() {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::Pause))
         .unwrap();
 }
 
-pub async fn play_album(id: &str, index: u32) {
+pub fn play_album(id: &str, index: u32) {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::Album {
@@ -875,7 +863,7 @@ pub async fn play_album(id: &str, index: u32) {
         .unwrap();
 }
 
-pub async fn play_playlist(id: u32, index: u32, shuffle: bool) {
+pub fn play_playlist(id: u32, index: u32, shuffle: bool) {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::Playlist {
@@ -886,14 +874,14 @@ pub async fn play_playlist(id: u32, index: u32, shuffle: bool) {
         .unwrap();
 }
 
-pub async fn play_track(id: u32) {
+pub fn play_track(id: u32) {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::Track { id }))
         .unwrap();
 }
 
-pub async fn play_top_tracks(artist_id: u32, index: u32) {
+pub fn play_top_tracks(artist_id: u32, index: u32) {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::ArtistTopTracks {
@@ -903,7 +891,7 @@ pub async fn play_top_tracks(artist_id: u32, index: u32) {
         .unwrap();
 }
 
-pub async fn skip_to_position(index: u32, force: bool) {
+pub fn skip_to_position(index: u32, force: bool) {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::SkipToPosition {
@@ -913,9 +901,7 @@ pub async fn skip_to_position(index: u32, force: bool) {
         .unwrap();
 }
 
-#[instrument]
-/// Stop the player.
-pub async fn stop() {
+pub fn stop() {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::Stop))
@@ -936,7 +922,7 @@ pub fn volume() -> f64 {
 
 #[instrument]
 /// Set volume
-pub async fn set_volume(value: f64) {
+pub fn set_volume(value: f64) {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Volume { volume: value })
@@ -945,7 +931,7 @@ pub async fn set_volume(value: f64) {
 
 #[instrument]
 /// Seek to a specified time in the current track.
-pub async fn seek(time: ClockTime) {
+pub fn seek(time: ClockTime) {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::Seek { time }))
@@ -954,7 +940,7 @@ pub async fn seek(time: ClockTime) {
 
 #[instrument]
 /// Jump forward in the currently playing track +10 seconds.
-pub async fn jump_forward() {
+pub fn jump_forward() {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::JumpForward))
@@ -963,7 +949,7 @@ pub async fn jump_forward() {
 
 #[instrument]
 /// Jump forward in the currently playing track -10 seconds.
-pub async fn jump_backward() {
+pub fn jump_backward() {
     BROADCAST_CHANNELS
         .tx
         .send(Notification::Play(PlayNotification::JumpBackward))
