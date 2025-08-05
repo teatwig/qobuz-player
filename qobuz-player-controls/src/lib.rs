@@ -110,10 +110,6 @@ static CLIENT: OnceLock<Client> = OnceLock::new();
 static CLIENT_INITIATED: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
 static CREDENTIALS: OnceLock<Credentials> = OnceLock::new();
 
-const TRACK_URL_LIFE_SPAN: chrono::Duration = chrono::Duration::minutes(20);
-static CURRENT_TRACK_URL_TIME: LazyLock<RwLock<chrono::DateTime<chrono::Utc>>> =
-    LazyLock::new(|| RwLock::new(chrono::Utc::now()));
-
 #[derive(Debug)]
 pub struct Credentials {
     pub username: String,
@@ -188,6 +184,7 @@ impl<T> From<Arc<RwLock<T>>> for ReadOnly<T> {
 pub struct Player {
     tracklist: Arc<RwLock<Tracklist>>,
     target_status: Arc<RwLock<tracklist::Status>>,
+    last_updated_tracklist: chrono::DateTime<chrono::Utc>,
 }
 
 impl Player {
@@ -223,6 +220,7 @@ impl Player {
             Self {
                 tracklist,
                 target_status: target_status.clone(),
+                last_updated_tracklist: chrono::Utc::now(),
             },
             target_status,
         )
@@ -255,7 +253,7 @@ impl Player {
             self.query_track_url(&track_url).await?;
         }
 
-        if chrono::Utc::now() - *CURRENT_TRACK_URL_TIME.read().await > TRACK_URL_LIFE_SPAN {
+        if chrono::Utc::now() - self.last_updated_tracklist > chrono::Duration::minutes(10) {
             let current_position = PLAYBIN.query_position::<ClockTime>().unwrap_or_default();
 
             let client = get_client().await;
@@ -303,8 +301,6 @@ impl Player {
         client: &Client,
         track_id: u32,
     ) -> Result<String, qobuz_player_client::Error> {
-        let mut time = CURRENT_TRACK_URL_TIME.write().await;
-        *time = chrono::Utc::now();
         client.track_url(track_id).await
     }
 
@@ -733,10 +729,10 @@ impl Player {
         loop {
             select! {
                 Some(msg) = messages.next() => {
-                        match self.handle_message(&msg).await {
-                            Ok(_) => {},
-                            Err(error) => tracing:: debug!(?error),
-                        }
+                    match self.handle_message(&msg).await {
+                        Ok(_) => {},
+                        Err(error) => tracing:: debug!(?error),
+                    }
                 }
                 Ok(notification) = receiver.recv() => {
                     match notification {
@@ -794,7 +790,9 @@ impl Player {
                         },
                         Notification::Status { status: _ } => (),
                         Notification::Position { clock: _ } => (),
-                        Notification::CurrentTrackList{ tracklist: _ } => (),
+                        Notification::CurrentTrackList{ tracklist: _ } => {
+                            self.last_updated_tracklist = chrono::Utc::now();
+                        },
                         Notification::Message { message: _ } => (),
                         Notification::Volume { volume } => {
                             self.set_volume(volume);
