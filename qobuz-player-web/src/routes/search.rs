@@ -55,7 +55,7 @@ async fn index(
         .query
         .and_then(|s| if s.is_empty() { None } else { Some(s) });
     let search_results = match query {
-        Some(query) => qobuz_player_controls::search(query).await.unwrap(),
+        Some(query) => state.player_state.client.search(query).await.unwrap(),
         None => SearchResults::default(),
     };
 
@@ -72,6 +72,7 @@ async fn index(
 }
 
 async fn search(
+    State(state): State<Arc<AppState>>,
     Path(tab): Path<Tab>,
     Form(parameters): Form<SearchParameters>,
 ) -> impl IntoResponse {
@@ -79,7 +80,7 @@ async fn search(
         .query
         .and_then(|s| if s.is_empty() { None } else { Some(s) });
     let search_results = match query.clone() {
-        Some(query) => qobuz_player_controls::search(query).await.unwrap(),
+        Some(query) => state.player_state.client.search(query).await.unwrap(),
         None => SearchResults::default(),
     };
 

@@ -38,15 +38,27 @@ async fn play_track(Path((id, track_position)): Path<(String, u32)>) -> impl Int
     qobuz_player_controls::play_album(&id, track_position);
 }
 
-async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::add_favorite_album(&id)
+async fn set_favorite(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .client
+        .add_favorite_album(&id)
         .await
         .unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
 
-async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::remove_favorite_album(&id)
+async fn unset_favorite(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .client
+        .remove_favorite_album(&id)
         .await
         .unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
@@ -66,9 +78,9 @@ async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> imp
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
     let (album, suggested_albums, favorites) = join!(
-        qobuz_player_controls::album(id.clone()),
-        qobuz_player_controls::suggested_albums(id.clone()),
-        qobuz_player_controls::favorites(),
+        state.player_state.client.album(&id),
+        state.player_state.client.suggested_albums(id.clone()),
+        state.player_state.client.favorites(),
     );
 
     let current_status = state.player_state.target_status.read().await;
@@ -100,7 +112,7 @@ async fn album_tracks_partial(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    let album = qobuz_player_controls::album(id).await.unwrap();
+    let album = state.player_state.client.album(&id).await.unwrap();
     let tracklist = state.player_state.tracklist.read().await;
 
     render(html! {

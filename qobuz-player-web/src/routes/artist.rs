@@ -38,7 +38,7 @@ async fn top_tracks_partial(
     State(state): State<Arc<AppState>>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
-    let artist = qobuz_player_controls::artist_page(id).await.unwrap();
+    let artist = state.player_state.client.artist_page(id).await.unwrap();
     let tracklist = state.player_state.tracklist.read().await;
 
     let now_playing_id = tracklist.currently_playing();
@@ -52,16 +52,28 @@ async fn play_top_track(Path((artist_id, track_index)): Path<(u32, u32)>) -> imp
     qobuz_player_controls::play_top_tracks(artist_id, track_index);
 }
 
-async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::add_favorite_artist(&id)
+async fn set_favorite(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .client
+        .add_favorite_artist(&id)
         .await
         .unwrap();
 
     render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
 
-async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::remove_favorite_artist(&id)
+async fn unset_favorite(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .client
+        .remove_favorite_artist(&id)
         .await
         .unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
@@ -69,10 +81,10 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
     let (artist, albums, similar_artists, favorites) = join!(
-        qobuz_player_controls::artist_page(id),
-        qobuz_player_controls::artist_albums(id),
-        qobuz_player_controls::similar_artists(id),
-        qobuz_player_controls::favorites(),
+        state.player_state.client.artist_page(id),
+        state.player_state.client.artist_albums(id),
+        state.player_state.client.similar_artists(id),
+        state.player_state.client.favorites(),
     );
 
     let current_status = state.player_state.target_status.read().await;

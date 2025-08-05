@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use axum::{Router, extract::State, response::IntoResponse, routing::get};
 use leptos::prelude::*;
-use qobuz_player_controls::models::{AlbumSimple, Playlist};
+use qobuz_player_controls::{
+    AlbumFeaturedType, PlaylistFeaturedType,
+    models::{AlbumSimple, Playlist},
+};
 use tokio::try_join;
 
 use crate::{
@@ -19,21 +22,26 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let (press_awards, new_releases, qobuzissims, ideal_discography, editor_picks) = try_join!(
-        qobuz_player_controls::featured_albums(
-            qobuz_player_controls::AlbumFeaturedType::PressAwards
-        ),
-        qobuz_player_controls::featured_albums(
-            qobuz_player_controls::AlbumFeaturedType::NewReleasesFull
-        ),
-        qobuz_player_controls::featured_albums(
-            qobuz_player_controls::AlbumFeaturedType::Qobuzissims
-        ),
-        qobuz_player_controls::featured_albums(
-            qobuz_player_controls::AlbumFeaturedType::IdealDiscography
-        ),
-        qobuz_player_controls::featured_playlists(
-            qobuz_player_controls::PlaylistFeaturedType::EditorPicks
-        ),
+        state
+            .player_state
+            .client
+            .featured_albums(AlbumFeaturedType::PressAwards),
+        state
+            .player_state
+            .client
+            .featured_albums(AlbumFeaturedType::NewReleasesFull),
+        state
+            .player_state
+            .client
+            .featured_albums(AlbumFeaturedType::Qobuzissims),
+        state
+            .player_state
+            .client
+            .featured_albums(AlbumFeaturedType::IdealDiscography),
+        state
+            .player_state
+            .client
+            .featured_playlists(PlaylistFeaturedType::EditorPicks),
     )
     .unwrap();
 

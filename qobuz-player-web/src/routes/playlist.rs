@@ -55,15 +55,27 @@ async fn shuffle(Path(id): Path<u32>) -> impl IntoResponse {
     qobuz_player_controls::play_playlist(id, 0, true);
 }
 
-async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::add_favorite_playlist(&id)
+async fn set_favorite(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .client
+        .add_favorite_playlist(&id)
         .await
         .unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
 
-async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::remove_favorite_playlist(&id)
+async fn unset_favorite(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .client
+        .remove_favorite_playlist(&id)
         .await
         .unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
@@ -71,8 +83,8 @@ async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
     let (playlist, favorites) = join!(
-        qobuz_player_controls::playlist(id),
-        qobuz_player_controls::favorites()
+        state.player_state.client.playlist(id),
+        state.player_state.client.favorites()
     );
 
     let playlist = playlist.unwrap();
@@ -101,7 +113,7 @@ async fn tracks_partial(
     State(state): State<Arc<AppState>>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
-    let playlist = qobuz_player_controls::playlist(id).await.unwrap();
+    let playlist = state.player_state.client.playlist(id).await.unwrap();
     let tracklist = state.player_state.tracklist.read().await;
 
     render(html! {

@@ -1,21 +1,20 @@
-use crate::models::{Artist, Favorites, Playlist, SearchResults, Track, TrackStatus};
-use cached::{Cached, proc_macro::cached};
+use crate::models::{Track, TrackStatus};
+use client::Client;
 use error::Error;
 use futures::prelude::*;
 use gstreamer::{Element, Message, MessageView, SeekFlags, Structure, prelude::*};
-use models::{Album, AlbumSimple, ArtistPage, image_to_string, parse_playlist};
+use models::Album;
 use notification::{Notification, PlayNotification};
-use qobuz_player_client::client::Client;
 use rand::seq::SliceRandom;
 use std::{
     str::FromStr,
-    sync::{Arc, LazyLock, OnceLock},
+    sync::{Arc, LazyLock},
     time::Duration,
 };
 use tokio::{
     select,
     sync::{
-        Mutex, RwLock,
+        RwLock,
         broadcast::{self, Receiver, Sender},
     },
 };
@@ -24,6 +23,7 @@ use tracklist::{SingleTracklist, Tracklist, TracklistType};
 
 pub use gstreamer::ClockTime;
 pub use qobuz_player_client::client::{AlbumFeaturedType, AudioQuality, PlaylistFeaturedType};
+pub mod client;
 pub mod error;
 pub mod models;
 pub mod notification;
@@ -106,59 +106,6 @@ static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
 ];
 
-static CLIENT: OnceLock<Client> = OnceLock::new();
-static CLIENT_INITIATED: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
-static CREDENTIALS: OnceLock<Credentials> = OnceLock::new();
-
-#[derive(Debug)]
-pub struct Credentials {
-    pub username: String,
-    pub password: String,
-}
-
-#[derive(Debug)]
-pub struct Configuration {
-    pub max_audio_quality: AudioQuality,
-}
-
-pub(crate) static CONFIGURATION: OnceLock<Configuration> = OnceLock::new();
-
-#[instrument]
-async fn init_client() -> Client {
-    tracing::info!("Logging in");
-    let credentials = CREDENTIALS.get().unwrap();
-    let configuration = CONFIGURATION.get().unwrap();
-
-    let client = qobuz_player_client::client::new(
-        &credentials.username,
-        &credentials.password,
-        configuration.max_audio_quality.clone(),
-    )
-    .await
-    .expect("error making client");
-
-    tracing::info!("Done");
-    client
-}
-
-async fn get_client() -> &'static Client {
-    if let Some(client) = CLIENT.get() {
-        return client;
-    }
-
-    let mut inititiated = CLIENT_INITIATED.lock().await;
-
-    if !*inititiated {
-        let client = init_client().await;
-
-        CLIENT.set(client).unwrap();
-        *inititiated = true;
-        drop(inititiated);
-    }
-
-    CLIENT.get().unwrap()
-}
-
 #[derive(Debug)]
 pub struct ReadOnly<T>(Arc<RwLock<T>>);
 
@@ -185,6 +132,7 @@ pub struct Player {
     tracklist: Arc<RwLock<Tracklist>>,
     target_status: Arc<RwLock<tracklist::Status>>,
     last_updated_tracklist: chrono::DateTime<chrono::Utc>,
+    client: Arc<Client>,
 }
 
 impl Player {
@@ -214,13 +162,17 @@ impl Player {
             }
         });
     }
-    pub fn new(tracklist: Arc<RwLock<Tracklist>>) -> (Self, Arc<RwLock<tracklist::Status>>) {
+    pub fn new(
+        tracklist: Arc<RwLock<Tracklist>>,
+        client: Arc<Client>,
+    ) -> (Self, Arc<RwLock<tracklist::Status>>) {
         let target_status = Arc::new(RwLock::new(Default::default()));
         (
             Self {
                 tracklist,
                 target_status: target_status.clone(),
                 last_updated_tracklist: chrono::Utc::now(),
+                client,
             },
             target_status,
         )
@@ -248,18 +200,16 @@ impl Player {
 
     async fn play(&mut self) -> Result<()> {
         if let Some(current_track_id) = self.tracklist.read().await.currently_playing() {
-            let client = get_client().await;
-            let track_url = self.track_url(client, current_track_id).await?;
+            let track_url = self.track_url(current_track_id).await?;
             self.query_track_url(&track_url).await?;
         }
 
         if chrono::Utc::now() - self.last_updated_tracklist > chrono::Duration::minutes(10) {
             let current_position = PLAYBIN.query_position::<ClockTime>().unwrap_or_default();
 
-            let client = get_client().await;
             if let Some(track_id) = self.tracklist.read().await.currently_playing() {
                 self.ready().await?;
-                let track_url = self.track_url(client, track_id).await?;
+                let track_url = self.track_url(track_id).await?;
                 self.query_track_url(&track_url).await?;
 
                 self.seek(current_position, None).await?;
@@ -296,12 +246,8 @@ impl Player {
         Ok(())
     }
 
-    async fn track_url(
-        &self,
-        client: &Client,
-        track_id: u32,
-    ) -> Result<String, qobuz_player_client::Error> {
-        client.track_url(track_id).await
+    async fn track_url(&self, track_id: u32) -> Result<String, qobuz_player_client::Error> {
+        self.client.track_url(track_id).await
     }
 
     async fn query_track_url(&self, track_url: &str) -> Result<()> {
@@ -338,8 +284,7 @@ impl Player {
 
                 if let Some(first_track) = tracklist.queue.first_mut() {
                     first_track.status = TrackStatus::Playing;
-                    let client = get_client().await;
-                    let track_url = client.track_url(first_track.id).await?;
+                    let track_url = self.client.track_url(first_track.id).await?;
                     PLAYBIN.set_property("uri", track_url);
                 }
 
@@ -489,14 +434,12 @@ impl Player {
 
         self.ready().await?;
 
-        let client = get_client().await;
-
         if let Some(next_track) = tracklist.skip_to_track(new_position) {
-            let next_track_url = self.track_url(client, next_track.id).await?;
+            let next_track_url = self.track_url(next_track.id).await?;
             self.query_track_url(&next_track_url).await?;
         } else if let Some(first_track) = tracklist.queue.first_mut() {
             first_track.status = TrackStatus::Playing;
-            let first_track_url = self.track_url(client, first_track.id).await?;
+            let first_track_url = self.track_url(first_track.id).await?;
 
             PLAYBIN.set_property("uri", first_track_url);
         }
@@ -527,11 +470,10 @@ impl Player {
     async fn play_track(&mut self, track_id: u32) -> Result<()> {
         self.ready().await?;
 
-        let client = get_client().await;
-        let track_url = self.track_url(client, track_id).await?;
+        let track_url = self.track_url(track_id).await?;
         self.query_track_url(&track_url).await?;
 
-        let mut track: Track = client.track(track_id).await?.into();
+        let mut track: Track = self.client.track(track_id).await?;
         let mut tracklist = self.tracklist.write().await;
 
         tracklist.list_type = TracklistType::Track(SingleTracklist {
@@ -552,9 +494,7 @@ impl Player {
     async fn play_album(&mut self, album_id: &str, index: u32) -> Result<()> {
         self.ready().await?;
 
-        let client = get_client().await;
-
-        let album: Album = client.album(album_id).await?.into();
+        let album: Album = self.client.album(album_id).await?;
 
         let unstreambale_tracks_to_index = album
             .tracks
@@ -567,7 +507,7 @@ impl Player {
         tracklist.queue = album.tracks.into_iter().filter(|t| t.available).collect();
 
         if let Some(track) = tracklist.skip_to_track(index - unstreambale_tracks_to_index) {
-            let track_url = self.track_url(client, track.id).await?;
+            let track_url = self.track_url(track.id).await?;
             self.query_track_url(&track_url).await?;
 
             tracklist.list_type = TracklistType::Album(tracklist::AlbumTracklist {
@@ -585,30 +525,10 @@ impl Player {
     async fn play_top_tracks(&mut self, artist_id: u32, index: u32) -> Result<()> {
         self.ready().await?;
 
-        let client = get_client().await;
-        let artist = client.artist(artist_id).await?;
-        let tracks: Vec<_> = artist
-            .top_tracks
-            .iter()
-            .map(|track| Track {
-                id: track.id,
-                title: track.title.clone(),
-                number: track.physical_support.track_number,
-                explicit: track.parental_warning,
-                hires_available: track.rights.hires_streamable,
-                available: track.rights.streamable,
-                status: Default::default(),
-                image: Some(track.album.image.large.clone()),
-                image_thumbnail: Some(track.album.image.small.clone()),
-                duration_seconds: track.duration,
-                artist_name: Some(artist.name.display.clone()),
-                artist_id: Some(artist.id),
-                album_title: Some(track.album.title.clone()),
-                album_id: Some(track.album.id.clone()),
-            })
-            .collect();
+        let artist = self.client.artist_page(artist_id).await?;
 
-        let unstreambale_tracks_to_index = tracks
+        let unstreambale_tracks_to_index = artist
+            .top_tracks
             .iter()
             .take(index as usize)
             .filter(|t| !t.available)
@@ -616,13 +536,13 @@ impl Player {
 
         let mut tracklist = self.tracklist.write().await;
         if let Some(track) = tracklist.skip_to_track(index - unstreambale_tracks_to_index) {
-            let track_url = self.track_url(client, track.id).await?;
+            let track_url = self.track_url(track.id).await?;
             self.query_track_url(&track_url).await?;
 
             tracklist.list_type = TracklistType::TopTracks(tracklist::TopTracklist {
-                artist_name: artist.name.display,
+                artist_name: artist.name,
                 id: artist_id,
-                image: artist.images.portrait.map(image_to_string),
+                image: artist.image,
             });
 
             self.broadcast_tracklist(tracklist.clone());
@@ -634,10 +554,7 @@ impl Player {
     async fn play_playlist(&mut self, playlist_id: u32, index: u32, shuffle: bool) -> Result<()> {
         self.ready().await?;
 
-        let client = get_client().await;
-
-        let playlist = client.playlist(playlist_id).await?;
-        let playlist = parse_playlist(playlist, client.get_user_id());
+        let playlist = self.client.playlist(playlist_id).await?;
 
         let unstreambale_tracks_to_index = playlist
             .tracks
@@ -661,7 +578,7 @@ impl Player {
         tracklist.queue = tracks;
 
         if let Some(track) = tracklist.skip_to_track(index - unstreambale_tracks_to_index) {
-            let track_url = self.track_url(client, track.id).await?;
+            let track_url = self.track_url(track.id).await?;
             self.query_track_url(&track_url).await?;
 
             tracklist.list_type = TracklistType::Playlist(tracklist::PlaylistTracklist {
@@ -681,8 +598,6 @@ impl Player {
     /// prepare the next track by downloading the stream url.
     async fn prep_next_track(&self) {
         tracing::info!("Prepping for next track");
-
-        let client = get_client().await;
 
         let tracklist = self.tracklist.read().await;
         let total_tracks = tracklist.total();
@@ -706,7 +621,7 @@ impl Player {
             .map(|t| t.1);
 
         if let Some(next_track) = next_track {
-            if let Ok(url) = self.track_url(client, next_track.id).await {
+            if let Ok(url) = self.track_url(next_track.id).await {
                 PLAYBIN.set_property("uri", url);
             }
         }
@@ -714,14 +629,7 @@ impl Player {
 
     /// Handles messages from GStreamer, receives player actions from external controls
     /// receives the about-to-finish event and takes necessary action.
-    pub async fn player_loop(
-        &mut self,
-        credentials: Credentials,
-        configuration: Configuration,
-    ) -> Result<()> {
-        CREDENTIALS.set(credentials).unwrap();
-        CONFIGURATION.set(configuration).unwrap();
-
+    pub async fn player_loop(&mut self) -> Result<()> {
         self.clock_loop().await;
         let mut messages = PLAYBIN.bus().unwrap().stream();
         let mut receiver = notify_receiver();
@@ -958,238 +866,6 @@ pub fn jump_backward() {
 /// Get a notification channel receiver
 pub fn notify_receiver() -> Receiver<Notification> {
     BROADCAST_CHANNELS.rx.resubscribe()
-}
-
-#[instrument]
-#[cached(size = 100, time = 7200)]
-pub async fn search(query: String) -> Result<SearchResults> {
-    let client = get_client().await;
-    let user_id = client.get_user_id();
-
-    let results = client.search_all(&query, 20).await?;
-    Ok(models::parse_search_results(results, user_id))
-}
-
-#[instrument]
-#[cached(size = 100, time = 7200)]
-/// Get artist page
-pub async fn artist_page(artist_id: u32) -> Result<ArtistPage> {
-    let client = get_client().await;
-    let artist = client.artist(artist_id).await?;
-    Ok(artist.into())
-}
-
-#[instrument]
-#[cached(size = 100, time = 7200)]
-/// Get similar artists
-pub async fn similar_artists(artist_id: u32) -> Result<Vec<Artist>> {
-    let client = get_client().await;
-    let similar_artists = client.similar_artists(artist_id, None).await?;
-
-    Ok(similar_artists
-        .items
-        .into_iter()
-        .map(|s_a| s_a.into())
-        .collect())
-}
-
-#[instrument]
-#[cached(size = 100, time = 7200)]
-/// Get album
-pub async fn album(id: String) -> Result<Album> {
-    let client = get_client().await;
-    let album = client.album(&id).await?;
-    Ok(album.into())
-}
-
-#[instrument]
-#[cached(size = 500, time = 7200)]
-/// Get track
-pub async fn track(id: u32) -> Result<Track> {
-    let client = get_client().await;
-    Ok(client.track(id).await?.into())
-}
-
-#[instrument]
-#[cached(size = 100, time = 7200)]
-/// Get suggested albums
-pub async fn suggested_albums(album_id: String) -> Result<Vec<AlbumSimple>> {
-    let client = get_client().await;
-    let suggested_albums = client.suggested_albums(&album_id).await?;
-
-    Ok(suggested_albums
-        .albums
-        .items
-        .into_iter()
-        .map(|x| {
-            let album: AlbumSimple = x.into();
-            album
-        })
-        .collect())
-}
-
-#[instrument]
-#[cached(size = 4, time = 7200)]
-/// Get featured albums
-pub async fn featured_albums(featured_type: AlbumFeaturedType) -> Result<Vec<AlbumSimple>> {
-    let client = get_client().await;
-    let featured = client.featured_albums(featured_type).await?;
-
-    Ok(featured
-        .albums
-        .items
-        .into_iter()
-        .map(|value| AlbumSimple {
-            id: value.id,
-            title: value.title,
-            artist: value.artist.into(),
-            hires_available: value.hires_streamable,
-            explicit: value.parental_warning,
-            available: value.streamable,
-            image: value.image.large,
-        })
-        .collect())
-}
-
-#[instrument]
-#[cached(size = 1, time = 7200)]
-/// Get featured albums
-pub async fn featured_playlists(featured_type: PlaylistFeaturedType) -> Result<Vec<Playlist>> {
-    let client = get_client().await;
-    let user_id = client.get_user_id();
-    let featured = client.featured_playlists(featured_type).await?;
-
-    Ok(featured
-        .playlists
-        .items
-        .into_iter()
-        .map(|playlist| models::parse_playlist(playlist, user_id))
-        .collect())
-}
-
-#[instrument]
-#[cached(size = 100, time = 7200)]
-/// Get playlist
-pub async fn playlist(id: u32) -> Result<Playlist> {
-    let client = get_client().await;
-    let user_id = client.get_user_id();
-    let playlist = client.playlist(id).await?;
-
-    Ok(models::parse_playlist(playlist, user_id))
-}
-
-#[instrument]
-#[cached(size = 100, time = 7200)]
-/// Fetch the albums for a specific artist.
-pub async fn artist_albums(artist_id: u32) -> Result<Vec<AlbumSimple>> {
-    let client = get_client().await;
-    let albums = client.artist_releases(artist_id, None).await?;
-
-    Ok(albums.into_iter().map(|release| release.into()).collect())
-}
-
-#[instrument]
-/// Add album to favorites
-pub async fn add_favorite_album(id: &str) -> Result<()> {
-    let client = get_client().await;
-    client.add_favorite_album(id).await?;
-
-    FAVORITES.lock().await.cache_clear();
-    Ok(())
-}
-
-#[instrument]
-/// Remove album from favorites
-pub async fn remove_favorite_album(id: &str) -> Result<()> {
-    let client = get_client().await;
-    client.remove_favorite_album(id).await?;
-
-    FAVORITES.lock().await.cache_clear();
-    Ok(())
-}
-
-#[instrument]
-/// Add artist to favorites
-pub async fn add_favorite_artist(id: &str) -> Result<()> {
-    let client = get_client().await;
-    client.add_favorite_artist(id).await?;
-
-    FAVORITES.lock().await.cache_clear();
-    Ok(())
-}
-
-#[instrument]
-/// Remove artist from favorites
-pub async fn remove_favorite_artist(id: &str) -> Result<()> {
-    let client = get_client().await;
-    client.remove_favorite_artist(id).await?;
-
-    FAVORITES.lock().await.cache_clear();
-    Ok(())
-}
-
-#[instrument]
-/// Add playlist to favorites
-pub async fn add_favorite_playlist(id: &str) -> Result<()> {
-    let client = get_client().await;
-    client.add_favorite_playlist(id).await?;
-
-    FAVORITES.lock().await.cache_clear();
-    Ok(())
-}
-
-#[instrument]
-/// Remove playlist from favorites
-pub async fn remove_favorite_playlist(id: &str) -> Result<()> {
-    let client = get_client().await;
-    client.remove_favorite_playlist(id).await?;
-
-    FAVORITES.lock().await.cache_clear();
-    Ok(())
-}
-
-#[instrument]
-/// Fetch the current user's list of playlists.
-async fn user_playlists(client: &Client) -> Result<Vec<Playlist>> {
-    let user_id = client.get_user_id();
-    let playlists = client.user_playlists().await?;
-
-    Ok(playlists
-        .playlists
-        .items
-        .into_iter()
-        .map(|playlist| models::parse_playlist(playlist, user_id))
-        .collect())
-}
-
-#[instrument]
-#[cached(size = 1, time = 7200)]
-/// Get favorites
-pub async fn favorites() -> Result<Favorites> {
-    let client = get_client().await;
-    let (favorites, favorite_playlists) =
-        tokio::join!(client.favorites(1000), user_playlists(client));
-
-    let mut favorite_playlists = favorite_playlists.unwrap_or_default();
-
-    let qobuz_player_client::qobuz_models::favorites::Favorites {
-        albums,
-        tracks: _,
-        artists,
-    } = favorites?;
-    let mut albums = albums.items;
-    albums.sort_by(|a, b| a.artist.name.cmp(&b.artist.name));
-
-    let mut artists = artists.items;
-    artists.sort_by(|a, b| a.name.cmp(&b.name));
-
-    favorite_playlists.sort_by(|a, b| a.title.cmp(&b.title));
-
-    Ok(Favorites {
-        albums: albums.into_iter().map(|x| x.into()).collect(),
-        artists: artists.into_iter().map(|x| x.into()).collect(),
-        playlists: favorite_playlists,
-    })
 }
 
 pub fn send_message(message: notification::Message) {

@@ -25,7 +25,7 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 }
 
 async fn index(State(state): State<Arc<AppState>>, Path(tab): Path<Tab>) -> impl IntoResponse {
-    let favorites = qobuz_player_controls::favorites().await.unwrap();
+    let favorites = state.player_state.client.favorites().await.unwrap();
 
     let tracklist = state.player_state.tracklist.read().await;
     let current_status = state.player_state.target_status.read().await;

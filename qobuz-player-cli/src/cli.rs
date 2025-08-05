@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
-use qobuz_player_controls::{AudioQuality, Player, notification::Notification};
+use qobuz_player_controls::{AudioQuality, Player, client::Client, notification::Notification};
 use qobuz_player_state::{State, database::Database};
 use snafu::prelude::*;
 use tokio::sync::RwLock;
@@ -131,20 +131,6 @@ pub async fn run() -> Result<(), Error> {
                 database.get_tracklist().await.unwrap_or_default(),
             ));
 
-            let (mut player, status) = Player::new(tracklist.clone());
-
-            let state = Arc::new(
-                State::new(
-                    cli.rfid,
-                    cli.interface,
-                    cli.web_secret,
-                    tracklist.clone(),
-                    database,
-                    status.into(),
-                )
-                .await,
-            );
-
             let username = cli.username.unwrap_or_else(|| {
                 database_credentials
                     .username
@@ -160,6 +146,23 @@ pub async fn run() -> Result<(), Error> {
             let max_audio_quality = cli
                 .max_audio_quality
                 .unwrap_or_else(|| database_configuration.max_audio_quality.try_into().unwrap());
+
+            let client = Arc::new(Client::new(username, password, max_audio_quality));
+
+            let (mut player, status) = Player::new(tracklist.clone(), client.clone());
+
+            let state = Arc::new(
+                State::new(
+                    client,
+                    cli.rfid,
+                    cli.interface,
+                    cli.web_secret,
+                    tracklist.clone(),
+                    database,
+                    status.into(),
+                )
+                .await,
+            );
 
             #[cfg(target_os = "linux")]
             if !cli.disable_mpris {
@@ -184,13 +187,7 @@ pub async fn run() -> Result<(), Error> {
             }
 
             tokio::spawn(async move {
-                match player
-                    .player_loop(
-                        qobuz_player_controls::Credentials { username, password },
-                        qobuz_player_controls::Configuration { max_audio_quality },
-                    )
-                    .await
-                {
+                match player.player_loop().await {
                     Ok(_) => debug!("player loop exited successfully"),
                     Err(error) => debug!("player loop error {error}"),
                 }
