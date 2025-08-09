@@ -88,7 +88,7 @@ pub(crate) struct UnfilteredListState<T> {
 
 impl App {
     pub(crate) async fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        let mut receiver = qobuz_player_controls::notify_receiver();
+        let mut receiver = self.state.broadcast.notify_receiver();
         let mut tick_interval = time::interval(Duration::from_millis(10));
 
         while !self.exit {
@@ -214,23 +214,23 @@ impl App {
                         self.should_draw = true;
                     }
                     KeyCode::Char(' ') => {
-                        qobuz_player_controls::play_pause();
+                        self.state.broadcast.play_pause();
                         self.should_draw = true;
                     }
                     KeyCode::Char('n') => {
-                        qobuz_player_controls::next();
+                        self.state.broadcast.next();
                         self.should_draw = true;
                     }
                     KeyCode::Char('p') => {
-                        qobuz_player_controls::previous();
+                        self.state.broadcast.previous();
                         self.should_draw = true;
                     }
                     KeyCode::Char('f') => {
-                        qobuz_player_controls::jump_forward();
+                        self.state.broadcast.jump_forward();
                         self.should_draw = true;
                     }
                     KeyCode::Char('b') => {
-                        qobuz_player_controls::jump_backward();
+                        self.state.broadcast.jump_backward();
                         self.should_draw = true;
                     }
                     _ => {}
@@ -246,19 +246,19 @@ impl App {
     async fn handle_playoutcome(&mut self, outcome: PlayOutcome) {
         match outcome {
             PlayOutcome::Album(id) => {
-                qobuz_player_controls::play_album(&id, 0);
+                self.state.broadcast.play_album(&id, 0);
             }
 
             PlayOutcome::Playlist(outcome) => {
-                qobuz_player_controls::play_playlist(outcome.0, 0, outcome.1);
+                self.state.broadcast.play_playlist(outcome.0, 0, outcome.1);
             }
 
             PlayOutcome::Track(id) => {
-                qobuz_player_controls::play_track(id);
+                self.state.broadcast.play_track(id);
             }
 
             PlayOutcome::SkipToPosition(index) => {
-                qobuz_player_controls::skip_to_position(index, true);
+                self.state.broadcast.skip_to_position(index, true);
             }
         }
     }

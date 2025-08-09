@@ -25,7 +25,7 @@ impl RootInterface for MprisPlayer {
         Err(fdo::Error::NotSupported("Not supported".into()))
     }
     async fn quit(&self) -> fdo::Result<()> {
-        qobuz_player_controls::quit();
+        self.state.broadcast.quit();
         Ok(())
     }
     async fn can_quit(&self) -> fdo::Result<bool> {
@@ -59,38 +59,38 @@ impl RootInterface for MprisPlayer {
 
 impl PlayerInterface for MprisPlayer {
     async fn next(&self) -> fdo::Result<()> {
-        qobuz_player_controls::next();
+        self.state.broadcast.next();
         Ok(())
     }
 
     async fn previous(&self) -> fdo::Result<()> {
-        qobuz_player_controls::previous();
+        self.state.broadcast.previous();
         Ok(())
     }
 
     async fn pause(&self) -> fdo::Result<()> {
-        qobuz_player_controls::pause();
+        self.state.broadcast.pause();
         Ok(())
     }
 
     async fn play_pause(&self) -> fdo::Result<()> {
-        qobuz_player_controls::play_pause();
+        self.state.broadcast.play_pause();
         Ok(())
     }
 
     async fn stop(&self) -> fdo::Result<()> {
-        qobuz_player_controls::stop();
+        self.state.broadcast.stop();
         Ok(())
     }
 
     async fn play(&self) -> fdo::Result<()> {
-        qobuz_player_controls::play();
+        self.state.broadcast.play();
         Ok(())
     }
 
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
         let clock = ClockTime::from_seconds(offset.as_secs() as u64);
-        qobuz_player_controls::seek(clock);
+        self.state.broadcast.seek(clock);
         Ok(())
     }
 
@@ -154,7 +154,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn set_volume(&self, volume: Volume) -> zbus::Result<()> {
-        qobuz_player_controls::set_volume(volume);
+        self.state.broadcast.set_volume(volume);
         Ok(())
     }
 
@@ -200,11 +200,11 @@ impl PlayerInterface for MprisPlayer {
 }
 
 pub async fn init(state: Arc<State>) {
+    let mut receiver = state.broadcast.notify_receiver();
+
     let server = Server::new("com.github.sofusa-quboz-player", MprisPlayer { state })
         .await
         .unwrap();
-
-    let mut receiver = qobuz_player_controls::notify_receiver();
 
     loop {
         if let Ok(notification) = receiver.recv().await {

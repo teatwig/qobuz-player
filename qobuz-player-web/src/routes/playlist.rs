@@ -35,12 +35,18 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         .route("/playlist/{id}/link", put(link))
 }
 
-async fn play_track(Path((id, track_position)): Path<(u32, u32)>) -> impl IntoResponse {
-    qobuz_player_controls::play_playlist(id, track_position, false);
+async fn play_track(
+    State(state): State<Arc<AppState>>,
+    Path((id, track_position)): Path<(u32, u32)>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .broadcast
+        .play_playlist(id, track_position, false);
 }
 
-async fn play(Path(id): Path<u32>) -> impl IntoResponse {
-    qobuz_player_controls::play_playlist(id, 0, false);
+async fn play(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
+    state.player_state.broadcast.play_playlist(id, 0, false);
 }
 
 async fn link(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
@@ -51,8 +57,8 @@ async fn link(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl I
     .await;
 }
 
-async fn shuffle(Path(id): Path<u32>) -> impl IntoResponse {
-    qobuz_player_controls::play_playlist(id, 0, true);
+async fn shuffle(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
+    state.player_state.broadcast.play_playlist(id, 0, true);
 }
 
 async fn set_favorite(

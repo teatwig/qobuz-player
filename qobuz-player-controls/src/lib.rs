@@ -83,7 +83,7 @@ static PLAYBIN: LazyLock<Element> = LazyLock::new(|| {
     // can setup the next track to play. Enables gapless playback.
     playbin.connect("about-to-finish", false, move |_| {
         tracing::debug!("about to finish");
-        track_about_to_finish();
+        // track_about_to_finish();
 
         None
     });
@@ -91,15 +91,11 @@ static PLAYBIN: LazyLock<Element> = LazyLock::new(|| {
     playbin
 });
 
-struct Broadcast {
+#[derive(Debug)]
+pub struct Broadcast {
     tx: Sender<Notification>,
     rx: Receiver<Notification>,
 }
-
-static BROADCAST_CHANNELS: LazyLock<Broadcast> = LazyLock::new(|| {
-    let (tx, rx) = broadcast::channel(20);
-    Broadcast { tx, rx }
-});
 
 static USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
@@ -133,22 +129,27 @@ pub struct Player {
     target_status: Arc<RwLock<tracklist::Status>>,
     last_updated_tracklist: chrono::DateTime<chrono::Utc>,
     client: Arc<Client>,
+    broadcast: Arc<Broadcast>,
 }
 
 impl Player {
     pub fn new(
         tracklist: Arc<RwLock<Tracklist>>,
         client: Arc<Client>,
-    ) -> (Self, Arc<RwLock<tracklist::Status>>) {
+    ) -> (Self, Arc<RwLock<tracklist::Status>>, Arc<Broadcast>) {
         let target_status = Arc::new(RwLock::new(Default::default()));
+        let (tx, rx) = broadcast::channel(20);
+        let broadcast = Arc::new(Broadcast { tx, rx });
         (
             Self {
                 tracklist,
                 target_status: target_status.clone(),
                 last_updated_tracklist: chrono::Utc::now(),
                 client,
+                broadcast: broadcast.clone(),
             },
             target_status,
+            broadcast,
         )
     }
 
@@ -209,7 +210,7 @@ impl Player {
         let mut target_status = self.target_status.write().await;
         *target_status = state;
 
-        BROADCAST_CHANNELS
+        self.broadcast
             .tx
             .send(Notification::Status { status: state })
             .unwrap();
@@ -282,7 +283,7 @@ impl Player {
                     position().unwrap_or_default()
                 };
 
-                BROADCAST_CHANNELS
+                self.broadcast
                     .tx
                     .send(Notification::Position { clock: position })?;
             }
@@ -306,7 +307,7 @@ impl Player {
                 self.play().await?;
             }
             MessageView::Error(err) => {
-                BROADCAST_CHANNELS.tx.send(Notification::Message {
+                self.broadcast.tx.send(Notification::Message {
                     message: notification::Message::Error(err.to_string()),
                 })?;
 
@@ -328,7 +329,7 @@ impl Player {
     }
 
     fn broadcast_tracklist(&self, tracklist: Tracklist) {
-        BROADCAST_CHANNELS
+        self.broadcast
             .tx
             .send(Notification::CurrentTrackList { tracklist })
             .unwrap();
@@ -605,7 +606,7 @@ impl Player {
     /// receives the about-to-finish event and takes necessary action.
     pub async fn player_loop(&mut self) -> Result<()> {
         let mut messages = PLAYBIN.bus().unwrap().stream();
-        let mut receiver = notify_receiver();
+        let mut receiver = self.broadcast.notify_receiver();
 
         let mut interval = tokio::time::interval(Duration::from_millis(500));
         let mut last_position = ClockTime::default();
@@ -619,7 +620,7 @@ impl Player {
                             if position.seconds() != last_position.seconds() {
                                 last_position = position;
 
-                                BROADCAST_CHANNELS
+                                self.broadcast
                                     .tx
                                     .send(Notification::Position { clock: position })
                                     .expect("failed to send notification");
@@ -704,105 +705,127 @@ impl Player {
     }
 }
 
-pub fn quit() {
-    BROADCAST_CHANNELS.tx.send(Notification::Quit).unwrap();
-}
+impl Broadcast {
+    pub fn quit(&self) {
+        self.tx.send(Notification::Quit).unwrap();
+    }
 
-pub fn track_about_to_finish() {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::TrackAboutToFinish))
-        .unwrap();
-}
+    pub fn track_about_to_finish(&self) {
+        self.tx
+            .send(Notification::Play(PlayNotification::TrackAboutToFinish))
+            .unwrap();
+    }
 
-pub fn next() {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::Next))
-        .unwrap();
-}
+    pub fn next(&self) {
+        self.tx
+            .send(Notification::Play(PlayNotification::Next))
+            .unwrap();
+    }
 
-pub fn previous() {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::Previous))
-        .unwrap();
-}
+    pub fn previous(&self) {
+        self.tx
+            .send(Notification::Play(PlayNotification::Previous))
+            .unwrap();
+    }
 
-pub fn play_pause() {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::PlayPause))
-        .unwrap();
-}
+    pub fn play_pause(&self) {
+        self.tx
+            .send(Notification::Play(PlayNotification::PlayPause))
+            .unwrap();
+    }
 
-pub fn play() {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::Play))
-        .unwrap();
-}
+    pub fn play(&self) {
+        self.tx
+            .send(Notification::Play(PlayNotification::Play))
+            .unwrap();
+    }
 
-pub fn pause() {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::Pause))
-        .unwrap();
-}
+    pub fn pause(&self) {
+        self.tx
+            .send(Notification::Play(PlayNotification::Pause))
+            .unwrap();
+    }
 
-pub fn play_album(id: &str, index: u32) {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::Album {
-            id: id.to_string(),
-            index,
-        }))
-        .unwrap();
-}
+    pub fn play_album(&self, id: &str, index: u32) {
+        self.tx
+            .send(Notification::Play(PlayNotification::Album {
+                id: id.to_string(),
+                index,
+            }))
+            .unwrap();
+    }
 
-pub fn play_playlist(id: u32, index: u32, shuffle: bool) {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::Playlist {
-            id,
-            index,
-            shuffle,
-        }))
-        .unwrap();
-}
+    pub fn play_playlist(&self, id: u32, index: u32, shuffle: bool) {
+        self.tx
+            .send(Notification::Play(PlayNotification::Playlist {
+                id,
+                index,
+                shuffle,
+            }))
+            .unwrap();
+    }
 
-pub fn play_track(id: u32) {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::Track { id }))
-        .unwrap();
-}
+    pub fn play_track(&self, id: u32) {
+        self.tx
+            .send(Notification::Play(PlayNotification::Track { id }))
+            .unwrap();
+    }
 
-pub fn play_top_tracks(artist_id: u32, index: u32) {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::ArtistTopTracks {
-            artist_id,
-            index,
-        }))
-        .unwrap();
-}
+    pub fn play_top_tracks(&self, artist_id: u32, index: u32) {
+        self.tx
+            .send(Notification::Play(PlayNotification::ArtistTopTracks {
+                artist_id,
+                index,
+            }))
+            .unwrap();
+    }
 
-pub fn skip_to_position(index: u32, force: bool) {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::SkipToPosition {
-            new_position: index,
-            force,
-        }))
-        .unwrap();
-}
+    pub fn skip_to_position(&self, index: u32, force: bool) {
+        self.tx
+            .send(Notification::Play(PlayNotification::SkipToPosition {
+                new_position: index,
+                force,
+            }))
+            .unwrap();
+    }
 
-pub fn stop() {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::Stop))
-        .unwrap();
+    pub fn stop(&self) {
+        self.tx
+            .send(Notification::Play(PlayNotification::Stop))
+            .unwrap();
+    }
+
+    pub fn set_volume(&self, value: f64) {
+        self.tx
+            .send(Notification::Volume { volume: value })
+            .unwrap();
+    }
+
+    pub fn seek(&self, time: ClockTime) {
+        self.tx
+            .send(Notification::Play(PlayNotification::Seek { time }))
+            .unwrap();
+    }
+
+    pub fn jump_forward(&self) {
+        self.tx
+            .send(Notification::Play(PlayNotification::JumpForward))
+            .unwrap();
+    }
+
+    pub fn jump_backward(&self) {
+        self.tx
+            .send(Notification::Play(PlayNotification::JumpBackward))
+            .unwrap();
+    }
+
+    pub fn notify_receiver(&self) -> Receiver<Notification> {
+        self.rx.resubscribe()
+    }
+
+    pub fn send_message(&self, message: notification::Message) {
+        self.tx.send(Notification::Message { message }).unwrap();
+    }
 }
 
 #[instrument]
@@ -815,53 +838,4 @@ pub fn position() -> Option<ClockTime> {
 /// Current volume
 pub fn volume() -> f64 {
     PLAYBIN.property::<f64>("volume").powf(1.0 / 3.0)
-}
-
-#[instrument]
-/// Set volume
-pub fn set_volume(value: f64) {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Volume { volume: value })
-        .unwrap();
-}
-
-#[instrument]
-/// Seek to a specified time in the current track.
-pub fn seek(time: ClockTime) {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::Seek { time }))
-        .unwrap();
-}
-
-#[instrument]
-/// Jump forward in the currently playing track +10 seconds.
-pub fn jump_forward() {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::JumpForward))
-        .unwrap();
-}
-
-#[instrument]
-/// Jump forward in the currently playing track -10 seconds.
-pub fn jump_backward() {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Play(PlayNotification::JumpBackward))
-        .unwrap();
-}
-
-#[instrument]
-/// Get a notification channel receiver
-pub fn notify_receiver() -> Receiver<Notification> {
-    BROADCAST_CHANNELS.rx.resubscribe()
-}
-
-pub fn send_message(message: notification::Message) {
-    BROADCAST_CHANNELS
-        .tx
-        .send(Notification::Message { message })
-        .unwrap();
 }

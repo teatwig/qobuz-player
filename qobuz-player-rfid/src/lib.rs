@@ -41,21 +41,21 @@ async fn handle_play_scan(state: &State, res: &str) {
         LinkRequest::Album(id) => {
             if let tracklist::TracklistType::Album(now_playing) = now_playing {
                 if now_playing.id == id {
-                    qobuz_player_controls::play_pause();
+                    state.broadcast.play_pause();
                     return;
                 }
             }
 
-            qobuz_player_controls::play_album(&id, 0)
+            state.broadcast.play_album(&id, 0)
         }
         LinkRequest::Playlist(id) => {
             if let tracklist::TracklistType::Playlist(now_playing) = now_playing {
                 if now_playing.id == id {
-                    qobuz_player_controls::play_pause();
+                    state.broadcast.play_pause();
                     return;
                 }
             }
-            qobuz_player_controls::play_playlist(id, 0, false);
+            state.broadcast.play_playlist(id, 0, false);
         }
     }
 }
@@ -68,9 +68,11 @@ pub async fn link(state: Arc<State>, request: LinkRequest) {
         LinkRequest::Playlist(_) => "playlist",
     };
 
-    qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Info(
-        format!("Scan rfid to link {type_string}"),
-    ));
+    state
+        .broadcast
+        .send_message(qobuz_player_controls::notification::Message::Info(format!(
+            "Scan rfid to link {type_string}"
+        )));
 
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
@@ -78,9 +80,11 @@ pub async fn link(state: Arc<State>, request: LinkRequest) {
         let request_ongoing = state.link_request.lock().await.is_some();
 
         if request_ongoing {
-            qobuz_player_controls::send_message(
-                qobuz_player_controls::notification::Message::Warning("Scan cancelled".to_string()),
-            );
+            state
+                .broadcast
+                .send_message(qobuz_player_controls::notification::Message::Warning(
+                    "Scan cancelled".to_string(),
+                ));
             set_state(state, None).await;
         }
     });
@@ -98,9 +102,11 @@ fn submit_link_album(state: Arc<State>, rfid_id: &str, id: &str) {
     tokio::spawn(async move {
         state.database.add_rfid_reference(rfid_id, reference).await;
 
-        qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Success(
-            "Link completed".to_string(),
-        ));
+        state
+            .broadcast
+            .send_message(qobuz_player_controls::notification::Message::Success(
+                "Link completed".to_string(),
+            ));
 
         set_state(state, None).await;
     });
@@ -113,9 +119,11 @@ fn submit_link_playlist(state: Arc<State>, rfid_id: &str, id: u32) {
     tokio::spawn(async move {
         state.database.add_rfid_reference(rfid_id, reference).await;
 
-        qobuz_player_controls::send_message(qobuz_player_controls::notification::Message::Success(
-            "Link completed".to_string(),
-        ));
+        state
+            .broadcast
+            .send_message(qobuz_player_controls::notification::Message::Success(
+                "Link completed".to_string(),
+            ));
         set_state(state, None).await;
     });
 }

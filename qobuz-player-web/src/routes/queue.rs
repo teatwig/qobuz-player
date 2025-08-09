@@ -24,8 +24,14 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         .route("/queue/skip-to/{track_number}", put(skip_to))
 }
 
-async fn skip_to(Path(track_number): Path<u32>) -> impl IntoResponse {
-    qobuz_player_controls::skip_to_position(track_number, true);
+async fn skip_to(
+    State(state): State<Arc<AppState>>,
+    Path(track_number): Path<u32>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .broadcast
+        .skip_to_position(track_number, true);
 }
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {

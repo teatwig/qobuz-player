@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use database::{Database, LinkRequest};
 use qobuz_player_controls::{
-    ReadOnly,
+    Broadcast, ReadOnly,
     client::Client,
     tracklist::{self, Tracklist},
 };
@@ -19,9 +19,11 @@ pub struct State {
     pub link_request: Mutex<Option<LinkRequest>>,
     pub tracklist: ReadOnly<Tracklist>,
     pub target_status: ReadOnly<tracklist::Status>,
+    pub broadcast: Arc<Broadcast>,
 }
 
 impl State {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         client: Arc<Client>,
         rfid: bool,
@@ -30,6 +32,7 @@ impl State {
         tracklist: Arc<RwLock<Tracklist>>,
         database: Database,
         target_status: ReadOnly<tracklist::Status>,
+        broadcast: Arc<Broadcast>,
     ) -> Self {
         let link_request = Mutex::new(None);
 
@@ -42,6 +45,7 @@ impl State {
             link_request,
             tracklist: tracklist.into(),
             target_status,
+            broadcast,
         }
     }
 }

@@ -34,8 +34,11 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         .route("/album/{id}/link", put(link))
 }
 
-async fn play_track(Path((id, track_position)): Path<(String, u32)>) -> impl IntoResponse {
-    qobuz_player_controls::play_album(&id, track_position);
+async fn play_track(
+    State(state): State<Arc<AppState>>,
+    Path((id, track_position)): Path<(String, u32)>,
+) -> impl IntoResponse {
+    state.player_state.broadcast.play_album(&id, track_position);
 }
 
 async fn set_favorite(
@@ -64,8 +67,8 @@ async fn unset_favorite(
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
 
-async fn play(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::play_album(&id, 0);
+async fn play(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
+    state.player_state.broadcast.play_album(&id, 0);
 }
 
 async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {

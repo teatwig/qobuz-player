@@ -37,8 +37,11 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         .route("/play-track/{track_id}", put(play_track))
 }
 
-async fn play_track(Path(track_id): Path<u32>) -> impl IntoResponse {
-    qobuz_player_controls::play_track(track_id);
+async fn play_track(
+    State(state): State<Arc<AppState>>,
+    Path(track_id): Path<u32>,
+) -> impl IntoResponse {
+    state.player_state.broadcast.play_track(track_id);
 }
 
 #[derive(Deserialize, Clone)]

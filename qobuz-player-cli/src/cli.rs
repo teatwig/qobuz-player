@@ -149,7 +149,7 @@ pub async fn run() -> Result<(), Error> {
 
             let client = Arc::new(Client::new(username, password, max_audio_quality));
 
-            let (mut player, status) = Player::new(tracklist.clone(), client.clone());
+            let (mut player, status, broadcast) = Player::new(tracklist.clone(), client.clone());
 
             let state = Arc::new(
                 State::new(
@@ -160,6 +160,7 @@ pub async fn run() -> Result<(), Error> {
                     tracklist.clone(),
                     database,
                     status.into(),
+                    broadcast.clone(),
                 )
                 .await,
             );
@@ -200,19 +201,19 @@ pub async fn run() -> Result<(), Error> {
 
             if cli.rfid {
                 qobuz_player_rfid::init(state.clone()).await;
-                qobuz_player_controls::quit();
+                broadcast.quit();
             } else if !cli.disable_tui {
                 qobuz_player_tui::init(state.clone()).await;
 
                 debug!("tui exited, quitting");
-                qobuz_player_controls::quit();
+                broadcast.quit();
             } else {
                 debug!("waiting for ctrlc");
                 tokio::signal::ctrl_c()
                     .await
                     .expect("error waiting for ctrlc");
                 debug!("ctrlc received, quitting");
-                qobuz_player_controls::quit();
+                broadcast.quit();
             };
 
             Ok(())
@@ -252,7 +253,7 @@ pub async fn run() -> Result<(), Error> {
 }
 
 async fn store_state_loop(state: Arc<State>) {
-    let mut broadcast_receiver = qobuz_player_controls::notify_receiver();
+    let mut broadcast_receiver = state.broadcast.notify_receiver();
 
     loop {
         if let Ok(Notification::CurrentTrackList { tracklist }) = broadcast_receiver.recv().await {

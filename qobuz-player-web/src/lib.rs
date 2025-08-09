@@ -8,7 +8,7 @@ use axum::{
 use futures::stream::Stream;
 use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
-use qobuz_player_controls::{notification::Notification, tracklist};
+use qobuz_player_controls::{Broadcast, notification::Notification, tracklist};
 use routes::{
     album, artist, auth, controls, discover, favorites, now_playing, playlist, queue, search,
 };
@@ -29,11 +29,11 @@ pub async fn init(state: Arc<qobuz_player_state::State>) {
         .await
         .unwrap();
 
-    let router = create_router(state).await;
+    let router = create_router(state.clone()).await;
 
     axum::serve(listener, router)
-        .with_graceful_shutdown(async {
-            let mut broadcast_receiver = qobuz_player_controls::notify_receiver();
+        .with_graceful_shutdown(async move {
+            let mut broadcast_receiver = state.broadcast.notify_receiver();
 
             loop {
                 if let Ok(message) = broadcast_receiver.recv().await {
@@ -53,7 +53,7 @@ async fn create_router(state: Arc<qobuz_player_state::State>) -> Router {
         tx: tx.clone(),
         player_state: state.clone(),
     });
-    tokio::spawn(background_task(tx));
+    tokio::spawn(background_task(tx, state.broadcast.clone()));
 
     axum::Router::new()
         .route("/sse", get(sse_handler))
@@ -75,8 +75,8 @@ async fn create_router(state: Arc<qobuz_player_state::State>) -> Router {
         .with_state(shared_state.clone())
 }
 
-async fn background_task(tx: Sender<ServerSentEvent>) {
-    let mut receiver = qobuz_player_controls::notify_receiver();
+async fn background_task(tx: Sender<ServerSentEvent>, receiver: Arc<Broadcast>) {
+    let mut receiver = receiver.notify_receiver();
 
     loop {
         if let Ok(notification) = receiver.recv().await {
