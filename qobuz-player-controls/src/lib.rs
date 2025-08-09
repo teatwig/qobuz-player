@@ -136,32 +136,6 @@ pub struct Player {
 }
 
 impl Player {
-    async fn clock_loop(&self) {
-        tracing::debug!("starting clock loop");
-
-        let target_status = self.target_status.clone();
-
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(500));
-            let mut last_position = ClockTime::default();
-            loop {
-                interval.tick().await;
-                let target_status = *target_status.read().await;
-                if target_status == tracklist::Status::Playing {
-                    if let Some(position) = position() {
-                        if position.seconds() != last_position.seconds() {
-                            last_position = position;
-
-                            BROADCAST_CHANNELS
-                                .tx
-                                .send(Notification::Position { clock: position })
-                                .expect("failed to send notification");
-                        }
-                    }
-                }
-            }
-        });
-    }
     pub fn new(
         tracklist: Arc<RwLock<Tracklist>>,
         client: Arc<Client>,
@@ -630,12 +604,29 @@ impl Player {
     /// Handles messages from GStreamer, receives player actions from external controls
     /// receives the about-to-finish event and takes necessary action.
     pub async fn player_loop(&mut self) -> Result<()> {
-        self.clock_loop().await;
         let mut messages = PLAYBIN.bus().unwrap().stream();
         let mut receiver = notify_receiver();
 
+        let mut interval = tokio::time::interval(Duration::from_millis(500));
+        let mut last_position = ClockTime::default();
+
         loop {
             select! {
+                _ = interval.tick() => {
+                    let target_status = *self.target_status.read().await;
+                    if target_status == tracklist::Status::Playing {
+                        if let Some(position) = position() {
+                            if position.seconds() != last_position.seconds() {
+                                last_position = position;
+
+                                BROADCAST_CHANNELS
+                                    .tx
+                                    .send(Notification::Position { clock: position })
+                                    .expect("failed to send notification");
+                            }
+                        }
+                    }
+                }
                 Some(msg) = messages.next() => {
                     match self.handle_message(&msg).await {
                         Ok(_) => {},
