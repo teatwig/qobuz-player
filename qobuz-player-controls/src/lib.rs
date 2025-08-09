@@ -2,15 +2,12 @@ use crate::models::{Track, TrackStatus};
 use client::Client;
 use error::Error;
 use futures::prelude::*;
-use gstreamer::{Element, Message, MessageView, SeekFlags, Structure, prelude::*};
+use gstreamer::{Message, MessageView, prelude::*};
 use models::Album;
 use notification::{Notification, PlayNotification};
 use rand::seq::SliceRandom;
-use std::{
-    str::FromStr,
-    sync::{Arc, LazyLock},
-    time::Duration,
-};
+use sink::{Sink, init_sink};
+use std::{sync::Arc, time::Duration};
 use tokio::{
     select,
     sync::{
@@ -27,80 +24,10 @@ pub mod client;
 pub mod error;
 pub mod models;
 pub mod notification;
+pub mod sink;
 pub mod tracklist;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
-
-static PLAYBIN: LazyLock<Element> = LazyLock::new(|| {
-    gstreamer::init().expect("error initializing gstreamer");
-
-    let playbin = gstreamer::ElementFactory::make("playbin3")
-        .build()
-        .expect("error building playbin element");
-
-    playbin.set_property_from_str("flags", "audio+buffering");
-
-    if gstreamer::version().1 >= 22 {
-        playbin.connect("element-setup", false, |value| {
-            let element = &value[1].get::<gstreamer::Element>().unwrap();
-
-            if element.name().contains("urisourcebin") {
-                element.set_property("parse-streams", true);
-            }
-
-            None
-        });
-    }
-
-    playbin.connect("source-setup", false, |value| {
-        let element = &value[1].get::<gstreamer::Element>().unwrap();
-
-        if element.name().contains("souphttpsrc") {
-            tracing::debug!("new source, changing settings");
-            let ua = if rand::random() {
-                USER_AGENTS[0]
-            } else {
-                USER_AGENTS[1]
-            };
-
-            element.set_property("user-agent", ua);
-            element.set_property("compress", true);
-            element.set_property("retries", 10);
-            element.set_property("timeout", 30_u32);
-            element.set_property(
-                "extra-headers",
-                Structure::from_str("a-structure, DNT=1, Pragma=no-cache, Cache-Control=no-cache")
-                    .expect("failed to make structure from string"),
-            )
-        }
-
-        None
-    });
-
-    playbin.add_property_deep_notify_watch(Some("caps"), true);
-
-    // Connects to the `about-to-finish` signal so the player
-    // can setup the next track to play. Enables gapless playback.
-    playbin.connect("about-to-finish", false, move |_| {
-        tracing::debug!("about to finish");
-        // track_about_to_finish();
-
-        None
-    });
-
-    playbin
-});
-
-#[derive(Debug)]
-pub struct Broadcast {
-    tx: Sender<Notification>,
-    rx: Receiver<Notification>,
-}
-
-static USER_AGENTS: &[&str] = &[
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-];
 
 #[derive(Debug)]
 pub struct ReadOnly<T>(Arc<RwLock<T>>);
@@ -130,16 +57,23 @@ pub struct Player {
     last_updated_tracklist: chrono::DateTime<chrono::Utc>,
     client: Arc<Client>,
     broadcast: Arc<Broadcast>,
+    sink: Arc<Sink>,
 }
 
 impl Player {
     pub fn new(
         tracklist: Arc<RwLock<Tracklist>>,
         client: Arc<Client>,
-    ) -> (Self, Arc<RwLock<tracklist::Status>>, Arc<Broadcast>) {
+    ) -> (
+        Self,
+        Arc<RwLock<tracklist::Status>>,
+        Arc<Broadcast>,
+        Arc<Sink>,
+    ) {
         let target_status = Arc::new(RwLock::new(Default::default()));
         let (tx, rx) = broadcast::channel(20);
         let broadcast = Arc::new(Broadcast { tx, rx });
+        let sink = Arc::new(init_sink(broadcast.clone()));
         (
             Self {
                 tracklist,
@@ -147,9 +81,11 @@ impl Player {
                 last_updated_tracklist: chrono::Utc::now(),
                 client,
                 broadcast: broadcast.clone(),
+                sink: sink.clone(),
             },
             target_status,
             broadcast,
+            sink,
         )
     }
 
@@ -162,15 +98,8 @@ impl Player {
         }
     }
 
-    async fn seek(&self, time: ClockTime, flags: Option<SeekFlags>) -> Result<()> {
-        let flags = flags.unwrap_or(SeekFlags::FLUSH | SeekFlags::TRICKMODE_KEY_UNITS);
-
-        PLAYBIN.seek_simple(flags, time)?;
-        Ok(())
-    }
-
     async fn ready(&self) -> Result<()> {
-        self.set_player_state(gstreamer::State::Ready).await
+        self.set_player_state(gstreamer::State::Ready)
     }
 
     async fn play(&mut self) -> Result<()> {
@@ -180,30 +109,30 @@ impl Player {
         }
 
         if chrono::Utc::now() - self.last_updated_tracklist > chrono::Duration::minutes(10) {
-            let current_position = PLAYBIN.query_position::<ClockTime>().unwrap_or_default();
+            let current_position = self.sink.position().unwrap_or_default();
 
             if let Some(track_id) = self.tracklist.read().await.currently_playing() {
                 self.ready().await?;
                 let track_url = self.track_url(track_id).await?;
                 self.query_track_url(&track_url).await?;
 
-                self.seek(current_position, None).await?;
+                self.sink.seek(current_position)?;
             }
         }
 
         self.set_target_state(tracklist::Status::Playing).await;
-        self.set_player_state(gstreamer::State::Playing).await?;
+        self.set_player_state(gstreamer::State::Playing)?;
         Ok(())
     }
 
     async fn pause(&mut self) -> Result<()> {
         self.set_target_state(tracklist::Status::Paused).await;
-        self.set_player_state(gstreamer::State::Paused).await?;
+        self.set_player_state(gstreamer::State::Paused)?;
         Ok(())
     }
 
     async fn stop(&self) -> Result<()> {
-        self.set_player_state(gstreamer::State::Null).await
+        self.set_player_state(gstreamer::State::Null)
     }
 
     async fn set_target_state(&self, state: tracklist::Status) {
@@ -216,8 +145,8 @@ impl Player {
             .unwrap();
     }
 
-    async fn set_player_state(&self, state: gstreamer::State) -> Result<()> {
-        PLAYBIN.set_state(state)?;
+    fn set_player_state(&self, state: gstreamer::State) -> Result<()> {
+        self.sink.set_state(state)?;
         Ok(())
     }
 
@@ -226,9 +155,7 @@ impl Player {
     }
 
     async fn query_track_url(&self, track_url: &str) -> Result<()> {
-        PLAYBIN.set_property("uri", track_url);
-        self.set_player_state(gstreamer::State::Playing).await?;
-        Ok(())
+        self.sink.query_track_url(track_url)
     }
 
     async fn is_playing(&self) -> bool {
@@ -236,12 +163,11 @@ impl Player {
     }
 
     async fn is_player_playing(&self) -> bool {
-        PLAYBIN.current_state() == gstreamer::State::Playing
+        self.sink.state() == gstreamer::State::Playing
     }
 
     fn set_volume(&self, volume: f64) {
-        let volume_pow = volume.powi(3);
-        PLAYBIN.set_property("volume", volume_pow);
+        self.sink.set_volume(volume);
     }
 
     async fn handle_message(&mut self, msg: &Message) -> Result<()> {
@@ -260,7 +186,7 @@ impl Player {
                 if let Some(first_track) = tracklist.queue.first_mut() {
                     first_track.status = TrackStatus::Playing;
                     let track_url = self.client.track_url(first_track.id).await?;
-                    PLAYBIN.set_property("uri", track_url);
+                    self.sink.query_track_url(&track_url)?;
                 }
 
                 self.broadcast_tracklist(tracklist.clone());
@@ -280,7 +206,7 @@ impl Player {
                 let position = if let Some(p) = msg.running_time() {
                     p
                 } else {
-                    position().unwrap_or_default()
+                    self.sink.position().unwrap_or_default()
                 };
 
                 self.broadcast
@@ -345,17 +271,16 @@ impl Player {
     }
 
     async fn jump_forward(&mut self) -> Result<()> {
-        if let (Some(current_position), Some(duration)) = (
-            PLAYBIN.query_position::<ClockTime>(),
-            PLAYBIN.query_duration::<ClockTime>(),
-        ) {
+        if let (Some(current_position), Some(duration)) =
+            (self.sink.position(), self.sink.duration())
+        {
             let ten_seconds = ClockTime::from_seconds(10);
             let next_position = current_position + ten_seconds;
 
             if next_position < duration {
-                self.seek(next_position, None).await?;
+                self.sink.seek(next_position)?;
             } else {
-                self.seek(duration, None).await?;
+                self.sink.seek(duration)?;
             }
         }
 
@@ -363,14 +288,14 @@ impl Player {
     }
 
     async fn jump_backward(&mut self) -> Result<()> {
-        if let Some(current_position) = PLAYBIN.query_position::<ClockTime>() {
+        if let Some(current_position) = self.sink.position() {
             if current_position.seconds() < 10 {
-                self.seek(ClockTime::default(), None).await?;
+                self.sink.seek(ClockTime::default())?;
             } else {
                 let ten_seconds = ClockTime::from_seconds(10);
                 let seek_position = current_position - ten_seconds;
 
-                self.seek(seek_position, None).await?;
+                self.sink.seek(seek_position)?;
             }
         }
 
@@ -383,7 +308,7 @@ impl Player {
         let current_position = tracklist.current_position();
 
         if !force && new_position < current_position && current_position == 1 {
-            self.seek(ClockTime::default(), None).await?;
+            self.sink.seek(ClockTime::default())?;
             return Ok(());
         }
 
@@ -399,9 +324,9 @@ impl Player {
             && total_tracks != current_position
             && new_position != 0
         {
-            if let Some(current_player_position) = position() {
+            if let Some(current_player_position) = self.sink.position() {
                 if current_player_position.seconds() > 1 {
-                    self.seek(ClockTime::default(), None).await?;
+                    self.sink.seek(ClockTime::default())?;
                     return Ok(());
                 }
             }
@@ -416,7 +341,7 @@ impl Player {
             first_track.status = TrackStatus::Playing;
             let first_track_url = self.track_url(first_track.id).await?;
 
-            PLAYBIN.set_property("uri", first_track_url);
+            self.sink.query_track_url(&first_track_url)?;
         }
 
         self.broadcast_tracklist(tracklist.clone());
@@ -597,7 +522,7 @@ impl Player {
 
         if let Some(next_track) = next_track {
             if let Ok(url) = self.track_url(next_track.id).await {
-                PLAYBIN.set_property("uri", url);
+                self.sink.query_track_url(&url).unwrap();
             }
         }
     }
@@ -605,7 +530,7 @@ impl Player {
     /// Handles messages from GStreamer, receives player actions from external controls
     /// receives the about-to-finish event and takes necessary action.
     pub async fn player_loop(&mut self) -> Result<()> {
-        let mut messages = PLAYBIN.bus().unwrap().stream();
+        let mut messages = self.sink.bus();
         let mut receiver = self.broadcast.notify_receiver();
 
         let mut interval = tokio::time::interval(Duration::from_millis(500));
@@ -616,7 +541,7 @@ impl Player {
                 _ = interval.tick() => {
                     let target_status = *self.target_status.read().await;
                     if target_status == tracklist::Status::Playing {
-                        if let Some(position) = position() {
+                        if let Some(position) = self.sink.position() {
                             if position.seconds() != last_position.seconds() {
                                 last_position = position;
 
@@ -678,7 +603,7 @@ impl Player {
                                     self.jump_backward().await.unwrap();
                                 },
                                 PlayNotification::Seek { time } => {
-                                    self.seek(time, None).await.unwrap();
+                                    self.sink.seek(time).unwrap();
                                 },
                                 PlayNotification::TrackAboutToFinish=> {
                                      self.prep_next_track().await;
@@ -703,6 +628,12 @@ impl Player {
         }
         Ok(())
     }
+}
+
+#[derive(Debug)]
+pub struct Broadcast {
+    tx: Sender<Notification>,
+    rx: Receiver<Notification>,
 }
 
 impl Broadcast {
@@ -826,16 +757,4 @@ impl Broadcast {
     pub fn send_message(&self, message: notification::Message) {
         self.tx.send(Notification::Message { message }).unwrap();
     }
-}
-
-#[instrument]
-/// Current track position.
-pub fn position() -> Option<ClockTime> {
-    PLAYBIN.query_position::<ClockTime>()
-}
-
-#[instrument]
-/// Current volume
-pub fn volume() -> f64 {
-    PLAYBIN.property::<f64>("volume").powf(1.0 / 3.0)
 }

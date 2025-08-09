@@ -4,6 +4,7 @@ use database::{Database, LinkRequest};
 use qobuz_player_controls::{
     Broadcast, ReadOnly,
     client::Client,
+    sink::Sink,
     tracklist::{self, Tracklist},
 };
 use tokio::sync::{Mutex, RwLock};
@@ -20,6 +21,7 @@ pub struct State {
     pub tracklist: ReadOnly<Tracklist>,
     pub target_status: ReadOnly<tracklist::Status>,
     pub broadcast: Arc<Broadcast>,
+    pub sink: Arc<Sink>,
 }
 
 impl State {
@@ -33,6 +35,7 @@ impl State {
         database: Database,
         target_status: ReadOnly<tracklist::Status>,
         broadcast: Arc<Broadcast>,
+        sink: Arc<Sink>,
     ) -> Self {
         let link_request = Mutex::new(None);
 
@@ -46,6 +49,7 @@ impl State {
             tracklist: tracklist.into(),
             target_status,
             broadcast,
+            sink,
         }
     }
 }

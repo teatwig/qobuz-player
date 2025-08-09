@@ -149,7 +149,8 @@ pub async fn run() -> Result<(), Error> {
 
             let client = Arc::new(Client::new(username, password, max_audio_quality));
 
-            let (mut player, status, broadcast) = Player::new(tracklist.clone(), client.clone());
+            let (mut player, status, broadcast, sink) =
+                Player::new(tracklist.clone(), client.clone());
 
             let state = Arc::new(
                 State::new(
@@ -161,6 +162,7 @@ pub async fn run() -> Result<(), Error> {
                     database,
                     status.into(),
                     broadcast.clone(),
+                    sink,
                 )
                 .await,
             );

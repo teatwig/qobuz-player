@@ -150,7 +150,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn volume(&self) -> fdo::Result<Volume> {
-        Ok(qobuz_player_controls::volume())
+        Ok(self.state.sink.volume())
     }
 
     async fn set_volume(&self, volume: Volume) -> zbus::Result<()> {
@@ -159,7 +159,10 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn position(&self) -> fdo::Result<Time> {
-        let position_seconds = qobuz_player_controls::position()
+        let position_seconds = self
+            .state
+            .sink
+            .position()
             .map(|position| position.seconds())
             .map_or(0, |p| p as i64);
         let time = Time::from_secs(position_seconds);

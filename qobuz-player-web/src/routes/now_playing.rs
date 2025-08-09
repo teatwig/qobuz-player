@@ -151,10 +151,14 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let tracklist_clone = tracklist.clone();
     let current_track = tracklist.current_track().cloned();
 
-    let position_seconds = qobuz_player_controls::position().map(|position| position.seconds());
+    let position_seconds = state
+        .player_state
+        .sink
+        .position()
+        .map(|position| position.seconds());
     let current_status = state.player_state.target_status.read().await;
     let current_status_copy = *current_status;
-    let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
+    let current_volume = (state.player_state.sink.volume() * 100.0) as u32;
 
     render(html! {
         <Page active_page=Page::NowPlaying current_status=&current_status tracklist=&tracklist>
@@ -172,9 +176,13 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let tracklist = state.player_state.tracklist.read().await;
     let current_track = tracklist.current_track().cloned();
-    let position_seconds = qobuz_player_controls::position().map(|position| position.seconds());
+    let position_seconds = state
+        .player_state
+        .sink
+        .position()
+        .map(|position| position.seconds());
     let current_status = state.player_state.target_status.read().await;
-    let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
+    let current_volume = (state.player_state.sink.volume() * 100.0) as u32;
 
     render(html! {
         <NowPlaying
