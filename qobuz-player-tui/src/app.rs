@@ -4,7 +4,8 @@ use crate::{
 };
 use core::fmt;
 use image::load_from_memory;
-use qobuz_player_controls::tracklist::Tracklist;
+use qobuz_player_controls::tracklist::{self, Tracklist};
+use qobuz_player_state::State;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
@@ -12,14 +13,15 @@ use ratatui::{
 };
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 use reqwest::Client;
-use std::io;
+use std::{io, sync::Arc};
 use tokio::time::{self, Duration};
 
 pub(crate) struct App {
+    pub(crate) state: Arc<State>,
     pub(crate) current_screen: Tab,
     pub(crate) exit: bool,
     pub(crate) should_draw: bool,
-    pub(crate) state: State,
+    pub(crate) app_state: AppState,
     pub(crate) now_playing: NowPlayingState,
     pub(crate) favorites: FavoritesState,
     pub(crate) search: SearchState,
@@ -28,7 +30,7 @@ pub(crate) struct App {
 }
 
 #[derive(Default, PartialEq)]
-pub(crate) enum State {
+pub(crate) enum AppState {
     #[default]
     Normal,
     Popup(Popup),
@@ -39,6 +41,14 @@ pub(crate) enum Output {
     Consumed,
     NotConsumed,
     Popup(Popup),
+    PlayOutcome(PlayOutcome),
+}
+
+pub(crate) enum PlayOutcome {
+    Album(String),
+    Playlist((u32, bool)),
+    Track(u32),
+    SkipToPosition(u32),
 }
 
 #[derive(Default, PartialEq)]
@@ -78,7 +88,7 @@ pub(crate) struct UnfilteredListState<T> {
 
 impl App {
     pub(crate) async fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        let mut receiver = qobuz_player_controls::notify_receiver();
+        let mut receiver = self.state.broadcast.notify_receiver();
         let mut tick_interval = time::interval(Duration::from_millis(10));
 
         while !self.exit {
@@ -94,9 +104,10 @@ impl App {
                                 self.now_playing.duration_s = clock.seconds() as u32;
                                 self.should_draw = true;
                             },
-                            qobuz_player_controls::notification::Notification::CurrentTrackList { list } => {
-                                self.now_playing = get_current_state(&list).await;
-                                self.queue.queue.items = list.queue;
+                            qobuz_player_controls::notification::Notification::CurrentTrackList { tracklist } => {
+                                self.queue.queue.items = tracklist.queue().to_vec();
+                                let status = self.state.target_status.read().await;
+                                self.now_playing = get_current_state(tracklist, *status).await;
                                 self.should_draw = true;
                             }
                             qobuz_player_controls::notification::Notification::Quit => {
@@ -104,6 +115,7 @@ impl App {
                             }
                             qobuz_player_controls::notification::Notification::Message { message: _ } => (),
                             qobuz_player_controls::notification::Notification::Volume { volume: _ } => (),
+                            qobuz_player_controls::notification::Notification::Play(_play_notification) => {},
                         }
                     }
                 }
@@ -129,21 +141,22 @@ impl App {
 
         match event {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                match &mut self.state {
-                    State::Help => {
-                        self.state = State::Normal;
+                match &mut self.app_state {
+                    AppState::Help => {
+                        self.app_state = AppState::Normal;
                         self.should_draw = true;
                         return Ok(());
                     }
-                    State::Popup(popup) => {
+                    AppState::Popup(popup) => {
                         if key_event.code == KeyCode::Esc {
-                            self.state = State::Normal;
+                            self.app_state = AppState::Normal;
                             self.should_draw = true;
                             return Ok(());
                         }
 
-                        if popup.handle_event(key_event.code).await {
-                            self.state = State::Normal;
+                        if let Some(outcome) = popup.handle_event(key_event.code).await {
+                            self.handle_playoutcome(outcome).await;
+                            self.app_state = AppState::Normal;
                         };
 
                         self.should_draw = true;
@@ -166,15 +179,18 @@ impl App {
                     }
                     Output::NotConsumed => {}
                     Output::Popup(popup) => {
-                        self.state = State::Popup(popup);
+                        self.app_state = AppState::Popup(popup);
                         self.should_draw = true;
                         return Ok(());
+                    }
+                    Output::PlayOutcome(outcome) => {
+                        self.handle_playoutcome(outcome).await;
                     }
                 }
 
                 match key_event.code {
                     KeyCode::Char('h') => {
-                        self.state = State::Help;
+                        self.app_state = AppState::Help;
                         self.should_draw = true;
                     }
                     KeyCode::Char('q') => {
@@ -198,23 +214,23 @@ impl App {
                         self.should_draw = true;
                     }
                     KeyCode::Char(' ') => {
-                        qobuz_player_controls::play_pause().await.unwrap();
+                        self.state.broadcast.play_pause();
                         self.should_draw = true;
                     }
                     KeyCode::Char('n') => {
-                        qobuz_player_controls::next().await.unwrap();
+                        self.state.broadcast.next();
                         self.should_draw = true;
                     }
                     KeyCode::Char('p') => {
-                        qobuz_player_controls::previous().await.unwrap();
+                        self.state.broadcast.previous();
                         self.should_draw = true;
                     }
                     KeyCode::Char('f') => {
-                        qobuz_player_controls::jump_forward().await.unwrap();
+                        self.state.broadcast.jump_forward();
                         self.should_draw = true;
                     }
                     KeyCode::Char('b') => {
-                        qobuz_player_controls::jump_backward().await.unwrap();
+                        self.state.broadcast.jump_backward();
                         self.should_draw = true;
                     }
                     _ => {}
@@ -225,6 +241,26 @@ impl App {
             _ => {}
         };
         Ok(())
+    }
+
+    async fn handle_playoutcome(&mut self, outcome: PlayOutcome) {
+        match outcome {
+            PlayOutcome::Album(id) => {
+                self.state.broadcast.play_album(&id, 0);
+            }
+
+            PlayOutcome::Playlist(outcome) => {
+                self.state.broadcast.play_playlist(outcome.0, 0, outcome.1);
+            }
+
+            PlayOutcome::Track(id) => {
+                self.state.broadcast.play_track(id);
+            }
+
+            PlayOutcome::SkipToPosition(index) => {
+                self.state.broadcast.skip_to_position(index, true);
+            }
+        }
     }
 
     fn navigate_to_favorites(&mut self) {
@@ -261,8 +297,11 @@ async fn fetch_image(image_url: &str) -> Option<(StatefulProtocol, f32)> {
     Some((picker.new_resize_protocol(image), ratio))
 }
 
-pub(crate) async fn get_current_state(tracklist: &Tracklist) -> NowPlayingState {
-    let (entity, image_url, show_tracklist_position) = match &tracklist.list_type {
+pub(crate) async fn get_current_state(
+    tracklist: Tracklist,
+    status: tracklist::Status,
+) -> NowPlayingState {
+    let (entity, image_url, show_tracklist_position) = match &tracklist.list_type() {
         qobuz_player_controls::tracklist::TracklistType::Album(tracklist) => (
             Some(tracklist.title.clone()),
             tracklist.image.clone(),
@@ -281,8 +320,6 @@ pub(crate) async fn get_current_state(tracklist: &Tracklist) -> NowPlayingState 
         }
         qobuz_player_controls::tracklist::TracklistType::None => (None, None, false),
     };
-
-    let status = qobuz_player_controls::current_state().await;
 
     let track = tracklist.current_track().cloned();
 

@@ -1,6 +1,9 @@
-use std::fmt;
+use std::{fmt, sync::Arc};
 
-use qobuz_player_controls::models::{Album, Artist, Playlist, Track};
+use qobuz_player_controls::{
+    client::Client,
+    models::{Album, Artist, Playlist, Track},
+};
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEventKind},
     prelude::*,
@@ -9,12 +12,13 @@ use ratatui::{
 use tui_input::{Input, backend::crossterm::EventHandler};
 
 use crate::{
-    app::{Output, UnfilteredListState},
+    app::{Output, PlayOutcome, UnfilteredListState},
     popup::{ArtistPopupState, PlaylistPopupState, Popup},
     ui::{album_table, basic_list_table, render_input},
 };
 
 pub(crate) struct SearchState {
+    pub client: Arc<Client>,
     pub editing: bool,
     pub filter: Input,
     pub albums: UnfilteredListState<Album>,
@@ -122,109 +126,110 @@ impl SearchState {
 
     pub(crate) async fn handle_events(&mut self, event: Event) -> Output {
         match event {
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => match &mut self
-                .editing
-            {
-                false => match key_event.code {
-                    KeyCode::Char('e') => {
-                        self.start_editing();
-                        Output::Consumed
-                    }
-                    KeyCode::Left => {
-                        self.cycle_subtab_backwards();
-                        Output::Consumed
-                    }
-                    KeyCode::Right => {
-                        self.cycle_subtab();
-                        Output::Consumed
-                    }
-                    KeyCode::Down => {
-                        self.current_list_state().select_next();
-                        Output::Consumed
-                    }
-                    KeyCode::Up => {
-                        self.current_list_state().select_previous();
-                        Output::Consumed
-                    }
-                    KeyCode::Enter => match self.sub_tab {
-                        SubTab::Albums => {
-                            let index = self.albums.state.selected();
-
-                            let id = index
-                                .map(|index| &self.albums.items[index])
-                                .map(|album| album.id.clone());
-
-                            if let Some(id) = id {
-                                qobuz_player_controls::play_album(&id, 0).await.unwrap();
-                            }
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                match &mut self.editing {
+                    false => match key_event.code {
+                        KeyCode::Char('e') => {
+                            self.start_editing();
                             Output::Consumed
                         }
-                        SubTab::Artists => {
-                            let index = self.artists.state.selected();
-                            let selected = index.map(|index| &self.artists.items[index]);
-
-                            let Some(selected) = selected else {
-                                return Output::Consumed;
-                            };
-
-                            let artist_albums = qobuz_player_controls::artist_albums(selected.id)
-                                .await
-                                .unwrap();
-
-                            Output::Popup(Popup::Artist(ArtistPopupState {
-                                artist_name: selected.name.clone(),
-                                albums: artist_albums,
-                                state: Default::default(),
-                            }))
+                        KeyCode::Left => {
+                            self.cycle_subtab_backwards();
+                            Output::Consumed
                         }
-                        SubTab::Playlists => {
-                            let index = self.playlists.state.selected();
-                            let selected = index.map(|index| &self.playlists.items[index]);
-
-                            let Some(selected) = selected else {
-                                return Output::Consumed;
-                            };
-
-                            Output::Popup(Popup::Playlist(PlaylistPopupState {
-                                playlist_name: selected.title.clone(),
-                                playlist_id: selected.id,
-                                shuffle: false,
-                            }))
+                        KeyCode::Right => {
+                            self.cycle_subtab();
+                            Output::Consumed
                         }
-                        SubTab::Tracks => {
-                            let index = self.tracks.state.selected();
+                        KeyCode::Down => {
+                            self.current_list_state().select_next();
+                            Output::Consumed
+                        }
+                        KeyCode::Up => {
+                            self.current_list_state().select_previous();
+                            Output::Consumed
+                        }
+                        KeyCode::Enter => match self.sub_tab {
+                            SubTab::Albums => {
+                                let index = self.albums.state.selected();
 
-                            let id = index
-                                .map(|index| &self.tracks.items[index])
-                                .map(|track| track.id);
+                                let id = index
+                                    .map(|index| &self.albums.items[index])
+                                    .map(|album| album.id.clone());
 
-                            if let Some(id) = id {
-                                qobuz_player_controls::play_track(id).await.unwrap();
+                                if let Some(id) = id {
+                                    return Output::PlayOutcome(PlayOutcome::Album(id));
+                                }
+                                Output::Consumed
                             }
+                            SubTab::Artists => {
+                                let index = self.artists.state.selected();
+                                let selected = index.map(|index| &self.artists.items[index]);
+
+                                let Some(selected) = selected else {
+                                    return Output::Consumed;
+                                };
+
+                                let artist_albums =
+                                    self.client.artist_albums(selected.id).await.unwrap();
+
+                                Output::Popup(Popup::Artist(ArtistPopupState {
+                                    artist_name: selected.name.clone(),
+                                    albums: artist_albums,
+                                    state: Default::default(),
+                                }))
+                            }
+                            SubTab::Playlists => {
+                                let index = self.playlists.state.selected();
+                                let selected = index.map(|index| &self.playlists.items[index]);
+
+                                let Some(selected) = selected else {
+                                    return Output::Consumed;
+                                };
+
+                                Output::Popup(Popup::Playlist(PlaylistPopupState {
+                                    playlist_name: selected.title.clone(),
+                                    playlist_id: selected.id,
+                                    shuffle: false,
+                                }))
+                            }
+                            SubTab::Tracks => {
+                                let index = self.tracks.state.selected();
+
+                                let id = index
+                                    .map(|index| &self.tracks.items[index])
+                                    .map(|track| track.id);
+
+                                if let Some(id) = id {
+                                    return Output::PlayOutcome(PlayOutcome::Track(id));
+                                }
+                                Output::Consumed
+                            }
+                        },
+                        _ => Output::NotConsumed,
+                    },
+                    true => match key_event.code {
+                        KeyCode::Esc | KeyCode::Enter => {
+                            self.stop_editing();
+                            self.update_search().await;
+                            Output::Consumed
+                        }
+                        _ => {
+                            self.filter.handle_event(&event);
                             Output::Consumed
                         }
                     },
-                    _ => Output::NotConsumed,
-                },
-                true => match key_event.code {
-                    KeyCode::Esc | KeyCode::Enter => {
-                        self.stop_editing();
-                        self.update_search().await;
-                        Output::Consumed
-                    }
-                    _ => {
-                        self.filter.handle_event(&event);
-                        Output::Consumed
-                    }
-                },
-            },
+                }
+            }
             _ => Output::NotConsumed,
         }
     }
 
     async fn update_search(&mut self) {
         if !self.filter.value().trim().is_empty() {
-            let search_results = qobuz_player_controls::search(self.filter.value().to_string())
+            let search_results = self
+                .client
+                .search(self.filter.value().to_string())
                 .await
                 .unwrap();
 

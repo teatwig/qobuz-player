@@ -18,11 +18,11 @@ pub(crate) enum Page {
 }
 
 #[component]
-pub(crate) fn page(
+pub(crate) fn page<'a>(
     children: Children,
     active_page: Page,
-    current_status: Status,
-    current_tracklist: Tracklist,
+    current_status: &'a Status,
+    tracklist: &'a Tracklist,
 ) -> impl IntoView {
     html! {
         <!DOCTYPE html>
@@ -51,12 +51,7 @@ pub(crate) fn page(
                 {children()}
                 {(active_page != Page::NowPlaying)
                     .then(|| {
-                        html! {
-                            <Controls
-                                current_status=current_status
-                                current_tracklist=current_tracklist
-                            />
-                        }
+                        html! { <Controls current_status=&current_status tracklist=tracklist /> }
                     })}
                 <Navigation active_page=active_page />
 

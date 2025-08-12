@@ -1,20 +1,19 @@
-use qobuz_player_controls::notification::Notification;
-use rppal::gpio::Gpio;
+use std::sync::Arc;
 
-pub async fn init() {
-    tokio::spawn(async { receive_notifications().await });
-}
+use qobuz_player_controls::notification::Notification;
+use qobuz_player_state::State;
+use rppal::gpio::Gpio;
 
 const GPIO: u8 = 23;
 
-async fn receive_notifications() {
-    let mut broadcast_receiver = qobuz_player_controls::notify_receiver();
+pub async fn init(state: Arc<State>) {
+    let mut receiver = state.broadcast.notify_receiver();
 
     let mut pin = Gpio::new().unwrap().get(GPIO).unwrap().into_output();
     tracing::info!("Pin claimed");
 
     loop {
-        if let Ok(notification) = broadcast_receiver.recv().await {
+        if let Ok(notification) = receiver.recv().await {
             match notification {
                 Notification::Quit => {
                     return;
@@ -34,9 +33,10 @@ async fn receive_notifications() {
                     }
                 },
                 Notification::Position { clock: _ } => {}
-                Notification::CurrentTrackList { list: _ } => {}
+                Notification::CurrentTrackList { tracklist: _ } => {}
                 Notification::Message { message: _ } => {}
                 Notification::Volume { volume: _ } => {}
+                Notification::Play(_) => {}
             }
         }
     }

@@ -1,11 +1,21 @@
+use std::sync::Arc;
+
 use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property, RootInterface,
     Server, Time, TrackId, Volume,
     zbus::{self, fdo},
 };
-use qobuz_player_controls::{ClockTime, models::Track, notification::Notification, tracklist};
+use qobuz_player_controls::{
+    ClockTime,
+    models::Track,
+    notification::Notification,
+    tracklist::{self},
+};
+use qobuz_player_state::State;
 
-struct MprisPlayer;
+struct MprisPlayer {
+    state: Arc<State>,
+}
 
 impl RootInterface for MprisPlayer {
     async fn identity(&self) -> fdo::Result<String> {
@@ -15,10 +25,8 @@ impl RootInterface for MprisPlayer {
         Err(fdo::Error::NotSupported("Not supported".into()))
     }
     async fn quit(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::quit().await {
-            Ok(_) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        self.state.broadcast.quit();
+        Ok(())
     }
     async fn can_quit(&self) -> fdo::Result<bool> {
         Ok(true)
@@ -51,54 +59,39 @@ impl RootInterface for MprisPlayer {
 
 impl PlayerInterface for MprisPlayer {
     async fn next(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::next().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        self.state.broadcast.next();
+        Ok(())
     }
 
     async fn previous(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::previous().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        self.state.broadcast.previous();
+        Ok(())
     }
 
     async fn pause(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::pause().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        self.state.broadcast.pause();
+        Ok(())
     }
 
     async fn play_pause(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::play_pause().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        self.state.broadcast.play_pause();
+        Ok(())
     }
 
     async fn stop(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::stop().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        self.state.broadcast.stop();
+        Ok(())
     }
 
     async fn play(&self) -> fdo::Result<()> {
-        match qobuz_player_controls::play().await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        self.state.broadcast.play();
+        Ok(())
     }
 
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
         let clock = ClockTime::from_seconds(offset.as_secs() as u64);
-
-        match qobuz_player_controls::seek(clock, None).await {
-            Ok(()) => Ok(()),
-            Err(err) => Err(fdo::Error::Failed(err.to_string())),
-        }
+        self.state.broadcast.seek(clock);
+        Ok(())
     }
 
     async fn set_position(&self, _track_id: TrackId, _position: Time) -> fdo::Result<()> {
@@ -110,7 +103,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn playback_status(&self) -> fdo::Result<PlaybackStatus> {
-        let current_status = qobuz_player_controls::current_state().await;
+        let current_status = *self.state.target_status.read().await;
 
         let status = match current_status {
             tracklist::Status::Stopped => PlaybackStatus::Stopped,
@@ -146,7 +139,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn metadata(&self) -> fdo::Result<Metadata> {
-        let tracklist = qobuz_player_controls::current_tracklist().await;
+        let tracklist = self.state.tracklist.read().await;
         let current_track = tracklist.current_track();
 
         if let Some(current_track) = current_track {
@@ -157,16 +150,19 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn volume(&self) -> fdo::Result<Volume> {
-        Ok(qobuz_player_controls::volume())
+        Ok(self.state.sink.volume())
     }
 
     async fn set_volume(&self, volume: Volume) -> zbus::Result<()> {
-        qobuz_player_controls::set_volume(volume);
+        self.state.broadcast.set_volume(volume);
         Ok(())
     }
 
     async fn position(&self) -> fdo::Result<Time> {
-        let position_seconds = qobuz_player_controls::position()
+        let position_seconds = self
+            .state
+            .sink
+            .position()
             .map(|position| position.seconds())
             .map_or(0, |p| p as i64);
         let time = Time::from_secs(position_seconds);
@@ -206,12 +202,12 @@ impl PlayerInterface for MprisPlayer {
     }
 }
 
-pub async fn init() {
-    let server = Server::new("com.github.sofusa-quboz-player", MprisPlayer)
+pub async fn init(state: Arc<State>) {
+    let mut receiver = state.broadcast.notify_receiver();
+
+    let server = Server::new("com.github.sofusa-quboz-player", MprisPlayer { state })
         .await
         .unwrap();
-
-    let mut receiver = qobuz_player_controls::notify_receiver();
 
     loop {
         if let Ok(notification) = receiver.recv().await {
@@ -240,15 +236,14 @@ pub async fn init() {
                         .unwrap();
                 }
                 Notification::Position { clock: _ } => {}
-                Notification::CurrentTrackList { list } => {
-                    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-                    let current_track = current_tracklist.current_track();
+                Notification::CurrentTrackList { tracklist } => {
+                    let current_track = tracklist.current_track();
 
                     if let Some(current_track) = current_track {
                         let metadata = track_to_metadata(current_track);
 
-                        let current_position = list.current_position();
-                        let total_tracks = list.total();
+                        let current_position = tracklist.current_position();
+                        let total_tracks = tracklist.total();
 
                         let can_previous = current_position != 0;
                         let can_next = !(total_tracks != 0 && current_position == total_tracks - 1);
@@ -270,6 +265,7 @@ pub async fn init() {
                         .await
                         .unwrap();
                 }
+                Notification::Play(_play_notification) => (),
             }
         }
     }

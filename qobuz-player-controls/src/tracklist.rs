@@ -41,8 +41,8 @@ pub enum TracklistType {
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Tracklist {
-    pub queue: Vec<Track>,
-    pub list_type: TracklistType,
+    pub(crate) queue: Vec<Track>,
+    pub(crate) list_type: TracklistType,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
@@ -56,6 +56,10 @@ pub enum Status {
 impl Tracklist {
     pub fn new() -> Self {
         Default::default()
+    }
+
+    pub fn queue(&self) -> &Vec<Track> {
+        &self.queue
     }
 
     pub fn total(&self) -> u32 {
@@ -85,5 +89,31 @@ impl Tracklist {
 
     pub fn current_track(&self) -> Option<&Track> {
         self.queue.iter().find(|t| t.status == TrackStatus::Playing)
+    }
+
+    pub(crate) fn skip_to_track(&mut self, new_position: u32) -> Option<&Track> {
+        let mut new_track: Option<&Track> = None;
+
+        for queue_item in self.queue.iter_mut().enumerate() {
+            let queue_item_position = queue_item.0 as u32;
+
+            match queue_item_position.cmp(&new_position) {
+                std::cmp::Ordering::Less => {
+                    queue_item.1.status = TrackStatus::Played;
+                }
+
+                std::cmp::Ordering::Equal => {
+                    queue_item.1.status = TrackStatus::Playing;
+
+                    new_track = Some(queue_item.1)
+                }
+
+                std::cmp::Ordering::Greater => {
+                    queue_item.1.status = TrackStatus::Unplayed;
+                }
+            }
+        }
+
+        new_track
     }
 }

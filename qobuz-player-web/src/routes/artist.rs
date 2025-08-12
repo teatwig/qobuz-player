@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
-    extract::Path,
+    extract::{Path, State},
     response::IntoResponse,
     routing::{get, put},
 };
@@ -9,6 +11,7 @@ use qobuz_player_controls::models::{self, AlbumSimple, Artist, ArtistPage};
 use tokio::join;
 
 use crate::{
+    AppState,
     components::{
         ButtonGroup, Description, Info, ToggleFavorite, button_class,
         list::{ListAlbumsVertical, ListArtistsVertical},
@@ -31,52 +34,68 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         )
 }
 
-async fn top_tracks_partial(Path(id): Path<u32>) -> impl IntoResponse {
-    let (artist, tracklist) = join!(
-        qobuz_player_controls::artist_page(id),
-        qobuz_player_controls::current_tracklist(),
-    );
+async fn top_tracks_partial(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<u32>,
+) -> impl IntoResponse {
+    let artist = state.player_state.client.artist_page(id).await.unwrap();
+    let tracklist = state.player_state.tracklist.read().await;
 
     let now_playing_id = tracklist.currently_playing();
-    let artist = artist.unwrap();
 
     render(
         html! { <ListTracks artist_id=artist.id tracks=artist.top_tracks now_playing_id=now_playing_id /> },
     )
 }
 
-async fn play_top_track(Path((artist_id, track_index)): Path<(u32, u32)>) -> impl IntoResponse {
-    qobuz_player_controls::play_top_tracks(artist_id, track_index)
-        .await
-        .unwrap();
+async fn play_top_track(
+    State(state): State<Arc<AppState>>,
+    Path((artist_id, track_index)): Path<(u32, u32)>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .broadcast
+        .play_top_tracks(artist_id, track_index);
 }
 
-async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::add_favorite_artist(&id)
+async fn set_favorite(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .client
+        .add_favorite_artist(&id)
         .await
         .unwrap();
 
     render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
 
-async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::remove_favorite_artist(&id)
+async fn unset_favorite(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .client
+        .remove_favorite_artist(&id)
         .await
         .unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
 
-async fn index(Path(id): Path<u32>) -> impl IntoResponse {
-    let (artist, albums, similar_artists, favorites, current_tracklist, current_status) = join!(
-        qobuz_player_controls::artist_page(id),
-        qobuz_player_controls::artist_albums(id),
-        qobuz_player_controls::similar_artists(id),
-        qobuz_player_controls::favorites(),
-        qobuz_player_controls::current_tracklist(),
-        qobuz_player_controls::current_state()
+async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
+    let (artist, albums, similar_artists, favorites) = join!(
+        state.player_state.client.artist_page(id),
+        state.player_state.client.artist_albums(id),
+        state.player_state.client.similar_artists(id),
+        state.player_state.client.favorites(),
     );
 
-    let now_playing_id = current_tracklist.currently_playing();
+    let current_status = state.player_state.target_status.read().await;
+    let tracklist = state.player_state.tracklist.read().await;
+    let now_playing_id = tracklist.currently_playing();
 
     let artist = artist.unwrap();
     let similar_artists = similar_artists.unwrap();
@@ -86,11 +105,7 @@ async fn index(Path(id): Path<u32>) -> impl IntoResponse {
     let is_favorite = favorites.artists.iter().any(|artist| artist.id == id);
 
     render(html! {
-        <Page
-            active_page=Page::None
-            current_status=current_status
-            current_tracklist=current_tracklist
-        >
+        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
             <Artist
                 artist=artist
                 albums=albums

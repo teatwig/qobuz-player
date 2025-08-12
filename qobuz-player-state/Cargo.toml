@@ -1,5 +1,5 @@
 [package]
-name = "qobuz-player-database"
+name = "qobuz-player-state"
 version.workspace = true
 edition.workspace = true
 license-file.workspace = true
@@ -14,3 +14,4 @@ md5 = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true }

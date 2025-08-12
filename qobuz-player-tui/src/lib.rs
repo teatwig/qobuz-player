@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use app::{App, FilteredListState, UnfilteredListState, get_current_state};
 use favorites::FavoritesState;
+use qobuz_player_controls::{AlbumFeaturedType, PlaylistFeaturedType};
 use queue::QueueState;
 use ratatui::{prelude::*, widgets::*};
 use search::SearchState;
@@ -15,42 +18,43 @@ mod queue;
 mod search;
 mod ui;
 
-pub async fn init() {
+pub async fn init(state: Arc<qobuz_player_state::State>) {
     let mut terminal = ratatui::init();
 
     draw_loading_screen(&mut terminal);
 
     let (favorites, press_awards, new_releases, qobuzissims, ideal_discography, editor_picks) =
         try_join!(
-            qobuz_player_controls::favorites(),
-            qobuz_player_controls::featured_albums(
-                qobuz_player_controls::AlbumFeaturedType::PressAwards
-            ),
-            qobuz_player_controls::featured_albums(
-                qobuz_player_controls::AlbumFeaturedType::NewReleasesFull
-            ),
-            qobuz_player_controls::featured_albums(
-                qobuz_player_controls::AlbumFeaturedType::Qobuzissims
-            ),
-            qobuz_player_controls::featured_albums(
-                qobuz_player_controls::AlbumFeaturedType::IdealDiscography
-            ),
-            qobuz_player_controls::featured_playlists(
-                qobuz_player_controls::PlaylistFeaturedType::EditorPicks
-            ),
+            state.client.favorites(),
+            state.client.featured_albums(AlbumFeaturedType::PressAwards),
+            state
+                .client
+                .featured_albums(AlbumFeaturedType::NewReleasesFull),
+            state.client.featured_albums(AlbumFeaturedType::Qobuzissims),
+            state
+                .client
+                .featured_albums(AlbumFeaturedType::IdealDiscography),
+            state
+                .client
+                .featured_playlists(PlaylistFeaturedType::EditorPicks),
         )
         .unwrap();
 
-    let tracklist = qobuz_player_controls::current_tracklist().await;
-    let now_playing = get_current_state(&tracklist).await;
+    let tracklist = state.tracklist.read().await.clone();
+    let status = *state.target_status.read().await;
+    let now_playing = get_current_state(tracklist, status).await;
+
+    let client_clone = state.client.clone();
 
     let mut app = App {
+        state,
         now_playing,
         current_screen: Default::default(),
         exit: Default::default(),
         should_draw: true,
-        state: Default::default(),
+        app_state: Default::default(),
         favorites: FavoritesState {
+            client: client_clone.clone(),
             editing: Default::default(),
             filter: Default::default(),
             albums: FilteredListState {
@@ -71,6 +75,7 @@ pub async fn init() {
             sub_tab: Default::default(),
         },
         search: SearchState {
+            client: client_clone,
             editing: Default::default(),
             filter: Default::default(),
             albums: UnfilteredListState {

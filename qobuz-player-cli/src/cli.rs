@@ -1,7 +1,11 @@
+use std::sync::Arc;
+
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
-use qobuz_player_controls::{AudioQuality, notification::Notification};
+use qobuz_player_controls::{AudioQuality, Player, client::Client, notification::Notification};
+use qobuz_player_state::{State, database::Database};
 use snafu::prelude::*;
+use tokio::sync::RwLock;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -111,19 +115,21 @@ impl From<qobuz_player_controls::error::Error> for Error {
 pub async fn run() -> Result<(), Error> {
     let cli = Cli::parse();
 
+    let database = Database::new().await;
+
     tracing_subscriber::fmt()
         .with_max_level(cli.verbosity)
         .with_target(false)
         .compact()
         .init();
 
-    qobuz_player_database::init().await;
-
     match cli.command {
         Commands::Open => {
-            let database_credentials = qobuz_player_database::get_credentials().await;
-            let database_configuration = qobuz_player_database::get_configuration().await;
-            let loaded_tracklist = qobuz_player_database::get_tracklist().await;
+            let database_credentials = database.get_credentials().await;
+            let database_configuration = database.get_configuration().await;
+            let tracklist = Arc::new(RwLock::new(
+                database.get_tracklist().await.unwrap_or_default(),
+            ));
 
             let username = cli.username.unwrap_or_else(|| {
                 database_credentials
@@ -141,58 +147,68 @@ pub async fn run() -> Result<(), Error> {
                 .max_audio_quality
                 .unwrap_or_else(|| database_configuration.max_audio_quality.try_into().unwrap());
 
+            let client = Arc::new(Client::new(username, password, max_audio_quality));
+
+            let (status, broadcast, sink) = Player::start_player(tracklist.clone(), client.clone());
+
+            let state = Arc::new(
+                State::new(
+                    client,
+                    cli.rfid,
+                    cli.interface,
+                    cli.web_secret,
+                    tracklist.clone(),
+                    database,
+                    status.into(),
+                    broadcast.clone(),
+                    sink,
+                )
+                .await,
+            );
+
             #[cfg(target_os = "linux")]
             if !cli.disable_mpris {
+                let state = state.clone();
                 tokio::spawn(async {
-                    qobuz_player_mpris::init().await;
+                    qobuz_player_mpris::init(state).await;
                 });
             }
 
             if cli.web {
+                let state = state.clone();
                 tokio::spawn(async {
-                    qobuz_player_web::init(cli.interface, cli.web_secret).await;
+                    qobuz_player_web::init(state).await;
                 });
             }
 
             #[cfg(feature = "gpio")]
             if cli.gpio {
+                let state = state.clone();
                 tokio::spawn(async {
-                    qobuz_player_gpio::init().await;
+                    qobuz_player_gpio::init(state).await;
                 });
             }
 
+            let state_persist = state.clone();
             tokio::spawn(async {
-                match qobuz_player_controls::player_loop(
-                    qobuz_player_controls::Credentials { username, password },
-                    qobuz_player_controls::Configuration { max_audio_quality },
-                    loaded_tracklist,
-                )
-                .await
-                {
-                    Ok(_) => debug!("player loop exited successfully"),
-                    Err(error) => debug!("player loop error {error}"),
-                }
-            });
-
-            tokio::spawn(async {
-                store_state_loop().await;
+                store_state_loop(state_persist).await;
             });
 
             if cli.rfid {
-                qobuz_player_rfid::init().await;
-                qobuz_player_controls::quit().await?
+                qobuz_player_rfid::init(state.clone()).await;
+                broadcast.quit();
             } else if !cli.disable_tui {
-                qobuz_player_tui::init().await;
+                qobuz_player_tui::init(state.clone()).await;
 
                 debug!("tui exited, quitting");
-                qobuz_player_controls::quit().await?
+                broadcast.quit();
             } else {
                 debug!("waiting for ctrlc");
                 tokio::signal::ctrl_c()
                     .await
                     .expect("error waiting for ctrlc");
                 debug!("ctrlc received, quitting");
-                qobuz_player_controls::quit().await?
+                broadcast.quit();
             };
 
             Ok(())
@@ -203,7 +219,7 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your username / email")
                     .interact_text()
                 {
-                    qobuz_player_database::set_username(username).await;
+                    database.set_username(username).await;
 
                     println!("Username saved.");
                 }
@@ -214,14 +230,14 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your password (hidden)")
                     .interact()
                 {
-                    qobuz_player_database::set_password(password).await;
+                    database.set_password(password).await;
 
                     println!("Password saved.");
                 }
                 Ok(())
             }
             ConfigCommands::MaxAudioQuality { quality } => {
-                qobuz_player_database::set_max_audio_quality(quality).await;
+                database.set_max_audio_quality(quality).await;
 
                 println!("Max audio quality saved.");
 
@@ -231,12 +247,12 @@ pub async fn run() -> Result<(), Error> {
     }
 }
 
-async fn store_state_loop() {
-    let mut broadcast_receiver = qobuz_player_controls::notify_receiver();
+async fn store_state_loop(state: Arc<State>) {
+    let mut broadcast_receiver = state.broadcast.notify_receiver();
 
     loop {
-        if let Ok(Notification::CurrentTrackList { list }) = broadcast_receiver.recv().await {
-            qobuz_player_database::set_tracklist(list).await;
+        if let Ok(Notification::CurrentTrackList { tracklist }) = broadcast_receiver.recv().await {
+            state.database.set_tracklist(&tracklist).await;
         }
     }
 }

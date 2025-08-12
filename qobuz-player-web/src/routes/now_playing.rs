@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
+    extract::State,
     response::IntoResponse,
     routing::{get, post, put},
 };
@@ -10,6 +13,7 @@ use qobuz_player_controls::{
 };
 
 use crate::{
+    AppState,
     components::Info,
     html,
     icons::{Backward, Forward, Pause, Play},
@@ -54,12 +58,18 @@ fn volume_slider(current_volume: u32) -> impl IntoView {
     }
 }
 
-async fn set_position(axum::Form(parameters): axum::Form<SliderParameters>) -> impl IntoResponse {
+async fn set_position(
+    State(state): State<Arc<AppState>>,
+    axum::Form(parameters): axum::Form<SliderParameters>,
+) -> impl IntoResponse {
     let time = ClockTime::from_seconds(parameters.value as u64);
-    qobuz_player_controls::seek(time, None).await.unwrap();
+    state.player_state.broadcast.seek(time);
 }
 
-async fn set_volume(axum::Form(parameters): axum::Form<SliderParameters>) -> impl IntoResponse {
+async fn set_volume(
+    State(state): State<Arc<AppState>>,
+    axum::Form(parameters): axum::Form<SliderParameters>,
+) -> impl IntoResponse {
     let mut volume = parameters.value;
 
     if volume < 0 {
@@ -72,13 +82,13 @@ async fn set_volume(axum::Form(parameters): axum::Form<SliderParameters>) -> imp
 
     let formatted_volume = volume as f64 / 100.0;
 
-    qobuz_player_controls::set_volume(formatted_volume);
+    state.player_state.broadcast.set_volume(formatted_volume);
 }
 
-async fn status_partial() -> impl IntoResponse {
-    let current_status = qobuz_player_controls::current_state().await;
+async fn status_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let current_status = state.player_state.target_status.read().await;
 
-    if current_status == tracklist::Status::Playing {
+    if *current_status == tracklist::Status::Playing {
         render(html! { <PlayPause play=true /> })
     } else {
         render(html! { <PlayPause play=false /> })
@@ -119,66 +129,67 @@ pub(crate) fn previous() -> impl IntoView {
     }
 }
 
-async fn play() -> impl IntoResponse {
-    match qobuz_player_controls::play().await {
-        Ok(_) => render(html! { <PlayPause play=true /> }),
-        Err(_) => render(html! { <PlayPause play=false /> }),
-    }
+async fn play(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    state.player_state.broadcast.play();
 }
 
-async fn pause() -> impl IntoResponse {
-    match qobuz_player_controls::pause().await {
-        Ok(_) => render(html! { <PlayPause play=false /> }),
-        Err(_) => render(html! { <PlayPause play=true /> }),
-    }
+async fn pause(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    state.player_state.broadcast.pause();
+    render(html! { <PlayPause play=false /> })
 }
 
-async fn previous() -> impl IntoResponse {
-    qobuz_player_controls::previous().await.unwrap();
+async fn previous(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    state.player_state.broadcast.previous();
 }
 
-async fn next() -> impl IntoResponse {
-    qobuz_player_controls::next().await.unwrap();
+async fn next(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    state.player_state.broadcast.next();
 }
 
-async fn index() -> impl IntoResponse {
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-    let current_track = current_tracklist.current_track().cloned();
+async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist_clone = tracklist.clone();
+    let current_track = tracklist.current_track().cloned();
 
-    let position_seconds = qobuz_player_controls::position().map(|position| position.seconds());
-    let current_status = qobuz_player_controls::current_state().await;
-    let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
+    let position_seconds = state
+        .player_state
+        .sink
+        .position()
+        .map(|position| position.seconds());
+    let current_status = state.player_state.target_status.read().await;
+    let current_status_copy = *current_status;
+    let current_volume = (state.player_state.sink.volume() * 100.0) as u32;
 
     render(html! {
-        <Page
-            active_page=Page::NowPlaying
-            current_status=current_status
-            current_tracklist=current_tracklist.clone()
-        >
+        <Page active_page=Page::NowPlaying current_status=&current_status tracklist=&tracklist>
             <NowPlaying
-                current_tracklist=current_tracklist
+                tracklist=tracklist_clone
                 current_track=current_track
                 position_seconds=position_seconds
-                current_status=current_status
+                current_status=current_status_copy
                 current_volume=current_volume
             />
         </Page>
     })
 }
 
-async fn now_playing_partial() -> impl IntoResponse {
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-    let current_track = current_tracklist.current_track().cloned();
-    let position_seconds = qobuz_player_controls::position().map(|position| position.seconds());
-    let current_status = qobuz_player_controls::current_state().await;
-    let current_volume = (qobuz_player_controls::volume() * 100.0) as u32;
+async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let tracklist = state.player_state.tracklist.read().await;
+    let current_track = tracklist.current_track().cloned();
+    let position_seconds = state
+        .player_state
+        .sink
+        .position()
+        .map(|position| position.seconds());
+    let current_status = state.player_state.target_status.read().await;
+    let current_volume = (state.player_state.sink.volume() * 100.0) as u32;
 
     render(html! {
         <NowPlaying
-            current_tracklist=current_tracklist
+            tracklist=tracklist.clone()
             current_track=current_track
             position_seconds=position_seconds
-            current_status=current_status
+            current_status=*current_status
             current_volume=current_volume
         />
     })
@@ -213,7 +224,7 @@ fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> imp
 }
 
 #[component]
-pub(crate) fn state(playing: bool) -> impl IntoView {
+pub(crate) fn player_state(playing: bool) -> impl IntoView {
     html! {
         <div
             hx-trigger="status"
@@ -230,7 +241,7 @@ pub(crate) fn state(playing: bool) -> impl IntoView {
 
 #[component]
 fn now_playing(
-    current_tracklist: Tracklist,
+    tracklist: Tracklist,
     current_track: Option<models::Track>,
     position_seconds: Option<u64>,
     current_status: tracklist::Status,
@@ -242,9 +253,9 @@ fn now_playing(
         .and_then(|track| track.artist_name.clone());
     let artist_id = current_track.as_ref().and_then(|track| track.artist_id);
 
-    let current_position = current_tracklist.current_position();
+    let current_position = tracklist.current_position();
 
-    let (entity_title, entity_link) = match current_tracklist.list_type() {
+    let (entity_title, entity_link) = match tracklist.list_type() {
         TracklistType::Album(tracklist) => (
             Some(tracklist.title.clone()),
             Some(format!("/album/{}", tracklist.id)),
@@ -281,7 +292,7 @@ fn now_playing(
             )
         });
 
-    let number_of_tracks = current_tracklist.total();
+    let number_of_tracks = tracklist.total();
 
     html! {
         <div
@@ -332,7 +343,7 @@ fn now_playing(
                 <div class="flex flex-col gap-4">
                     <div class="flex flex-row gap-2 justify-center h-10">
                         <Previous />
-                        <State playing=playing />
+                        <PlayerState playing=playing />
                         <Next />
                     </div>
                     <VolumeSlider current_volume=current_volume />

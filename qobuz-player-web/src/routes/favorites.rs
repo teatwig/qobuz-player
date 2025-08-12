@@ -1,9 +1,16 @@
-use axum::{Router, extract::Path, response::IntoResponse, routing::get};
+use std::sync::Arc;
+
+use axum::{
+    Router,
+    extract::{Path, State},
+    response::IntoResponse,
+    routing::get,
+};
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::models::Favorites;
-use tokio::join;
 
 use crate::{
+    AppState,
     components::{
         Tab,
         list::{ListAlbums, ListArtists, ListPlaylists},
@@ -17,20 +24,14 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new().route("/favorites/{tab}", get(index))
 }
 
-async fn index(Path(tab): Path<Tab>) -> impl IntoResponse {
-    let favorites = qobuz_player_controls::favorites().await.unwrap();
+async fn index(State(state): State<Arc<AppState>>, Path(tab): Path<Tab>) -> impl IntoResponse {
+    let favorites = state.player_state.client.favorites().await.unwrap();
 
-    let (current_tracklist, current_status) = join!(
-        qobuz_player_controls::current_tracklist(),
-        qobuz_player_controls::current_state()
-    );
+    let tracklist = state.player_state.tracklist.read().await;
+    let current_status = state.player_state.target_status.read().await;
 
     render(html! {
-        <Page
-            active_page=Page::Favorites
-            current_status=current_status
-            current_tracklist=current_tracklist
-        >
+        <Page active_page=Page::Favorites current_status=&current_status tracklist=&tracklist>
             <Favorites favorites=favorites tab=tab />
         </Page>
     })

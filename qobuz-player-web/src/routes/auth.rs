@@ -27,7 +27,7 @@ pub(crate) async fn auth_middleware(
     request: Request,
     next: axum::middleware::Next,
 ) -> (CookieJar, Response<Body>) {
-    let Some(state_secret) = state.secret.clone() else {
+    let Some(state_secret) = state.player_state.web_secret.clone() else {
         return (jar, next.run(request).await);
     };
 
@@ -115,7 +115,7 @@ async fn login(
     )
         .into_response();
 
-    match state.secret.clone() {
+    match state.player_state.web_secret.clone() {
         None => return (jar, response),
         Some(secret) => {
             if secret == parameters.secret {

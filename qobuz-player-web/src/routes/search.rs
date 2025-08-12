@@ -1,13 +1,14 @@
+use std::sync::Arc;
+
 use axum::{
     Form, Router,
-    extract::{Path, Query},
+    extract::{Path, Query, State},
     response::IntoResponse,
     routing::{get, put},
 };
 use leptos::{component, prelude::*};
 use qobuz_player_controls::models::{self, SearchResults};
 use serde::Deserialize;
-use tokio::join;
 
 #[derive(Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -19,6 +20,7 @@ pub(crate) enum Tab {
 }
 
 use crate::{
+    AppState,
     components::{
         Info,
         list::{List, ListAlbums, ListArtists, ListItem, ListPlaylists},
@@ -35,8 +37,11 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         .route("/play-track/{track_id}", put(play_track))
 }
 
-async fn play_track(Path(track_id): Path<u32>) -> impl IntoResponse {
-    qobuz_player_controls::play_track(track_id).await.unwrap();
+async fn play_track(
+    State(state): State<Arc<AppState>>,
+    Path(track_id): Path<u32>,
+) -> impl IntoResponse {
+    state.player_state.broadcast.play_track(track_id);
 }
 
 #[derive(Deserialize, Clone)]
@@ -45,6 +50,7 @@ struct SearchParameters {
 }
 
 async fn index(
+    State(state): State<Arc<AppState>>,
     Path(tab): Path<Tab>,
     Query(parameters): Query<SearchParameters>,
 ) -> impl IntoResponse {
@@ -52,21 +58,15 @@ async fn index(
         .query
         .and_then(|s| if s.is_empty() { None } else { Some(s) });
     let search_results = match query {
-        Some(query) => qobuz_player_controls::search(query).await.unwrap(),
+        Some(query) => state.player_state.client.search(query).await.unwrap(),
         None => SearchResults::default(),
     };
 
-    let (current_tracklist, current_status) = join!(
-        qobuz_player_controls::current_tracklist(),
-        qobuz_player_controls::current_state()
-    );
+    let current_status = state.player_state.target_status.read().await;
+    let tracklist = state.player_state.tracklist.read().await;
 
     let html = html! {
-        <Page
-            active_page=Page::Search
-            current_status=current_status
-            current_tracklist=current_tracklist
-        >
+        <Page active_page=Page::Search current_status=&current_status tracklist=&tracklist>
             <Search search_results=search_results tab=tab />
         </Page>
     };
@@ -75,6 +75,7 @@ async fn index(
 }
 
 async fn search(
+    State(state): State<Arc<AppState>>,
     Path(tab): Path<Tab>,
     Form(parameters): Form<SearchParameters>,
 ) -> impl IntoResponse {
@@ -82,7 +83,7 @@ async fn search(
         .query
         .and_then(|s| if s.is_empty() { None } else { Some(s) });
     let search_results = match query.clone() {
-        Some(query) => qobuz_player_controls::search(query).await.unwrap(),
+        Some(query) => state.player_state.client.search(query).await.unwrap(),
         None => SearchResults::default(),
     };
 

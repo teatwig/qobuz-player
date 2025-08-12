@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
-    extract::Path,
+    extract::{Path, State},
     response::IntoResponse,
     routing::{get, put},
 };
@@ -9,6 +11,7 @@ use qobuz_player_controls::models::{Playlist, Track};
 use tokio::join;
 
 use crate::{
+    AppState,
     components::{
         ButtonGroup, ToggleFavorite, button_class,
         list::{ListTracks, TrackNumberDisplay},
@@ -32,46 +35,62 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         .route("/playlist/{id}/link", put(link))
 }
 
-async fn play_track(Path((id, track_position)): Path<(u32, u32)>) -> impl IntoResponse {
-    qobuz_player_controls::play_playlist(id, track_position, false)
-        .await
-        .unwrap();
+async fn play_track(
+    State(state): State<Arc<AppState>>,
+    Path((id, track_position)): Path<(u32, u32)>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .broadcast
+        .play_playlist(id, track_position, false);
 }
 
-async fn play(Path(id): Path<u32>) -> impl IntoResponse {
-    qobuz_player_controls::play_playlist(id, 0, false)
-        .await
-        .unwrap();
+async fn play(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
+    state.player_state.broadcast.play_playlist(id, 0, false);
 }
 
-async fn link(Path(id): Path<u32>) -> impl IntoResponse {
-    qobuz_player_rfid::link(qobuz_player_rfid::LinkRequest::Playlist(id)).await;
+async fn link(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
+    qobuz_player_rfid::link(
+        state.player_state.clone(),
+        qobuz_player_state::database::LinkRequest::Playlist(id),
+    )
+    .await;
 }
 
-async fn shuffle(Path(id): Path<u32>) -> impl IntoResponse {
-    qobuz_player_controls::play_playlist(id, 0, true)
-        .await
-        .unwrap();
+async fn shuffle(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
+    state.player_state.broadcast.play_playlist(id, 0, true);
 }
 
-async fn set_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::add_favorite_playlist(&id)
+async fn set_favorite(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .client
+        .add_favorite_playlist(&id)
         .await
         .unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
 
-async fn unset_favorite(Path(id): Path<String>) -> impl IntoResponse {
-    qobuz_player_controls::remove_favorite_playlist(&id)
+async fn unset_favorite(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .client
+        .remove_favorite_playlist(&id)
         .await
         .unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
 
-async fn index(Path(id): Path<u32>) -> impl IntoResponse {
+async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
     let (playlist, favorites) = join!(
-        qobuz_player_controls::playlist(id),
-        qobuz_player_controls::favorites()
+        state.player_state.client.playlist(id),
+        state.player_state.client.favorites()
     );
 
     let playlist = playlist.unwrap();
@@ -79,35 +98,35 @@ async fn index(Path(id): Path<u32>) -> impl IntoResponse {
 
     let is_favorite = favorites.playlists.iter().any(|playlist| playlist.id == id);
 
-    let (current_tracklist, current_status) = join!(
-        qobuz_player_controls::current_tracklist(),
-        qobuz_player_controls::current_state()
-    );
+    let current_status = state.player_state.target_status.read().await;
+    let rfid = state.player_state.rfid;
+    let tracklist = state.player_state.tracklist.read().await;
+    let currently_playing = tracklist.currently_playing();
 
     render(html! {
-        <Page
-            active_page=Page::None
-            current_status=current_status
-            current_tracklist=current_tracklist.clone()
-        >
+        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
             <Playlist
-                now_playing_id=current_tracklist.currently_playing()
+                now_playing_id=currently_playing
                 playlist=playlist
                 is_favorite=is_favorite
+                rfid=rfid
             />
         </Page>
     })
 }
 
-async fn tracks_partial(Path(id): Path<u32>) -> impl IntoResponse {
-    let playlist = qobuz_player_controls::playlist(id).await.unwrap();
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
+async fn tracks_partial(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<u32>,
+) -> impl IntoResponse {
+    let playlist = state.player_state.client.playlist(id).await.unwrap();
+    let tracklist = state.player_state.tracklist.read().await;
 
     render(html! {
         <Tracks
             tracks=playlist.tracks
             playlist_id=playlist.id
-            now_playing_id=current_tracklist.currently_playing()
+            now_playing_id=tracklist.currently_playing()
         />
     })
 }
@@ -135,9 +154,13 @@ fn tracks(now_playing_id: Option<u32>, tracks: Vec<Track>, playlist_id: u32) -> 
 }
 
 #[component]
-fn playlist(now_playing_id: Option<u32>, playlist: Playlist, is_favorite: bool) -> impl IntoView {
+fn playlist(
+    now_playing_id: Option<u32>,
+    playlist: Playlist,
+    is_favorite: bool,
+    rfid: bool,
+) -> impl IntoView {
     let duration = parse_duration(playlist.duration_seconds);
-    let rfid = qobuz_player_rfid::is_initiated();
 
     html! {
         <div class="flex flex-wrap gap-4 justify-center items-end w-full p-safe-or-4 *:max-w-sm">

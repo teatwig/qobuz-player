@@ -1,14 +1,16 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
-    extract::Path,
+    extract::{Path, State},
     response::IntoResponse,
     routing::{get, put},
 };
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::tracklist::{Tracklist, TracklistType};
-use tokio::join;
 
 use crate::{
+    AppState,
     components::list::{List, ListTracks, TrackNumberDisplay},
     html,
     page::Page,
@@ -22,32 +24,31 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         .route("/queue/skip-to/{track_number}", put(skip_to))
 }
 
-async fn skip_to(Path(track_number): Path<u32>) -> impl IntoResponse {
-    qobuz_player_controls::skip_to_position(track_number, true)
-        .await
-        .unwrap();
+async fn skip_to(
+    State(state): State<Arc<AppState>>,
+    Path(track_number): Path<u32>,
+) -> impl IntoResponse {
+    state
+        .player_state
+        .broadcast
+        .skip_to_position(track_number, true);
 }
 
-async fn index() -> impl IntoResponse {
-    let (current_tracklist, current_status) = join!(
-        qobuz_player_controls::current_tracklist(),
-        qobuz_player_controls::current_state()
-    );
+async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let current_status = state.player_state.target_status.read().await;
+    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist_clone = tracklist.clone();
 
     render(html! {
-        <Page
-            active_page=Page::Queue
-            current_status=current_status
-            current_tracklist=current_tracklist.clone()
-        >
-            <Queue current_tracklist=current_tracklist />
+        <Page active_page=Page::Queue current_status=&current_status tracklist=&tracklist>
+            <Queue tracklist=tracklist_clone />
         </Page>
     })
 }
 
 #[component]
-fn queue(current_tracklist: Tracklist) -> impl IntoView {
-    let (entity_title, entity_link) = match current_tracklist.list_type() {
+fn queue(tracklist: Tracklist) -> impl IntoView {
+    let (entity_title, entity_link) = match tracklist.list_type() {
         TracklistType::Album(tracklist) => (
             tracklist.title.clone(),
             Some(format!("/album/{}", tracklist.id)),
@@ -82,23 +83,22 @@ fn queue(current_tracklist: Tracklist) -> impl IntoView {
                 </div>
 
                 <div id="queue-list">
-                    <QueueList current_tracklist=current_tracklist />
+                    <QueueList tracklist=tracklist />
                 </div>
             </div>
         </div>
     }
 }
 
-async fn queue_partial() -> impl IntoResponse {
-    let current_tracklist = qobuz_player_controls::current_tracklist().await;
-
-    render(html! { <QueueList current_tracklist=current_tracklist /> })
+async fn queue_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let tracklist = state.player_state.tracklist.read().await;
+    render(html! { <QueueList tracklist=tracklist.clone() /> })
 }
 
 #[component]
-fn queue_list(current_tracklist: Tracklist) -> impl IntoView {
-    let now_playing_id = current_tracklist.currently_playing();
-    let tracks = current_tracklist.queue;
+fn queue_list(tracklist: Tracklist) -> impl IntoView {
+    let now_playing_id = tracklist.currently_playing();
+    let tracks = tracklist.queue().to_vec();
 
     html! {
         <List>

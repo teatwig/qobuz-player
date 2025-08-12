@@ -1,25 +1,30 @@
-use qobuz_player_client::qobuz_models::{
-    album::Album as QobuzAlbum,
-    album_suggestion::AlbumSuggestion,
-    artist::Artist as QobuzArtist,
-    artist_page::{self, ArtistPage as QobuzArtistPage},
-    playlist::Playlist as QobuzPlaylist,
-    release::Release,
-    search_results::SearchAllResults,
-    track::Track as QobuzTrack,
+use qobuz_player_client::{
+    client::AudioQuality,
+    qobuz_models::{
+        album::Album as QobuzAlbum,
+        album_suggestion::AlbumSuggestion,
+        artist::Artist as QobuzArtist,
+        artist_page::{self, ArtistPage as QobuzArtistPage},
+        playlist::Playlist as QobuzPlaylist,
+        release::Release,
+        search_results::SearchAllResults,
+        track::Track as QobuzTrack,
+    },
 };
 use std::{fmt::Debug, str::FromStr};
 
-use crate::CONFIGURATION;
-
-pub fn parse_search_results(search_results: SearchAllResults, user_id: i64) -> SearchResults {
+pub fn parse_search_results(
+    search_results: SearchAllResults,
+    user_id: i64,
+    max_audio_quality: &AudioQuality,
+) -> SearchResults {
     SearchResults {
         query: search_results.query,
         albums: search_results
             .albums
             .items
             .into_iter()
-            .map(|a| a.into())
+            .map(|a| parse_album(a, max_audio_quality))
             .collect(),
         artists: search_results
             .artists
@@ -31,13 +36,13 @@ pub fn parse_search_results(search_results: SearchAllResults, user_id: i64) -> S
             .playlists
             .items
             .into_iter()
-            .map(|p| parse_playlist(p, user_id))
+            .map(|p| parse_playlist(p, user_id, max_audio_quality))
             .collect(),
         tracks: search_results
             .tracks
             .items
             .into_iter()
-            .map(|t| t.into())
+            .map(|t| parse_track(t, max_audio_quality))
             .collect(),
     }
 }
@@ -74,76 +79,75 @@ impl From<Album> for AlbumSimple {
     }
 }
 
-impl From<AlbumSuggestion> for AlbumSimple {
-    fn from(s: AlbumSuggestion) -> Self {
-        let artist = s.artists.and_then(|vec| vec.into_iter().next());
-        let (artist_id, artist_name) = artist.map_or((0, "Unknown".into()), |artist| {
-            (artist.id as u32, artist.name)
-        });
+pub(crate) fn parse_album_simple(
+    s: AlbumSuggestion,
+    max_audio_quality: &AudioQuality,
+) -> AlbumSimple {
+    let artist = s.artists.and_then(|vec| vec.into_iter().next());
+    let (artist_id, artist_name) = artist.map_or((0, "Unknown".into()), |artist| {
+        (artist.id as u32, artist.name)
+    });
 
-        Self {
-            id: s.id,
-            title: s.title,
-            artist: Artist {
-                id: artist_id,
-                name: artist_name,
-                ..Default::default()
-            },
-            hires_available: hifi_available(s.rights.hires_streamable),
-            explicit: s.parental_warning,
-            available: s.rights.streamable,
-            image: s.image.large,
-        }
+    AlbumSimple {
+        id: s.id,
+        title: s.title,
+        artist: Artist {
+            id: artist_id,
+            name: artist_name,
+            ..Default::default()
+        },
+        hires_available: hifi_available(s.rights.hires_streamable, max_audio_quality),
+        explicit: s.parental_warning,
+        available: s.rights.streamable,
+        image: s.image.large,
     }
 }
 
-impl From<QobuzAlbum> for Album {
-    fn from(value: QobuzAlbum) -> Self {
-        let year = chrono::NaiveDate::from_str(&value.release_date_original)
-            .expect("failed to parse date")
-            .format("%Y");
+pub(crate) fn parse_album(value: QobuzAlbum, max_audio_quality: &AudioQuality) -> Album {
+    let year = chrono::NaiveDate::from_str(&value.release_date_original)
+        .expect("failed to parse date")
+        .format("%Y");
 
-        let tracks = value.tracks.map_or(Default::default(), |tracks| {
-            tracks
-                .items
-                .into_iter()
-                .map(|t| Track {
-                    id: t.id,
-                    title: t.title,
-                    number: t.track_number,
-                    explicit: t.parental_warning,
-                    hires_available: t.hires_streamable,
-                    available: t.streamable,
-                    status: Default::default(),
-                    image: Some(value.image.large.clone()),
-                    image_thumbnail: Some(value.image.small.clone()),
-                    duration_seconds: t.duration,
-                    artist_name: Some(value.artist.name.clone()),
-                    artist_id: Some(value.artist.id),
-                    album_title: Some(value.title.clone()),
-                    album_id: Some(value.id.clone()),
-                })
-                .collect()
-        });
+    let tracks = value.tracks.map_or(Default::default(), |tracks| {
+        tracks
+            .items
+            .into_iter()
+            .map(|t| Track {
+                id: t.id,
+                title: t.title,
+                number: t.track_number,
+                explicit: t.parental_warning,
+                hires_available: t.hires_streamable,
+                available: t.streamable,
+                status: Default::default(),
+                image: Some(value.image.large.clone()),
+                image_thumbnail: Some(value.image.small.clone()),
+                duration_seconds: t.duration,
+                artist_name: Some(value.artist.name.clone()),
+                artist_id: Some(value.artist.id),
+                album_title: Some(value.title.clone()),
+                album_id: Some(value.id.clone()),
+            })
+            .collect()
+    });
 
-        Self {
-            id: value.id,
-            title: value.title,
-            artist: value.artist.into(),
-            total_tracks: value.tracks_count as u32,
-            release_year: year
-                .to_string()
-                .parse::<u32>()
-                .expect("error converting year"),
-            hires_available: hifi_available(value.hires_streamable),
-            explicit: value.parental_warning,
-            available: value.streamable,
-            tracks,
-            image: value.image.large,
-            image_thumbnail: value.image.small,
-            duration_seconds: value.duration.map_or(0, |duration| duration as u32),
-            description: sanitize_html(value.description),
-        }
+    Album {
+        id: value.id,
+        title: value.title,
+        artist: value.artist.into(),
+        total_tracks: value.tracks_count as u32,
+        release_year: year
+            .to_string()
+            .parse::<u32>()
+            .expect("error converting year"),
+        hires_available: hifi_available(value.hires_streamable, max_audio_quality),
+        explicit: value.parental_warning,
+        available: value.streamable,
+        tracks,
+        image: value.image.large,
+        image_thumbnail: value.image.small,
+        duration_seconds: value.duration.map_or(0, |duration| duration as u32),
+        description: sanitize_html(value.description),
     }
 }
 
@@ -228,9 +232,17 @@ impl From<QobuzArtist> for Artist {
     }
 }
 
-pub fn parse_playlist(playlist: QobuzPlaylist, user_id: i64) -> Playlist {
+pub fn parse_playlist(
+    playlist: QobuzPlaylist,
+    user_id: i64,
+    max_audio_quality: &AudioQuality,
+) -> Playlist {
     let tracks = playlist.tracks.map_or(Default::default(), |tracks| {
-        tracks.items.into_iter().map(|t| t.into()).collect()
+        tracks
+            .items
+            .into_iter()
+            .map(|t| parse_track(t, max_audio_quality))
+            .collect()
     });
 
     let image = if let Some(image) = playlist.image_rectangle.first() {
@@ -252,50 +264,48 @@ pub fn parse_playlist(playlist: QobuzPlaylist, user_id: i64) -> Playlist {
     }
 }
 
-impl From<QobuzTrack> for Track {
-    fn from(value: QobuzTrack) -> Self {
-        let artist = if let Some(p) = &value.performer {
-            Some(Artist {
-                id: p.id as u32,
-                name: p.name.clone(),
-                image: None,
-            })
-        } else {
-            value.album.as_ref().map(|a| a.clone().artist.into())
-        };
+pub(crate) fn parse_track(value: QobuzTrack, max_audio_quality: &AudioQuality) -> Track {
+    let artist = if let Some(p) = &value.performer {
+        Some(Artist {
+            id: p.id as u32,
+            name: p.name.clone(),
+            image: None,
+        })
+    } else {
+        value.album.as_ref().map(|a| a.clone().artist.into())
+    };
 
-        let image = value.album.as_ref().map(|a| a.image.large.clone());
-        let image_thumbnail = value.album.as_ref().map(|a| a.image.small.clone());
+    let image = value.album.as_ref().map(|a| a.image.large.clone());
+    let image_thumbnail = value.album.as_ref().map(|a| a.image.small.clone());
 
-        Self {
-            id: value.id,
-            number: value.track_number,
-            title: value.title,
-            duration_seconds: value.duration,
-            explicit: value.parental_warning,
-            hires_available: hifi_available(value.hires_streamable),
-            available: value.streamable,
-            status: Default::default(),
-            image,
-            image_thumbnail,
-            artist_name: artist.as_ref().map(move |a| a.name.clone()),
-            artist_id: artist.as_ref().map(move |a| a.id),
-            album_title: value.album.as_ref().map(|a| a.title.clone()),
-            album_id: value.album.as_ref().map(|a| a.id.clone()),
-        }
+    Track {
+        id: value.id,
+        number: value.track_number,
+        title: value.title,
+        duration_seconds: value.duration,
+        explicit: value.parental_warning,
+        hires_available: hifi_available(value.hires_streamable, max_audio_quality),
+        available: value.streamable,
+        status: Default::default(),
+        image,
+        image_thumbnail,
+        artist_name: artist.as_ref().map(move |a| a.name.clone()),
+        artist_id: artist.as_ref().map(move |a| a.id),
+        album_title: value.album.as_ref().map(|a| a.title.clone()),
+        album_id: value.album.as_ref().map(|a| a.id.clone()),
     }
 }
 
-fn hifi_available(track_has_hires_available: bool) -> bool {
+fn hifi_available(track_has_hires_available: bool, max_audio_quality: &AudioQuality) -> bool {
     if !track_has_hires_available {
         return false;
     }
 
-    match CONFIGURATION.get().unwrap().max_audio_quality {
-        qobuz_player_client::client::AudioQuality::Mp3 => false,
-        qobuz_player_client::client::AudioQuality::CD => false,
-        qobuz_player_client::client::AudioQuality::HIFI96 => true,
-        qobuz_player_client::client::AudioQuality::HIFI192 => true,
+    match max_audio_quality {
+        AudioQuality::Mp3 => false,
+        AudioQuality::CD => false,
+        AudioQuality::HIFI96 => true,
+        AudioQuality::HIFI192 => true,
     }
 }
 

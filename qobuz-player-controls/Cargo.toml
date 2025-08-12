@@ -10,7 +10,6 @@ repository.workspace = true
 qobuz-player-client = { version = "*", path = "../qobuz-player-client" }
 
 gstreamer = { workspace = true }
-cached = { workspace = true } 
 futures = { workspace = true }
 tokio = { workspace = true }
 rand = { workspace = true }

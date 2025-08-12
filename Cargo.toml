@@ -8,7 +8,7 @@ members = [
   "qobuz-player-client",
   "qobuz-player-gpio",
   "qobuz-player-rfid",
-  "qobuz-player-database",
+  "qobuz-player-state",
 ]
 resolver = "2"
 
@@ -26,7 +26,6 @@ axum = { version = "*", features = ["ws"] }
 axum-extra = { version = "*", features = ["cookie"] }
 time = "*"
 base64 = "*"
-cached = { version = "*", features = ["async", "serde", "serde_json"] }
 chrono = "*"
 clap = { version = "*", features = ["derive", "env"] }
 rust-embed = { version = "*", features = ["axum", "tokio", "mime_guess"] }
