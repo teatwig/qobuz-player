@@ -3273,6 +3273,7 @@ name = "qobuz-player-gpio"
 version = "0.3.2"
 dependencies = [
  "qobuz-player-controls",
+ "qobuz-player-state",
  "rppal",
  "tokio",
  "tracing",

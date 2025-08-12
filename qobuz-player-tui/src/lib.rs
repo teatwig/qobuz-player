@@ -44,15 +44,17 @@ pub async fn init(state: Arc<qobuz_player_state::State>) {
     let status = *state.target_status.read().await;
     let now_playing = get_current_state(tracklist, status).await;
 
+    let client_clone = state.client.clone();
+
     let mut app = App {
-        state: state.clone(),
+        state,
         now_playing,
         current_screen: Default::default(),
         exit: Default::default(),
         should_draw: true,
         app_state: Default::default(),
         favorites: FavoritesState {
-            client: state.client.clone(),
+            client: client_clone.clone(),
             editing: Default::default(),
             filter: Default::default(),
             albums: FilteredListState {
@@ -73,7 +75,7 @@ pub async fn init(state: Arc<qobuz_player_state::State>) {
             sub_tab: Default::default(),
         },
         search: SearchState {
-            client: state.client.clone(),
+            client: client_clone,
             editing: Default::default(),
             filter: Default::default(),
             albums: UnfilteredListState {

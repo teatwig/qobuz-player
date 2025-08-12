@@ -31,20 +31,7 @@ pub async fn init(state: Arc<qobuz_player_state::State>) {
 
     let router = create_router(state.clone()).await;
 
-    axum::serve(listener, router)
-        .with_graceful_shutdown(async move {
-            let mut broadcast_receiver = state.broadcast.notify_receiver();
-
-            loop {
-                if let Ok(message) = broadcast_receiver.recv().await {
-                    if message == Notification::Quit {
-                        break;
-                    }
-                }
-            }
-        })
-        .await
-        .unwrap();
+    axum::serve(listener, router).await.unwrap();
 }
 
 async fn create_router(state: Arc<qobuz_player_state::State>) -> Router {
@@ -109,7 +96,7 @@ async fn background_task(tx: Sender<ServerSentEvent>, receiver: Arc<Broadcast>) 
                     };
                     _ = tx.send(event);
                 }
-                Notification::Quit => return,
+                Notification::Quit => break,
                 Notification::Message { message } => {
                     let toast = components::toast(message.clone()).to_html();
 

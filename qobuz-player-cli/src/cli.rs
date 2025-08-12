@@ -149,8 +149,7 @@ pub async fn run() -> Result<(), Error> {
 
             let client = Arc::new(Client::new(username, password, max_audio_quality));
 
-            let (mut player, status, broadcast, sink) =
-                Player::new(tracklist.clone(), client.clone());
+            let (status, broadcast, sink) = Player::start_player(tracklist.clone(), client.clone());
 
             let state = Arc::new(
                 State::new(
@@ -184,17 +183,11 @@ pub async fn run() -> Result<(), Error> {
 
             #[cfg(feature = "gpio")]
             if cli.gpio {
+                let state = state.clone();
                 tokio::spawn(async {
-                    qobuz_player_gpio::init().await;
+                    qobuz_player_gpio::init(state).await;
                 });
             }
-
-            tokio::spawn(async move {
-                match player.player_loop().await {
-                    Ok(_) => debug!("player loop exited successfully"),
-                    Err(error) => debug!("player loop error {error}"),
-                }
-            });
 
             let state_persist = state.clone();
             tokio::spawn(async {

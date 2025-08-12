@@ -15,7 +15,7 @@ use tokio::{
         broadcast::{self, Receiver, Sender},
     },
 };
-use tracing::instrument;
+use tracing::{debug, instrument};
 use tracklist::{SingleTracklist, Tracklist, TracklistType};
 
 pub use gstreamer::ClockTime;
@@ -61,32 +61,32 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(
+    pub fn start_player(
         tracklist: Arc<RwLock<Tracklist>>,
         client: Arc<Client>,
-    ) -> (
-        Self,
-        Arc<RwLock<tracklist::Status>>,
-        Arc<Broadcast>,
-        Arc<Sink>,
-    ) {
+    ) -> (Arc<RwLock<tracklist::Status>>, Arc<Broadcast>, Arc<Sink>) {
         let target_status = Arc::new(RwLock::new(Default::default()));
         let (tx, rx) = broadcast::channel(20);
         let broadcast = Arc::new(Broadcast { tx, rx });
         let sink = Arc::new(init_sink(broadcast.clone()));
-        (
-            Self {
-                tracklist,
-                target_status: target_status.clone(),
-                last_updated_tracklist: chrono::Utc::now(),
-                client,
-                broadcast: broadcast.clone(),
-                sink: sink.clone(),
-            },
-            target_status,
-            broadcast,
-            sink,
-        )
+
+        let mut player = Self {
+            tracklist,
+            target_status: target_status.clone(),
+            last_updated_tracklist: chrono::Utc::now(),
+            client,
+            broadcast: broadcast.clone(),
+            sink: sink.clone(),
+        };
+
+        tokio::spawn(async move {
+            match player.player_loop().await {
+                Ok(_) => debug!("player loop exited successfully"),
+                Err(error) => debug!("player loop error {error}"),
+            }
+        });
+
+        (target_status, broadcast, sink)
     }
 
     async fn play_pause(&mut self) -> Result<()> {
