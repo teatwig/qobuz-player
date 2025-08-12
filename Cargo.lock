@@ -1095,7 +1095,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.60.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1230,7 +1230,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "778e2ac28f6c47af28e4907f13ffd1e1ddbd400980a9abd7c8df189bf578a5ad"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1529,7 +1529,7 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps 7.0.5",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1623,9 +1623,9 @@ dependencies = [
 
 [[package]]
 name = "gstreamer"
-version = "0.24.0"
+version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1394d2bb79b4e7a662329c0afbb0f4be528f9a2289d094a31b4bd308e8c0972a"
+checksum = "32f5db514ad5ccf70ad35485058aa8b894bb81cfcf76bb994af135d9789427c6"
 dependencies = [
  "cfg-if",
  "futures-channel",
@@ -3935,7 +3935,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.9.4",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
