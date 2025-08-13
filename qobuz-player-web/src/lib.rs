@@ -81,10 +81,10 @@ async fn background_task(tx: Sender<ServerSentEvent>, receiver: Arc<Broadcast>) 
                     };
                     _ = tx.send(event);
                 }
-                Notification::Position { clock } => {
+                Notification::Position { position } => {
                     let event = ServerSentEvent {
                         event_name: "position".into(),
-                        event_data: clock.seconds().to_string(),
+                        event_data: position.mseconds().to_string(),
                     };
 
                     _ = tx.send(event);

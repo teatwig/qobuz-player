@@ -7,7 +7,11 @@ use models::Album;
 use notification::{Notification, PlayNotification};
 use rand::seq::SliceRandom;
 use sink::{Sink, init_sink};
-use std::{sync::Arc, time::Duration};
+use std::{
+    ops::{Add, Sub},
+    sync::Arc,
+    time::Duration,
+};
 use tokio::{
     select,
     sync::{
@@ -18,7 +22,6 @@ use tokio::{
 use tracing::{debug, instrument};
 use tracklist::{SingleTracklist, Tracklist, TracklistType};
 
-pub use gstreamer::ClockTime;
 pub use qobuz_player_client::client::{AlbumFeaturedType, AudioQuality, PlaylistFeaturedType};
 pub mod client;
 pub mod error;
@@ -28,6 +31,39 @@ pub mod sink;
 pub mod tracklist;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+pub struct Time(u64);
+
+impl Time {
+    pub fn from_mseconds(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub fn from_seconds(value: u64) -> Self {
+        Self(value * 1000)
+    }
+
+    pub fn mseconds(&self) -> u64 {
+        self.0
+    }
+}
+
+impl Add for Time {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Time::from_mseconds(self.0 + rhs.0)
+    }
+}
+
+impl Sub for Time {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Time::from_mseconds(self.0 - rhs.0)
+    }
+}
 
 #[derive(Debug)]
 pub struct ReadOnly<T>(Arc<RwLock<T>>);
@@ -132,6 +168,7 @@ impl Player {
     }
 
     async fn stop(&self) -> Result<()> {
+        self.set_target_state(tracklist::Status::Stopped).await;
         self.set_player_state(gstreamer::State::Null)
     }
 
@@ -162,10 +199,6 @@ impl Player {
         *self.target_status.read().await == tracklist::Status::Playing
     }
 
-    async fn is_player_playing(&self) -> bool {
-        self.sink.state() == gstreamer::State::Playing
-    }
-
     fn set_volume(&self, volume: f64) {
         self.sink.set_volume(volume);
     }
@@ -193,7 +226,10 @@ impl Player {
             }
             MessageView::StreamStart(_) => {
                 tracing::debug!("STREAM START");
-                if self.is_player_playing().await {
+
+                let position = self.sink.position();
+
+                if position.is_some_and(|position| position.mseconds() > 500) {
                     tracing::debug!("Starting next song");
 
                     self.skip_to_next_track().await;
@@ -204,14 +240,14 @@ impl Player {
                 tracing::debug!("ASYNC DONE");
 
                 let position = if let Some(p) = msg.running_time() {
-                    p
+                    Time::from_mseconds(p.mseconds())
                 } else {
                     self.sink.position().unwrap_or_default()
                 };
 
                 self.broadcast
                     .tx
-                    .send(Notification::Position { clock: position })?;
+                    .send(Notification::Position { position })?;
             }
             MessageView::Buffering(buffering) => {
                 if self.is_playing().await {
@@ -274,7 +310,7 @@ impl Player {
         if let (Some(current_position), Some(duration)) =
             (self.sink.position(), self.sink.duration())
         {
-            let ten_seconds = ClockTime::from_seconds(10);
+            let ten_seconds = Time::from_seconds(10);
             let next_position = current_position + ten_seconds;
 
             if next_position < duration {
@@ -289,10 +325,10 @@ impl Player {
 
     async fn jump_backward(&mut self) -> Result<()> {
         if let Some(current_position) = self.sink.position() {
-            if current_position.seconds() < 10 {
-                self.sink.seek(ClockTime::default())?;
+            if current_position.mseconds() < 10000 {
+                self.sink.seek(Time::default())?;
             } else {
-                let ten_seconds = ClockTime::from_seconds(10);
+                let ten_seconds = Time::from_seconds(10);
                 let seek_position = current_position - ten_seconds;
 
                 self.sink.seek(seek_position)?;
@@ -308,7 +344,7 @@ impl Player {
         let current_position = tracklist.current_position();
 
         if !force && new_position < current_position && current_position == 1 {
-            self.sink.seek(ClockTime::default())?;
+            self.sink.seek(Time::default())?;
             return Ok(());
         }
 
@@ -325,8 +361,8 @@ impl Player {
             && new_position != 0
         {
             if let Some(current_player_position) = self.sink.position() {
-                if current_player_position.seconds() > 1 {
-                    self.sink.seek(ClockTime::default())?;
+                if current_player_position.mseconds() > 1000 {
+                    self.sink.seek(Time::default())?;
                     return Ok(());
                 }
             }
@@ -534,7 +570,7 @@ impl Player {
         let mut receiver = self.broadcast.notify_receiver();
 
         let mut interval = tokio::time::interval(Duration::from_millis(500));
-        let mut last_position = ClockTime::default();
+        let mut last_position = Time::default();
 
         loop {
             select! {
@@ -542,12 +578,12 @@ impl Player {
                     let target_status = *self.target_status.read().await;
                     if target_status == tracklist::Status::Playing {
                         if let Some(position) = self.sink.position() {
-                            if position.seconds() != last_position.seconds() {
+                            if position.mseconds() != last_position.mseconds() {
                                 last_position = position;
 
                                 self.broadcast
                                     .tx
-                                    .send(Notification::Position { clock: position })
+                                    .send(Notification::Position { position })
                                     .expect("failed to send notification");
                             }
                         }
@@ -614,7 +650,7 @@ impl Player {
                             break;
                         },
                         Notification::Status { status: _ } => (),
-                        Notification::Position { clock: _ } => (),
+                        Notification::Position { position: _ } => (),
                         Notification::CurrentTrackList{ tracklist: _ } => {
                             self.last_updated_tracklist = chrono::Utc::now();
                         },
@@ -732,7 +768,7 @@ impl Broadcast {
             .unwrap();
     }
 
-    pub fn seek(&self, time: ClockTime) {
+    pub fn seek(&self, time: Time) {
         self.tx
             .send(Notification::Play(PlayNotification::Seek { time }))
             .unwrap();

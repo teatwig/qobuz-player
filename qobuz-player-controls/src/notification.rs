@@ -1,12 +1,13 @@
-use gstreamer::ClockTime;
-
-use crate::tracklist::{self, Tracklist};
+use crate::{
+    Time,
+    tracklist::{self, Tracklist},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Notification {
     Play(PlayNotification),
     Status { status: tracklist::Status },
-    Position { clock: ClockTime },
+    Position { position: Time },
     CurrentTrackList { tracklist: Tracklist },
     Quit,
     Message { message: Message },
@@ -36,6 +37,6 @@ pub enum PlayNotification {
     Stop,
     JumpForward,
     JumpBackward,
-    Seek { time: ClockTime },
+    Seek { time: Time },
     TrackAboutToFinish,
 }

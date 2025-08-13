@@ -36,12 +36,14 @@ function initSse() {
 
     const positionElement = document.getElementById("position");
 
-    const minutes = Math.floor(event.data / 60)
+    const seconds = event.data / 1000;
+
+    const minutesString = Math.floor(seconds / 60)
       .toString()
       .padStart(2, "0");
-    const seconds = (event.data % 60).toString().padStart(2, "0");
+    const secondsString = (seconds % 60).toString().padStart(2, "0");
 
-    positionElement.innerText = `${minutes}:${seconds}`;
+    positionElement.innerText = `${minutesString}:${secondsString}`;
   });
 }
 

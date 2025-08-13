@@ -1,5 +1,5 @@
-use crate::{Broadcast, ClockTime, error::Error};
-use gstreamer::{Element, SeekFlags, Structure, prelude::*};
+use crate::{Broadcast, Time, error::Error};
+use gstreamer::{ClockTime, Element, SeekFlags, Structure, prelude::*};
 use std::{str::FromStr, sync::Arc};
 
 static USER_AGENTS: &[&str] = &[
@@ -15,18 +15,24 @@ pub struct Sink {
 type Result<T, E = Error> = std::result::Result<T, E>;
 
 impl Sink {
-    pub fn seek(&self, time: ClockTime) -> Result<()> {
+    pub fn seek(&self, time: Time) -> Result<()> {
+        let clock_time = ClockTime::from_mseconds(time.mseconds());
+
         let flags = SeekFlags::FLUSH | SeekFlags::TRICKMODE_KEY_UNITS;
-        self.playbin.seek_simple(flags, time)?;
+        self.playbin.seek_simple(flags, clock_time)?;
         Ok(())
     }
 
-    pub fn position(&self) -> Option<ClockTime> {
-        self.playbin.query_position::<ClockTime>()
+    pub fn position(&self) -> Option<Time> {
+        self.playbin
+            .query_position::<ClockTime>()
+            .map(|clock_time| Time::from_mseconds(clock_time.mseconds()))
     }
 
-    pub fn duration(&self) -> Option<ClockTime> {
-        self.playbin.query_duration::<ClockTime>()
+    pub fn duration(&self) -> Option<Time> {
+        self.playbin
+            .query_duration::<ClockTime>()
+            .map(|clock_time| Time::from_mseconds(clock_time.mseconds()))
     }
 
     pub fn set_state(&self, state: gstreamer::State) -> Result<()> {

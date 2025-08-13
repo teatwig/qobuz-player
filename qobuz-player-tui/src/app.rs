@@ -100,8 +100,8 @@ impl App {
                                 self.now_playing.status = status;
                                 self.should_draw = true;
                             },
-                            qobuz_player_controls::notification::Notification::Position { clock } => {
-                                self.now_playing.duration_s = clock.seconds() as u32;
+                            qobuz_player_controls::notification::Notification::Position { position } => {
+                                self.now_playing.duration_ms = position.mseconds() as u32;
                                 self.should_draw = true;
                             },
                             qobuz_player_controls::notification::Notification::CurrentTrackList { tracklist } => {
@@ -340,6 +340,6 @@ pub(crate) async fn get_current_state(
         status,
         tracklist_position: tracklist.current_position(),
         show_tracklist_position,
-        duration_s: 0,
+        duration_ms: 0,
     }
 }

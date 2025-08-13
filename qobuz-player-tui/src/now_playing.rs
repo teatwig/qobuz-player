@@ -12,7 +12,7 @@ pub(crate) struct NowPlayingState {
     pub(crate) tracklist_position: u32,
     pub(crate) show_tracklist_position: bool,
     pub(crate) status: tracklist::Status,
-    pub(crate) duration_s: u32,
+    pub(crate) duration_ms: u32,
 }
 
 pub(crate) fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState) {
@@ -71,17 +71,17 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState)
         track_number, state.tracklist_length
     )));
 
-    let duration = if state.duration_s < track.duration_seconds {
-        state.duration_s
+    let duration = if state.duration_ms < track.duration_seconds * 1000 {
+        state.duration_ms
     } else {
-        track.duration_seconds
+        track.duration_seconds * 1000
     };
 
-    let ratio = duration as f64 / track.duration_seconds as f64;
+    let ratio = duration as f64 / (track.duration_seconds * 1000) as f64;
 
     let label = format!(
         "{} / {}",
-        format_seconds(state.duration_s),
+        format_mseconds(state.duration_ms),
         format_seconds(track.duration_seconds),
     );
 
@@ -100,6 +100,12 @@ fn get_status_icon(state: tracklist::Status) -> String {
         tracklist::Status::Paused => "⏸ ".to_string(),
         tracklist::Status::Stopped => "⏹ ".to_string(),
     }
+}
+
+fn format_mseconds(mseconds: u32) -> String {
+    let seconds = mseconds / 1000;
+
+    format_seconds(seconds)
 }
 
 fn format_seconds(seconds: u32) -> String {

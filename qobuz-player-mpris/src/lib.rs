@@ -6,7 +6,6 @@ use mpris_server::{
     zbus::{self, fdo},
 };
 use qobuz_player_controls::{
-    ClockTime,
     models::Track,
     notification::Notification,
     tracklist::{self},
@@ -89,7 +88,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
-        let clock = ClockTime::from_seconds(offset.as_secs() as u64);
+        let clock = qobuz_player_controls::Time::from_seconds(offset.as_secs() as u64);
         self.state.broadcast.seek(clock);
         Ok(())
     }
@@ -163,9 +162,9 @@ impl PlayerInterface for MprisPlayer {
             .state
             .sink
             .position()
-            .map(|position| position.seconds())
+            .map(|position| position.mseconds())
             .map_or(0, |p| p as i64);
-        let time = Time::from_secs(position_seconds);
+        let time = Time::from_millis(position_seconds);
         Ok(time)
     }
 
@@ -235,7 +234,7 @@ pub async fn init(state: Arc<State>) {
                         .await
                         .unwrap();
                 }
-                Notification::Position { clock: _ } => {}
+                Notification::Position { position: _ } => {}
                 Notification::CurrentTrackList { tracklist } => {
                     let current_track = tracklist.current_track();
 

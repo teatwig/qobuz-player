@@ -8,7 +8,7 @@ use axum::{
 };
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::{
-    ClockTime, models,
+    Time, models,
     tracklist::{self, Tracklist, TracklistType},
 };
 
@@ -62,7 +62,7 @@ async fn set_position(
     State(state): State<Arc<AppState>>,
     axum::Form(parameters): axum::Form<SliderParameters>,
 ) -> impl IntoResponse {
-    let time = ClockTime::from_seconds(parameters.value as u64);
+    let time = Time::from_mseconds(parameters.value as u64);
     state.player_state.broadcast.seek(time);
 }
 
@@ -151,11 +151,11 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let tracklist_clone = tracklist.clone();
     let current_track = tracklist.current_track().cloned();
 
-    let position_seconds = state
+    let position_mseconds = state
         .player_state
         .sink
         .position()
-        .map(|position| position.seconds());
+        .map(|position| position.mseconds());
     let current_status = state.player_state.target_status.read().await;
     let current_status_copy = *current_status;
     let current_volume = (state.player_state.sink.volume() * 100.0) as u32;
@@ -165,7 +165,7 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
             <NowPlaying
                 tracklist=tracklist_clone
                 current_track=current_track
-                position_seconds=position_seconds
+                position_mseconds=position_mseconds
                 current_status=current_status_copy
                 current_volume=current_volume
             />
@@ -176,11 +176,11 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let tracklist = state.player_state.tracklist.read().await;
     let current_track = tracklist.current_track().cloned();
-    let position_seconds = state
+    let position_mseconds = state
         .player_state
         .sink
         .position()
-        .map(|position| position.seconds());
+        .map(|position| position.mseconds());
     let current_status = state.player_state.target_status.read().await;
     let current_volume = (state.player_state.sink.volume() * 100.0) as u32;
 
@@ -188,7 +188,7 @@ async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoRes
         <NowPlaying
             tracklist=tracklist.clone()
             current_track=current_track
-            position_seconds=position_seconds
+            position_mseconds=position_mseconds
             current_status=*current_status
             current_volume=current_volume
         />
@@ -196,9 +196,11 @@ async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoRes
 }
 
 #[component]
-fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> impl IntoView {
-    let position_string = position_seconds.map_or("00:00".to_string(), seconds_to_mm_ss);
-    let duration_string = duration_seconds.map_or("00:00".to_string(), seconds_to_mm_ss);
+fn progress(position_mseconds: Option<u64>, duration_seconds: Option<u32>) -> impl IntoView {
+    let duration_mseconds = duration_seconds.map_or(0, |x| x * 1000);
+
+    let position_string = position_mseconds.map_or("00:00".to_string(), mseconds_to_mm_ss);
+    let duration_string = mseconds_to_mm_ss(duration_mseconds);
 
     html! {
         <div class="flex flex-col">
@@ -209,11 +211,11 @@ fn progress(position_seconds: Option<u64>, duration_seconds: Option<u32>) -> imp
                 hx-post="position"
                 hx-trigger="input delay:100ms"
                 hx-swap="none"
-                value=position_seconds.unwrap_or(0)
+                value=position_mseconds.unwrap_or(0)
                 type="range"
                 name="value"
                 min="0"
-                max=duration_seconds.unwrap_or(100)
+                max=duration_mseconds
             />
             <div class="flex justify-between text-sm text-gray-500">
                 <span id="position">{position_string}</span>
@@ -243,7 +245,7 @@ pub(crate) fn player_state(playing: bool) -> impl IntoView {
 fn now_playing(
     tracklist: Tracklist,
     current_track: Option<models::Track>,
-    position_seconds: Option<u64>,
+    position_mseconds: Option<u64>,
     current_status: tracklist::Status,
     current_volume: u32,
 ) -> impl IntoView {
@@ -337,7 +339,10 @@ fn now_playing(
                         <Info explicit=explicit hires_available=hires_available />
                     </div>
 
-                    <Progress position_seconds=position_seconds duration_seconds=duration_seconds />
+                    <Progress
+                        position_mseconds=position_mseconds
+                        duration_seconds=duration_seconds
+                    />
                 </div>
 
                 <div class="flex flex-col gap-4">
@@ -353,8 +358,9 @@ fn now_playing(
     }
 }
 
-fn seconds_to_mm_ss<T: Into<u64>>(seconds: T) -> String {
-    let seconds = seconds.into();
+fn mseconds_to_mm_ss<T: Into<u64>>(mseconds: T) -> String {
+    let seconds = mseconds.into() / 1000;
+
     let minutes = seconds / 60;
     let seconds = seconds % 60;
     format!("{minutes:02}:{seconds:02}")
