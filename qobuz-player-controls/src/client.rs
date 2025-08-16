@@ -1,4 +1,4 @@
-use qobuz_player_client::client::{AlbumFeaturedType, AudioQuality, PlaylistFeaturedType};
+use qobuz_player_client::client::AudioQuality;
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
 
@@ -127,42 +127,57 @@ impl Client {
             .collect())
     }
 
-    pub async fn featured_albums(
-        &self,
-        featured_type: AlbumFeaturedType,
-    ) -> Result<Vec<AlbumSimple>> {
+    pub async fn featured_albums(&self) -> Result<Vec<(String, Vec<AlbumSimple>)>> {
         let client = self.get_client().await;
-        let featured = client.featured_albums(featured_type).await?;
+        let featured = client.featured_albums().await?;
 
         Ok(featured
-            .albums
-            .items
             .into_iter()
-            .map(|value| AlbumSimple {
-                id: value.id,
-                title: value.title,
-                artist: value.artist.into(),
-                hires_available: value.hires_streamable,
-                explicit: value.parental_warning,
-                available: value.streamable,
-                image: value.image.large,
+            .map(|featured| {
+                let featured_type = featured.0;
+
+                let albums = featured
+                    .1
+                    .albums
+                    .items
+                    .into_iter()
+                    .map(|value| AlbumSimple {
+                        id: value.id,
+                        title: value.title,
+                        artist: value.artist.into(),
+                        hires_available: value.hires_streamable,
+                        explicit: value.parental_warning,
+                        available: value.streamable,
+                        image: value.image.large,
+                    })
+                    .collect::<Vec<_>>();
+
+                (featured_type, albums)
             })
             .collect())
     }
 
-    pub async fn featured_playlists(
-        &self,
-        featured_type: PlaylistFeaturedType,
-    ) -> Result<Vec<Playlist>> {
+    pub async fn featured_playlists(&self) -> Result<Vec<(String, Vec<Playlist>)>> {
         let client = self.get_client().await;
         let user_id = client.get_user_id();
-        let featured = client.featured_playlists(featured_type).await?;
+        let featured = client.featured_playlists().await?;
 
         Ok(featured
-            .playlists
-            .items
             .into_iter()
-            .map(|playlist| models::parse_playlist(playlist, user_id, &self.max_audio_quality))
+            .map(|featured| {
+                let featured_type = featured.0;
+                let playlists = featured
+                    .1
+                    .playlists
+                    .items
+                    .into_iter()
+                    .map(|playlist| {
+                        models::parse_playlist(playlist, user_id, &self.max_audio_quality)
+                    })
+                    .collect();
+
+                (featured_type, playlists)
+            })
             .collect())
     }
 

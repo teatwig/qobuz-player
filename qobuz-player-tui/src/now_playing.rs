@@ -22,7 +22,7 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState)
     };
 
     let title = format!("Playing {}", get_status_icon(state.status));
-    let block = block(&title);
+    let block = block(&title, false);
 
     let length = state
         .image

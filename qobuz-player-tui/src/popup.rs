@@ -43,7 +43,7 @@ impl Popup {
                     .collect();
 
                 let list = List::new(list)
-                    .block(block(&artist.artist_name))
+                    .block(block(&artist.artist_name, false))
                     .highlight_style(Style::default().bg(Color::Blue))
                     .highlight_symbol(">")
                     .highlight_spacing(HighlightSpacing::Always);
@@ -54,7 +54,7 @@ impl Popup {
             Popup::Playlist(playlist) => {
                 let area = center(frame.area(), Constraint::Length(18), Constraint::Length(3));
                 let tabs = Tabs::new(["Play", "Shuffle"])
-                    .block(block(&playlist.playlist_name))
+                    .block(block(&playlist.playlist_name, false))
                     .not_underlined()
                     .highlight_style(Style::default().bg(Color::Blue))
                     .select(if playlist.shuffle { 1 } else { 0 })

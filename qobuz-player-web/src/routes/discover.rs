@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use axum::{Router, extract::State, response::IntoResponse, routing::get};
 use leptos::prelude::*;
-use qobuz_player_controls::{
-    AlbumFeaturedType, PlaylistFeaturedType,
-    models::{AlbumSimple, Playlist},
-};
+use qobuz_player_controls::models::{AlbumSimple, Playlist};
 use tokio::try_join;
 
 use crate::{
@@ -21,32 +18,24 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 }
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let (press_awards, new_releases, qobuzissims, ideal_discography, editor_picks) = try_join!(
-        state
-            .player_state
-            .client
-            .featured_albums(AlbumFeaturedType::PressAwards),
-        state
-            .player_state
-            .client
-            .featured_albums(AlbumFeaturedType::NewReleasesFull),
-        state
-            .player_state
-            .client
-            .featured_albums(AlbumFeaturedType::Qobuzissims),
-        state
-            .player_state
-            .client
-            .featured_albums(AlbumFeaturedType::IdealDiscography),
-        state
-            .player_state
-            .client
-            .featured_playlists(PlaylistFeaturedType::EditorPicks),
+    let (featured_albums, featured_playlists) = try_join!(
+        state.player_state.client.featured_albums(),
+        state.player_state.client.featured_playlists(),
     )
     .unwrap();
 
     let tracklist = state.player_state.tracklist.read().await;
     let current_status = state.player_state.target_status.read().await;
+
+    let album_features = featured_albums
+        .into_iter()
+        .map(|x| html! { <AlbumFeature albums=x.1 name=x.0 /> })
+        .collect::<Vec<_>>();
+
+    let playlist_features = featured_playlists
+        .into_iter()
+        .map(|x| html! { <PlaylistFeature playlists=x.1 name=x.0 /> })
+        .collect::<Vec<_>>();
 
     render(html! {
         <Page active_page=Page::Discover current_status=&current_status tracklist=&tracklist>
@@ -54,11 +43,8 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
                 <div class="flex sticky top-0 flex-col flex-grow gap-4 pb-2 max-h-full pt-safe-or-4 bg-black/80 backdrop-blur">
                     <h1 class="text-2xl">Discover</h1>
                 </div>
-                <AlbumFeature albums=press_awards name="Press awards".to_string() />
-                <AlbumFeature albums=new_releases name="New releases".to_string() />
-                <AlbumFeature albums=qobuzissims name="Qobuzissims".to_string() />
-                <AlbumFeature albums=ideal_discography name="Ideal discography".to_string() />
-                <PlaylistFeature playlists=editor_picks name="Featured playlists".to_string() />
+                {album_features}
+                {playlist_features}
             </div>
         </Page>
     })

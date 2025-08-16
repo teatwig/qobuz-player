@@ -1,5 +1,3 @@
-use core::fmt;
-
 use qobuz_player_controls::models::{AlbumSimple, Playlist};
 use ratatui::{
     crossterm::event::{Event, KeyCode, KeyEventKind},
@@ -14,88 +12,39 @@ use crate::{
 };
 
 pub(crate) struct DiscoverState {
-    pub(crate) press_awards: UnfilteredListState<AlbumSimple>,
-    pub(crate) new_releases: UnfilteredListState<AlbumSimple>,
-    pub(crate) qobuzissims: UnfilteredListState<AlbumSimple>,
-    pub(crate) ideal_discography: UnfilteredListState<AlbumSimple>,
-    pub(crate) editor_picks: UnfilteredListState<Playlist>,
-    pub(crate) sub_tab: SubTab,
-}
-
-#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum SubTab {
-    #[default]
-    PressAwards,
-    NewReleases,
-    Qobuzissims,
-    IdealDiscography,
-    EditorPicks,
-}
-
-impl fmt::Display for SubTab {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::PressAwards => write!(f, "Press awards"),
-            Self::NewReleases => write!(f, "New releases"),
-            Self::Qobuzissims => write!(f, "Qobuzissims"),
-            Self::IdealDiscography => write!(f, "Ideal discography"),
-            Self::EditorPicks => write!(f, "Editor picks"),
-        }
-    }
-}
-
-impl SubTab {
-    pub(crate) const VALUES: [Self; 5] = [
-        Self::PressAwards,
-        Self::NewReleases,
-        Self::Qobuzissims,
-        Self::IdealDiscography,
-        Self::EditorPicks,
-    ];
-
-    pub(crate) fn next(self) -> Self {
-        let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
-        Self::VALUES[(index + 1) % Self::VALUES.len()]
-    }
-
-    pub(crate) fn previous(self) -> Self {
-        let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
-        let len = Self::VALUES.len();
-        Self::VALUES[(index + len - 1) % len]
-    }
+    pub(crate) featured_albums: Vec<(String, UnfilteredListState<AlbumSimple>)>,
+    pub(crate) featured_playlists: Vec<(String, UnfilteredListState<Playlist>)>,
+    pub(crate) sub_tab: usize,
 }
 
 impl DiscoverState {
     pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect) {
-        let title = format!("<{}>", self.sub_tab);
-        let (table, state) = match self.sub_tab {
-            SubTab::PressAwards => (
-                album_simple_table(&self.press_awards.items, &title),
-                &mut self.press_awards.state,
-            ),
-            SubTab::NewReleases => (
-                album_simple_table(&self.new_releases.items, &title),
-                &mut self.new_releases.state,
-            ),
-            SubTab::Qobuzissims => (
-                album_simple_table(&self.qobuzissims.items, &title),
-                &mut self.qobuzissims.state,
-            ),
-            SubTab::IdealDiscography => (
-                album_simple_table(&self.ideal_discography.items, &title),
-                &mut self.ideal_discography.state,
-            ),
-            SubTab::EditorPicks => (
-                basic_list_table(
-                    self.editor_picks
-                        .items
-                        .iter()
-                        .map(|playlist| Row::new(Line::from(playlist.title.clone())))
-                        .collect::<Vec<_>>(),
-                    &title,
-                ),
-                &mut self.editor_picks.state,
-            ),
+        let is_album = self.album_selected();
+
+        let (table, state) = match is_album {
+            true => {
+                let list_state = &mut self.featured_albums[self.sub_tab];
+                (
+                    album_simple_table(&list_state.1.items, &list_state.0),
+                    &mut list_state.1.state,
+                )
+            }
+            false => {
+                let list_state =
+                    &mut self.featured_playlists[self.sub_tab - self.featured_albums.len()];
+                (
+                    basic_list_table(
+                        list_state
+                            .1
+                            .items
+                            .iter()
+                            .map(|playlist| Row::new(Line::from(playlist.title.clone())))
+                            .collect::<Vec<_>>(),
+                        &list_state.0,
+                    ),
+                    &mut list_state.1.state,
+                )
+            }
         };
 
         frame.render_stateful_widget(table, area, state);
@@ -124,29 +73,26 @@ impl DiscoverState {
                     KeyCode::Enter => {
                         let selected_index = self.current_list_state().selected();
                         if let Some(selected_index) = selected_index {
-                            match self.sub_tab {
-                                SubTab::PressAwards => {
-                                    let id = self.press_awards.items[selected_index].id.clone();
+                            let is_abum = self.album_selected();
+
+                            match is_abum {
+                                true => {
+                                    let items = &self.featured_albums[self.sub_tab].1.items;
+                                    let id = items[selected_index].id.clone();
+
                                     return Output::PlayOutcome(PlayOutcome::Album(id));
                                 }
-                                SubTab::NewReleases => {
-                                    let id = self.new_releases.items[selected_index].id.clone();
-                                    return Output::PlayOutcome(PlayOutcome::Album(id));
-                                }
-                                SubTab::Qobuzissims => {
-                                    let id = self.qobuzissims.items[selected_index].id.clone();
-                                    return Output::PlayOutcome(PlayOutcome::Album(id));
-                                }
-                                SubTab::IdealDiscography => {
-                                    let id =
-                                        self.ideal_discography.items[selected_index].id.clone();
-                                    return Output::PlayOutcome(PlayOutcome::Album(id));
-                                }
-                                SubTab::EditorPicks => {
-                                    let selected = &self.editor_picks.items[selected_index];
+                                false => {
+                                    let items = &self.featured_playlists
+                                        [self.sub_tab - self.featured_albums.len()]
+                                    .1
+                                    .items;
+
+                                    let playlist = &items[selected_index];
+
                                     return Output::Popup(Popup::Playlist(PlaylistPopupState {
-                                        playlist_name: selected.title.clone(),
-                                        playlist_id: selected.id,
+                                        playlist_name: playlist.title.clone(),
+                                        playlist_id: playlist.id,
                                         shuffle: false,
                                     }));
                                 }
@@ -162,21 +108,30 @@ impl DiscoverState {
         }
     }
 
+    fn album_selected(&self) -> bool {
+        self.sub_tab < self.featured_albums.len()
+    }
+
     fn current_list_state(&mut self) -> &mut TableState {
-        match self.sub_tab {
-            SubTab::PressAwards => &mut self.press_awards.state,
-            SubTab::NewReleases => &mut self.new_releases.state,
-            SubTab::Qobuzissims => &mut self.qobuzissims.state,
-            SubTab::IdealDiscography => &mut self.ideal_discography.state,
-            SubTab::EditorPicks => &mut self.editor_picks.state,
+        let is_album = self.album_selected();
+
+        match is_album {
+            true => &mut self.featured_albums[self.sub_tab].1.state,
+            false => {
+                &mut self.featured_playlists[self.sub_tab - self.featured_albums.len()]
+                    .1
+                    .state
+            }
         }
     }
 
     fn cycle_subtab_backwards(&mut self) {
-        self.sub_tab = self.sub_tab.previous();
+        let count = self.featured_albums.len() + self.featured_playlists.len();
+        self.sub_tab = (self.sub_tab + count - 1) % count;
     }
 
     fn cycle_subtab(&mut self) {
-        self.sub_tab = self.sub_tab.next();
+        let count = self.featured_albums.len() + self.featured_playlists.len();
+        self.sub_tab = (self.sub_tab + count + 1) % count;
     }
 }

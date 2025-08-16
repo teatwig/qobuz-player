@@ -17,3 +17,4 @@ snafu = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 clap = { workspace = true }
+tokio = { workspace = true }

@@ -98,7 +98,7 @@ fn render_help(frame: &mut Frame) {
         Constraint::Length(rows.len() as u16 + 2),
     );
 
-    let block = block("Help");
+    let block = block("Help", false);
 
     let table = Table::default().rows(rows).block(block);
 
@@ -123,7 +123,7 @@ pub(crate) fn render_input(
     let input_paragraph = Paragraph::new(input.value())
         .style(style)
         .scroll((0, scroll as u16))
-        .block(block(title));
+        .block(block(title, false));
 
     frame.render_widget(input_paragraph, area);
 
@@ -135,9 +135,14 @@ pub(crate) fn render_input(
 
 const ROW_HIGHLIGHT_STYLE: Style = Style::new().bg(Color::Blue);
 
-pub(crate) fn block(title: &str) -> Block {
+pub(crate) fn block(title: &str, selectable: bool) -> Block {
+    let title = match selectable {
+        true => format!(" <{title}> "),
+        false => format!(" {title} "),
+    };
+
     Block::bordered()
-        .title(format!(" {title} "))
+        .title(title)
         .title_alignment(Alignment::Center)
         .border_type(BorderType::Rounded)
 }
@@ -175,7 +180,7 @@ pub(crate) fn album_table<'a>(rows: &[Album], title: &'a str) -> Table<'a> {
             Constraint::Length(4),
         ],
     )
-    .block(block(title))
+    .block(block(title, true))
     .row_highlight_style(ROW_HIGHLIGHT_STYLE);
 
     if !is_empty {
@@ -215,7 +220,7 @@ pub(crate) fn album_simple_table<'a>(rows: &[AlbumSimple], title: &'a str) -> Ta
             Constraint::Min(max_artist_name_length as u16),
         ],
     )
-    .block(block(title))
+    .block(block(title, true))
     .row_highlight_style(ROW_HIGHLIGHT_STYLE);
 
     if !is_empty {
@@ -226,6 +231,6 @@ pub(crate) fn album_simple_table<'a>(rows: &[AlbumSimple], title: &'a str) -> Ta
 
 pub(crate) fn basic_list_table<'a>(rows: Vec<Row<'a>>, title: &'a str) -> Table<'a> {
     Table::new(rows, [Constraint::Min(1)])
-        .block(block(title))
+        .block(block(title, true))
         .row_highlight_style(ROW_HIGHLIGHT_STYLE)
 }
