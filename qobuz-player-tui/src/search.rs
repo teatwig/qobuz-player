@@ -79,7 +79,7 @@ impl SearchState {
         );
 
         let tab_content_area = tab_content_area_split[1];
-        let title = format!("<Search: {}>", self.sub_tab);
+        let title = format!("Search: {}", self.sub_tab);
 
         let (table, state) = match self.sub_tab {
             SubTab::Albums => (

@@ -22,7 +22,7 @@ use tokio::{
 use tracing::{debug, instrument};
 use tracklist::{SingleTracklist, Tracklist, TracklistType};
 
-pub use qobuz_player_client::client::{AlbumFeaturedType, AudioQuality, PlaylistFeaturedType};
+pub use qobuz_player_client::client::AudioQuality;
 pub mod client;
 pub mod error;
 pub mod models;

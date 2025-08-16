@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use app::{App, FilteredListState, UnfilteredListState, get_current_state};
 use favorites::FavoritesState;
-use qobuz_player_controls::{AlbumFeaturedType, PlaylistFeaturedType};
 use queue::QueueState;
 use ratatui::{prelude::*, widgets::*};
 use search::SearchState;
@@ -23,22 +22,38 @@ pub async fn init(state: Arc<qobuz_player_state::State>) {
 
     draw_loading_screen(&mut terminal);
 
-    let (favorites, press_awards, new_releases, qobuzissims, ideal_discography, editor_picks) =
-        try_join!(
-            state.client.favorites(),
-            state.client.featured_albums(AlbumFeaturedType::PressAwards),
-            state
-                .client
-                .featured_albums(AlbumFeaturedType::NewReleasesFull),
-            state.client.featured_albums(AlbumFeaturedType::Qobuzissims),
-            state
-                .client
-                .featured_albums(AlbumFeaturedType::IdealDiscography),
-            state
-                .client
-                .featured_playlists(PlaylistFeaturedType::EditorPicks),
-        )
-        .unwrap();
+    let (favorites, featured_albums, featured_playlists) = try_join!(
+        state.client.favorites(),
+        state.client.featured_albums(),
+        state.client.featured_playlists(),
+    )
+    .unwrap();
+
+    let featured_albums = featured_albums
+        .into_iter()
+        .map(|x| {
+            (
+                x.0,
+                UnfilteredListState {
+                    items: x.1,
+                    state: Default::default(),
+                },
+            )
+        })
+        .collect();
+
+    let featured_playlists = featured_playlists
+        .into_iter()
+        .map(|x| {
+            (
+                x.0,
+                UnfilteredListState {
+                    items: x.1,
+                    state: Default::default(),
+                },
+            )
+        })
+        .collect();
 
     let tracklist = state.tracklist.read().await.clone();
     let status = *state.target_status.read().await;
@@ -103,26 +118,8 @@ pub async fn init(state: Arc<qobuz_player_state::State>) {
             },
         },
         discover: discover::DiscoverState {
-            press_awards: UnfilteredListState {
-                items: press_awards,
-                state: Default::default(),
-            },
-            new_releases: UnfilteredListState {
-                items: new_releases,
-                state: Default::default(),
-            },
-            qobuzissims: UnfilteredListState {
-                items: qobuzissims,
-                state: Default::default(),
-            },
-            ideal_discography: UnfilteredListState {
-                items: ideal_discography,
-                state: Default::default(),
-            },
-            editor_picks: UnfilteredListState {
-                items: editor_picks,
-                state: Default::default(),
-            },
+            featured_albums,
+            featured_playlists,
             sub_tab: Default::default(),
         },
     };

@@ -22,6 +22,7 @@ use reqwest::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, fmt::Display};
+use tokio::try_join;
 
 #[derive(Debug, Clone)]
 pub struct Client {
@@ -206,51 +207,39 @@ macro_rules! post {
     };
 }
 
-#[derive(Debug, Hash, Clone, PartialEq, Eq)]
-pub enum AlbumFeaturedType {
-    PressAwards,
-    NewReleasesFull,
-    Qobuzissims,
-    IdealDiscography,
-}
-
-#[derive(Debug, Hash, Clone, PartialEq, Eq)]
-pub enum PlaylistFeaturedType {
-    EditorPicks,
-}
-
 impl Client {
-    pub async fn featured_albums(
-        &self,
-        featured_type: AlbumFeaturedType,
-    ) -> Result<FeaturedAlbumsResponse> {
+    pub async fn featured_albums(&self) -> Result<Vec<(String, FeaturedAlbumsResponse)>> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::AlbumFeatured);
 
-        let type_string = match featured_type {
-            AlbumFeaturedType::PressAwards => "press-awards",
-            AlbumFeaturedType::NewReleasesFull => "new-releases-full",
-            AlbumFeaturedType::Qobuzissims => "qobuzissims",
-            AlbumFeaturedType::IdealDiscography => "ideal-discography",
+        let make_call = |type_string| {
+            let params = vec![("type", type_string), ("offset", "0"), ("limit", "20")];
+            let endpoint = endpoint.clone();
+            async move { get!(self, &endpoint, Some(&params)) }
         };
 
-        let params = vec![("type", type_string), ("offset", "0"), ("limit", "20")];
+        let (a, b, c, d) = try_join!(
+            make_call("press-awards"),
+            make_call("new-releases-full"),
+            make_call("qobuzissims"),
+            make_call("ideal-discography"),
+        )?;
 
-        get!(self, &endpoint, Some(&params))
+        Ok(vec![
+            ("Press awards".to_string(), a),
+            ("New releases".to_string(), b),
+            ("Qobuzissims".to_string(), c),
+            ("Ideal discography".to_string(), d),
+        ])
     }
 
-    pub async fn featured_playlists(
-        &self,
-        featured_type: PlaylistFeaturedType,
-    ) -> Result<FeaturedPlaylistsResponse> {
+    pub async fn featured_playlists(&self) -> Result<Vec<(String, FeaturedPlaylistsResponse)>> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::PlaylistFeatured);
 
-        let type_string = match featured_type {
-            PlaylistFeaturedType::EditorPicks => "editor-picks",
-        };
+        let type_string = "editor-picks";
 
         let params = vec![("type", type_string), ("offset", "0"), ("limit", "20")];
 
-        get!(self, &endpoint, Some(&params))
+        get!(self, &endpoint, Some(&params)).map(|x| vec![("Editor picks".to_string(), x)])
     }
 
     pub async fn user_playlists(&self) -> Result<UserPlaylistsResult> {
