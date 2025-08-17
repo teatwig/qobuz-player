@@ -20,7 +20,7 @@ use crate::{
     html,
     icons::{Link, Play},
     page::Page,
-    view::render,
+    view::{render, render_cached},
 };
 
 pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
@@ -103,7 +103,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
     let tracklist = state.player_state.tracklist.read().await;
     let currently_playing = tracklist.currently_playing();
 
-    render(html! {
+    render_cached(html! {
         <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
             <Playlist
                 now_playing_id=currently_playing

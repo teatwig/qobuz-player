@@ -20,7 +20,7 @@ use crate::{
     html,
     icons::{Link, Play},
     page::Page,
-    view::render,
+    view::{render, render_cached},
 };
 
 pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
@@ -98,7 +98,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
 
     let is_favorite = favorites.albums.iter().any(|album| album.id == id);
 
-    render(html! {
+    render_cached(html! {
         <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
             <Album
                 album=album
