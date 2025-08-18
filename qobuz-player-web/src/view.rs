@@ -9,6 +9,10 @@ macro_rules! html {
 }
 
 pub(crate) fn render(view: impl IntoView) -> axum::response::Response {
+    to_response(view.to_html())
+}
+
+pub(crate) fn to_response(html: String) -> axum::response::Response {
     (
         [
             (
@@ -20,7 +24,7 @@ pub(crate) fn render(view: impl IntoView) -> axum::response::Response {
                 axum::http::HeaderValue::from_static("no-cache"),
             ),
         ],
-        view.to_html(),
+        html,
     )
         .into_response()
 }

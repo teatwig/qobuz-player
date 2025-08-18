@@ -6,7 +6,7 @@ use qobuz_player_controls::models::{AlbumSimple, Playlist};
 use tokio::try_join;
 
 use crate::{
-    AppState,
+    AppState, Discover,
     components::list::{ListAlbumsVertical, ListPlaylistsVertical},
     html,
     page::Page,
@@ -17,22 +17,38 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new().route("/discover", get(index))
 }
 
-async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let (featured_albums, featured_playlists) = try_join!(
+async fn get_discover(state: &AppState) -> Discover {
+    if let Some(cached) = state.discover_cache.get().await {
+        return cached;
+    }
+
+    let (albums, playlists) = try_join!(
         state.player_state.client.featured_albums(),
         state.player_state.client.featured_playlists(),
     )
     .unwrap();
 
+    let discover = Discover { albums, playlists };
+
+    state.discover_cache.set(discover.clone()).await;
+
+    discover
+}
+
+async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let discover = get_discover(&state).await;
+
     let tracklist = state.player_state.tracklist.read().await;
     let current_status = state.player_state.target_status.read().await;
 
-    let album_features = featured_albums
+    let album_features = discover
+        .albums
         .into_iter()
         .map(|x| html! { <AlbumFeature albums=x.1 name=x.0 /> })
         .collect::<Vec<_>>();
 
-    let playlist_features = featured_playlists
+    let playlist_features = discover
+        .playlists
         .into_iter()
         .map(|x| html! { <PlaylistFeature playlists=x.1 name=x.0 /> })
         .collect::<Vec<_>>();

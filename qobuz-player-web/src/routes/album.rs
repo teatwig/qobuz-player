@@ -51,6 +51,9 @@ async fn set_favorite(
         .add_favorite_album(&id)
         .await
         .unwrap();
+
+    state.favorites_cache.clear().await;
+
     render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
 
@@ -64,6 +67,9 @@ async fn unset_favorite(
         .remove_favorite_album(&id)
         .await
         .unwrap();
+
+    state.favorites_cache.clear().await;
+
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
 

@@ -8,12 +8,24 @@ use axum::{
 use futures::stream::Stream;
 use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
-use qobuz_player_controls::{Broadcast, notification::Notification, tracklist};
+use qobuz_player_controls::{
+    Broadcast,
+    models::{AlbumSimple, Favorites, Playlist},
+    notification::Notification,
+    tracklist,
+};
 use routes::{
     album, artist, auth, controls, discover, favorites, now_playing, playlist, queue, search,
 };
 use std::{convert::Infallible, sync::Arc};
-use tokio::sync::broadcast::{self, Sender};
+use time::Duration;
+use tokio::{
+    sync::{
+        RwLock,
+        broadcast::{self, Sender},
+    },
+    time::Instant,
+};
 use tokio_stream::StreamExt as _;
 use tokio_stream::wrappers::BroadcastStream;
 
@@ -39,6 +51,8 @@ async fn create_router(state: Arc<qobuz_player_state::State>) -> Router {
     let shared_state = Arc::new(AppState {
         tx: tx.clone(),
         player_state: state.clone(),
+        favorites_cache: Cache::new(Duration::weeks(1)),
+        discover_cache: Cache::new(Duration::days(1)),
     });
     tokio::spawn(background_task(tx, state.broadcast.clone()));
 
@@ -161,10 +175,67 @@ async fn sse_handler(
 pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
     pub player_state: Arc<qobuz_player_state::State>,
+    pub favorites_cache: Cache<Favorites>,
+    pub discover_cache: Cache<Discover>,
 }
 
 #[derive(Clone)]
 pub(crate) struct ServerSentEvent {
     event_name: String,
     event_data: String,
+}
+
+#[derive(Clone)]
+pub(crate) struct Discover {
+    pub albums: Vec<(String, Vec<AlbumSimple>)>,
+    pub playlists: Vec<(String, Vec<Playlist>)>,
+}
+
+pub(crate) struct Cache<T> {
+    value: RwLock<Option<T>>,
+    ttl: Duration,
+    created: RwLock<Option<Instant>>,
+}
+
+impl<T> Cache<T> {
+    pub fn new(ttl: Duration) -> Self {
+        Self {
+            value: RwLock::new(None),
+            ttl,
+            created: RwLock::new(None),
+        }
+    }
+
+    pub async fn get(&self) -> Option<T>
+    where
+        T: Clone,
+    {
+        if self.valid().await {
+            self.value.read().await.clone()
+        } else {
+            None
+        }
+    }
+
+    pub async fn set(&self, value: T) {
+        let mut val_lock = self.value.write().await;
+        let mut time_lock = self.created.write().await;
+        *val_lock = Some(value);
+        *time_lock = Some(Instant::now());
+    }
+
+    pub async fn clear(&self) {
+        let mut val_lock = self.value.write().await;
+        let mut time_lock = self.created.write().await;
+        *val_lock = None;
+        *time_lock = None;
+    }
+
+    async fn valid(&self) -> bool {
+        let time_lock = self.created.read().await;
+        match *time_lock {
+            Some(created) => created.elapsed() < self.ttl,
+            None => false,
+        }
+    }
 }
