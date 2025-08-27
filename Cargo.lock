@@ -2637,7 +2637,7 @@ dependencies = [
 [[package]]
 name = "mpris-server"
 version = "0.9.0"
-source = "git+https://github.com/SeaDve/mpris-server#1b0358dae1b9c09b2ce2d699f9f293ce600a943c"
+source = "git+https://github.com/SeaDve/mpris-server#f8b3f74e93910fffd0c93df687e05cf954dcdeba"
 dependencies = [
  "async-channel",
  "futures-channel",
