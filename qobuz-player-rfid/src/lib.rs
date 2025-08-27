@@ -39,21 +39,21 @@ async fn handle_play_scan(state: &State, res: &str) {
     let now_playing = tracklist.list_type();
     match reference {
         LinkRequest::Album(id) => {
-            if let tracklist::TracklistType::Album(now_playing) = now_playing {
-                if now_playing.id == id {
-                    state.broadcast.play_pause();
-                    return;
-                }
+            if let tracklist::TracklistType::Album(now_playing) = now_playing
+                && now_playing.id == id
+            {
+                state.broadcast.play_pause();
+                return;
             }
 
             state.broadcast.play_album(&id, 0)
         }
         LinkRequest::Playlist(id) => {
-            if let tracklist::TracklistType::Playlist(now_playing) = now_playing {
-                if now_playing.id == id {
-                    state.broadcast.play_pause();
-                    return;
-                }
+            if let tracklist::TracklistType::Playlist(now_playing) = now_playing
+                && now_playing.id == id
+            {
+                state.broadcast.play_pause();
+                return;
             }
             state.broadcast.play_playlist(id, 0, false);
         }

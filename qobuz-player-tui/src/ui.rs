@@ -135,7 +135,7 @@ pub(crate) fn render_input(
 
 const ROW_HIGHLIGHT_STYLE: Style = Style::new().bg(Color::Blue);
 
-pub(crate) fn block(title: &str, selectable: bool) -> Block {
+pub(crate) fn block(title: &str, selectable: bool) -> Block<'_> {
     let title = match selectable {
         true => format!(" <{title}> "),
         false => format!(" {title} "),

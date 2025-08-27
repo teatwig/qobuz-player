@@ -359,13 +359,11 @@ impl Player {
             && new_position < current_position
             && total_tracks != current_position
             && new_position != 0
+            && let Some(current_player_position) = self.sink.position()
+            && current_player_position.mseconds() > 1000
         {
-            if let Some(current_player_position) = self.sink.position() {
-                if current_player_position.mseconds() > 1000 {
-                    self.sink.seek(Time::default())?;
-                    return Ok(());
-                }
-            }
+            self.sink.seek(Time::default())?;
+            return Ok(());
         }
 
         self.ready().await?;
@@ -556,10 +554,10 @@ impl Player {
             .find(|t| t.0 as u32 == current_position + 1)
             .map(|t| t.1);
 
-        if let Some(next_track) = next_track {
-            if let Ok(url) = self.track_url(next_track.id).await {
-                self.sink.query_track_url(&url).unwrap();
-            }
+        if let Some(next_track) = next_track
+            && let Ok(url) = self.track_url(next_track.id).await
+        {
+            self.sink.query_track_url(&url).unwrap();
         }
     }
 
@@ -576,9 +574,9 @@ impl Player {
             select! {
                 _ = interval.tick() => {
                     let target_status = *self.target_status.read().await;
-                    if target_status == tracklist::Status::Playing {
-                        if let Some(position) = self.sink.position() {
-                            if position.mseconds() != last_position.mseconds() {
+                    if target_status == tracklist::Status::Playing
+                        && let Some(position) = self.sink.position()
+                            && position.mseconds() != last_position.mseconds() {
                                 last_position = position;
 
                                 self.broadcast
@@ -586,8 +584,6 @@ impl Player {
                                     .send(Notification::Position { position })
                                     .expect("failed to send notification");
                             }
-                        }
-                    }
                 }
                 Some(msg) = messages.next() => {
                     match self.handle_message(&msg).await {
