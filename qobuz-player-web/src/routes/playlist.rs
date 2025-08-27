@@ -20,12 +20,13 @@ use crate::{
     html,
     icons::{Link, Play},
     page::Page,
-    view::{render, render_cached},
+    view::{LazyLoadComponent, render},
 };
 
 pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new()
         .route("/playlist/{id}", get(index))
+        .route("/playlist/{id}/content", get(content))
         .route("/playlist/{id}/tracks", get(tracks_partial))
         .route("/playlist/{id}/set-favorite", put(set_favorite))
         .route("/playlist/{id}/unset-favorite", put(unset_favorite))
@@ -88,6 +89,19 @@ async fn unset_favorite(
 }
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
+    let url = format!("/playlist/{id}/content");
+
+    let current_status = state.player_state.target_status.read().await;
+    let tracklist = state.player_state.tracklist.read().await;
+
+    render(html! {
+        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
+            <LazyLoadComponent url=url />
+        </Page>
+    })
+}
+
+async fn content(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
     let (playlist, favorites) = join!(
         state.player_state.client.playlist(id),
         state.player_state.client.favorites()
@@ -98,20 +112,17 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
 
     let is_favorite = favorites.playlists.iter().any(|playlist| playlist.id == id);
 
-    let current_status = state.player_state.target_status.read().await;
     let rfid = state.player_state.rfid;
     let tracklist = state.player_state.tracklist.read().await;
     let currently_playing = tracklist.currently_playing();
 
-    render_cached(html! {
-        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
-            <Playlist
-                now_playing_id=currently_playing
-                playlist=playlist
-                is_favorite=is_favorite
-                rfid=rfid
-            />
-        </Page>
+    render(html! {
+        <Playlist
+            now_playing_id=currently_playing
+            playlist=playlist
+            is_favorite=is_favorite
+            rfid=rfid
+        />
     })
 }
 

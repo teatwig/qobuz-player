@@ -20,12 +20,13 @@ use crate::{
     html,
     icons::{Link, Play},
     page::Page,
-    view::{render, render_cached},
+    view::{LazyLoadComponent, render},
 };
 
 pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new()
         .route("/album/{id}", get(index))
+        .route("/album/{id}/content", get(content))
         .route("/album/{id}/tracks", get(album_tracks_partial))
         .route("/album/{id}/set-favorite", put(set_favorite))
         .route("/album/{id}/unset-favorite", put(unset_favorite))
@@ -86,13 +87,23 @@ async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> imp
 }
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
+    let url = format!("/album/{id}/content");
+    let current_status = state.player_state.target_status.read().await;
+    let tracklist = state.player_state.tracklist.read().await;
+
+    render(html! {
+        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
+            <LazyLoadComponent url=url />
+        </Page>
+    })
+}
+
+async fn content(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
     let (album, suggested_albums, favorites) = join!(
         state.player_state.client.album(&id),
         state.player_state.client.suggested_albums(id.clone()),
         state.player_state.client.favorites(),
     );
-
-    let current_status = state.player_state.target_status.read().await;
 
     let album = album.unwrap();
     let suggested_albums = suggested_albums.unwrap();
@@ -104,16 +115,14 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
 
     let is_favorite = favorites.albums.iter().any(|album| album.id == id);
 
-    render_cached(html! {
-        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
-            <Album
-                album=album
-                suggested_albums=suggested_albums
-                is_favorite=is_favorite
-                now_playing_id=currently_playing
-                rfid=rfid
-            />
-        </Page>
+    render(html! {
+        <Album
+            album=album
+            suggested_albums=suggested_albums
+            is_favorite=is_favorite
+            now_playing_id=currently_playing
+            rfid=rfid
+        />
     })
 }
 

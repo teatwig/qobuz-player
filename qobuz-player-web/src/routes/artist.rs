@@ -19,12 +19,13 @@ use crate::{
     html,
     icons::Play,
     page::Page,
-    view::{render, render_cached},
+    view::{LazyLoadComponent, render},
 };
 
 pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new()
         .route("/artist/{id}", get(index))
+        .route("/artist/{id}/content", get(content))
         .route("/artist/{id}/top-tracks", get(top_tracks_partial))
         .route("/artist/{id}/set-favorite", put(set_favorite))
         .route("/artist/{id}/unset-favorite", put(unset_favorite))
@@ -86,6 +87,19 @@ async fn unset_favorite(
 }
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
+    let url = format!("/artist/{id}/content");
+
+    let current_status = state.player_state.target_status.read().await;
+    let tracklist = state.player_state.tracklist.read().await;
+
+    render(html! {
+        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
+            <LazyLoadComponent url=url />
+        </Page>
+    })
+}
+
+async fn content(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
     let (artist, albums, similar_artists, favorites) = join!(
         state.player_state.client.artist_page(id),
         state.player_state.client.artist_albums(id),
@@ -93,7 +107,6 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
         state.player_state.client.favorites(),
     );
 
-    let current_status = state.player_state.target_status.read().await;
     let tracklist = state.player_state.tracklist.read().await;
     let now_playing_id = tracklist.currently_playing();
 
@@ -104,16 +117,14 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
 
     let is_favorite = favorites.artists.iter().any(|artist| artist.id == id);
 
-    render_cached(html! {
-        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
-            <Artist
-                artist=artist
-                albums=albums
-                is_favorite=is_favorite
-                similar_artists=similar_artists
-                now_playing_id=now_playing_id
-            />
-        </Page>
+    render(html! {
+        <Artist
+            artist=artist
+            albums=albums
+            is_favorite=is_favorite
+            similar_artists=similar_artists
+            now_playing_id=now_playing_id
+        />
     })
 }
 
