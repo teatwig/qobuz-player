@@ -41,7 +41,9 @@ function initSse() {
     const minutesString = Math.floor(seconds / 60)
       .toString()
       .padStart(2, "0");
-    const secondsString = (seconds % 60).toString().padStart(2, "0");
+    const secondsString = Math.floor(seconds % 60)
+      .toString()
+      .padStart(2, "0");
 
     positionElement.innerText = `${minutesString}:${secondsString}`;
   });

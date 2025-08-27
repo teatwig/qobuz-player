@@ -461,14 +461,18 @@ impl Player {
 
         let artist = self.client.artist_page(artist_id).await?;
 
-        let unstreambale_tracks_to_index = artist
-            .top_tracks
+        let tracks = artist.top_tracks;
+
+        let unstreambale_tracks_to_index = tracks
             .iter()
             .take(index as usize)
             .filter(|t| !t.available)
             .count() as u32;
 
         let mut tracklist = self.tracklist.write().await;
+
+        tracklist.queue = tracks.into_iter().filter(|t| t.available).collect();
+
         if let Some(track) = tracklist.skip_to_track(index - unstreambale_tracks_to_index) {
             let track_url = self.track_url(track.id).await?;
             self.query_track_url(&track_url).await?;
