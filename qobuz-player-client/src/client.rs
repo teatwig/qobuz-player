@@ -2,7 +2,7 @@ use crate::{
     Error, Result,
     qobuz_models::{
         TrackURL,
-        album::{Album, AlbumSearchResults},
+        album::Album,
         album_suggestion::AlbumSuggestionResponse,
         artist::{Artists, ArtistsResponse},
         artist_page::ArtistPage,
@@ -24,7 +24,7 @@ use serde_json::Value;
 use std::{collections::HashMap, fmt::Display};
 use tokio::try_join;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Client {
     active_secret: String,
     app_id: String,
@@ -122,7 +122,6 @@ enum Endpoint {
     ArtistReleases,
     Login,
     UserPlaylist,
-    SearchAlbums,
     Track,
     TrackURL,
     Playlist,
@@ -157,7 +156,6 @@ impl Display for Endpoint {
             Endpoint::PlaylistDeleteTracks => "playlist/deleteTracks",
             Endpoint::PlaylistUpdatePosition => "playlist/updateTracksPosition",
             Endpoint::Search => "catalog/search",
-            Endpoint::SearchAlbums => "album/search",
             Endpoint::Track => "track/get",
             Endpoint::TrackURL => "track/getFileUrl",
             Endpoint::UserPlaylist => "playlist/getUserPlaylists",
@@ -258,50 +256,7 @@ impl Client {
             ("playlist_id", id_string.as_str()),
             ("offset", "0"),
         ];
-        let playlist: Result<Playlist> = get!(self, &endpoint, Some(&params));
-
-        if let Ok(mut playlist) = playlist {
-            self.playlist_items(&mut playlist, &endpoint).await?;
-
-            Ok(playlist)
-        } else {
-            Err(Error::Api {
-                message: "error fetching playlist".to_string(),
-            })
-        }
-    }
-
-    async fn playlist_items(&self, playlist: &mut Playlist, endpoint: &str) -> Result<()> {
-        let total_tracks = playlist.tracks_count as usize;
-
-        if let Some(tracks) = playlist.tracks.as_mut() {
-            while tracks.items.len() < total_tracks {
-                let id = playlist.id.to_string();
-                let limit_string = (total_tracks - tracks.items.len()).to_string();
-                let offset_string = tracks.items.len().to_string();
-
-                let params = vec![
-                    ("limit", limit_string.as_str()),
-                    ("extra", "tracks"),
-                    ("playlist_id", id.as_str()),
-                    ("offset", offset_string.as_str()),
-                ];
-
-                let playlist: Result<Playlist> = get!(self, endpoint, Some(&params));
-
-                match &playlist {
-                    Ok(playlist) => {
-                        tracing::debug!("appending tracks to playlist");
-                        if let Some(new_tracks) = &playlist.tracks {
-                            tracks.items.append(&mut new_tracks.clone().items);
-                        }
-                    }
-                    Err(error) => tracing::error!("{}", error.to_string()),
-                }
-            }
-        }
-
-        Ok(())
+        get!(self, &endpoint, Some(&params))
     }
 
     pub async fn create_playlist(
@@ -501,18 +456,6 @@ impl Client {
     pub async fn suggested_albums(&self, album_id: &str) -> Result<AlbumSuggestionResponse> {
         let endpoint = format!("{}{}", self.base_url, Endpoint::AlbumSuggest);
         let params = vec![("album_id", album_id)];
-
-        get!(self, &endpoint, Some(&params))
-    }
-
-    pub async fn search_albums(
-        &self,
-        query: &str,
-        limit: Option<i32>,
-    ) -> Result<AlbumSearchResults> {
-        let endpoint = format!("{}{}", self.base_url, Endpoint::SearchAlbums);
-        let limit = limit.unwrap_or(100).to_string();
-        let params = vec![("query", query), ("limit", limit.as_str())];
 
         get!(self, &endpoint, Some(&params))
     }

@@ -8,7 +8,6 @@ use axum::{
 };
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::models::{Album, AlbumSimple, Track};
-use tokio::join;
 
 use crate::{
     AppState,
@@ -53,8 +52,6 @@ async fn set_favorite(
         .await
         .unwrap();
 
-    state.favorites_cache.clear().await;
-
     render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
 
@@ -68,8 +65,6 @@ async fn unset_favorite(
         .remove_favorite_album(&id)
         .await
         .unwrap();
-
-    state.favorites_cache.clear().await;
 
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
@@ -99,26 +94,16 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
 }
 
 async fn content(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
-    let (album, suggested_albums, favorites) = join!(
-        state.player_state.client.album(&id),
-        state.player_state.client.suggested_albums(id.clone()),
-        state.player_state.client.favorites(),
-    );
-
-    let album = album.unwrap();
-    let suggested_albums = suggested_albums.unwrap();
-    let favorites = favorites.unwrap();
-
+    let album_data = state.get_album(&id).await;
     let rfid = state.player_state.rfid;
     let tracklist = state.player_state.tracklist.read().await;
     let currently_playing = tracklist.currently_playing();
-
-    let is_favorite = favorites.albums.iter().any(|album| album.id == id);
+    let is_favorite = state.is_album_favorite(&id).await;
 
     render(html! {
         <Album
-            album=album
-            suggested_albums=suggested_albums
+            album=album_data.album
+            suggested_albums=album_data.suggested_albums
             is_favorite=is_favorite
             now_playing_id=currently_playing
             rfid=rfid

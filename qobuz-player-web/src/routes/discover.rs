@@ -18,21 +18,13 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 }
 
 async fn get_discover(state: &AppState) -> Discover {
-    if let Some(cached) = state.discover_cache.get().await {
-        return cached;
-    }
-
     let (albums, playlists) = try_join!(
         state.player_state.client.featured_albums(),
         state.player_state.client.featured_playlists(),
     )
     .unwrap();
 
-    let discover = Discover { albums, playlists };
-
-    state.discover_cache.set(discover.clone()).await;
-
-    discover
+    Discover { albums, playlists }
 }
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {

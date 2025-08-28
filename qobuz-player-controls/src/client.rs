@@ -1,6 +1,11 @@
+use moka::future::Cache;
 use qobuz_player_client::client::AudioQuality;
 use std::sync::OnceLock;
-use tokio::sync::Mutex;
+use time::Duration;
+use tokio::{
+    sync::{Mutex, RwLock},
+    time::Instant,
+};
 
 use crate::{
     error::Error,
@@ -20,16 +25,64 @@ pub struct Client {
     password: String,
     max_audio_quality: AudioQuality,
     client_initiated: Mutex<bool>,
+    favorites_cache: SimpleCache<Favorites>,
+    featured_albums_cache: SimpleCache<Vec<(String, Vec<AlbumSimple>)>>,
+    featured_playlists_cache: SimpleCache<Vec<(String, Vec<Playlist>)>>,
+    album_cache: Cache<String, Album>,
+    artist_cache: Cache<u32, ArtistPage>,
+    artist_albums_cache: Cache<u32, Vec<AlbumSimple>>,
+    playlist_cache: Cache<u32, Playlist>,
+    similar_artists_cache: Cache<u32, Vec<Artist>>,
+    suggested_albums_cache: Cache<String, Vec<AlbumSimple>>,
+    search_cache: Cache<String, SearchResults>,
 }
 
 impl Client {
     pub fn new(username: String, password: String, max_audio_quality: AudioQuality) -> Self {
+        let album_cache = moka::future::CacheBuilder::new(1000)
+            .time_to_live(std::time::Duration::from_secs(60 * 60 * 24 * 7))
+            .build();
+
+        let artist_cache = moka::future::CacheBuilder::new(1000)
+            .time_to_live(std::time::Duration::from_secs(60 * 60 * 24))
+            .build();
+
+        let artist_albums_cache = moka::future::CacheBuilder::new(1000)
+            .time_to_live(std::time::Duration::from_secs(60 * 60 * 24))
+            .build();
+
+        let playlist_cache = moka::future::CacheBuilder::new(1000)
+            .time_to_live(std::time::Duration::from_secs(60 * 60 * 24))
+            .build();
+
+        let similar_artists_cache = moka::future::CacheBuilder::new(1000)
+            .time_to_live(std::time::Duration::from_secs(60 * 60 * 24 * 7))
+            .build();
+
+        let suggested_albums_cache = moka::future::CacheBuilder::new(1000)
+            .time_to_live(std::time::Duration::from_secs(60 * 60 * 24 * 7))
+            .build();
+
+        let search_cache = moka::future::CacheBuilder::new(1000)
+            .time_to_live(std::time::Duration::from_secs(60 * 60 * 24))
+            .build();
+
         Self {
             qobuz_client: Default::default(),
             username,
             password,
             max_audio_quality,
             client_initiated: Mutex::new(false),
+            favorites_cache: SimpleCache::new(Duration::weeks(1)),
+            featured_albums_cache: SimpleCache::new(Duration::days(1)),
+            featured_playlists_cache: SimpleCache::new(Duration::days(1)),
+            album_cache,
+            artist_cache,
+            artist_albums_cache,
+            playlist_cache,
+            similar_artists_cache,
+            suggested_albums_cache,
+            search_cache,
         }
     }
 
@@ -73,32 +126,54 @@ impl Client {
     }
 
     pub async fn album(&self, id: &str) -> Result<Album> {
+        if let Some(cache) = self.album_cache.get(id).await {
+            return Ok(cache);
+        }
+
         let client = self.get_client().await;
         let album = client.album(id).await?;
-        Ok(parse_album(album, &self.max_audio_quality))
+        let album = parse_album(album, &self.max_audio_quality);
+
+        self.album_cache.insert(id.to_string(), album.clone()).await;
+
+        Ok(album)
     }
 
     pub async fn search(&self, query: String) -> Result<SearchResults> {
+        if let Some(cache) = self.search_cache.get(&query).await {
+            return Ok(cache);
+        }
+
         let client = self.get_client().await;
         let user_id = client.get_user_id();
 
         let results = client.search_all(&query, 20).await?;
-        Ok(models::parse_search_results(
-            results,
-            user_id,
-            &self.max_audio_quality,
-        ))
+        let results = models::parse_search_results(results, user_id, &self.max_audio_quality);
+
+        self.search_cache.insert(query, results.clone()).await;
+        Ok(results)
     }
 
-    pub async fn artist_page(&self, artist_id: u32) -> Result<ArtistPage> {
+    pub async fn artist_page(&self, id: u32) -> Result<ArtistPage> {
+        if let Some(cache) = self.artist_cache.get(&id).await {
+            return Ok(cache);
+        }
+
         let client = self.get_client().await;
-        let artist = client.artist(artist_id).await?;
-        Ok(artist.into())
+        let artist = client.artist(id).await?;
+        let artist: ArtistPage = artist.into();
+
+        self.artist_cache.insert(id, artist.clone()).await;
+        Ok(artist)
     }
 
-    pub async fn similar_artists(&self, artist_id: u32) -> Result<Vec<Artist>> {
+    pub async fn similar_artists(&self, id: u32) -> Result<Vec<Artist>> {
+        if let Some(cache) = self.similar_artists_cache.get(&id).await {
+            return Ok(cache);
+        }
+
         let client = self.get_client().await;
-        let similar_artists = client.similar_artists(artist_id, None).await?;
+        let similar_artists = client.similar_artists(id, None).await?;
 
         Ok(similar_artists
             .items
@@ -115,23 +190,37 @@ impl Client {
         ))
     }
 
-    pub async fn suggested_albums(&self, album_id: String) -> Result<Vec<AlbumSimple>> {
-        let client = self.get_client().await;
-        let suggested_albums = client.suggested_albums(&album_id).await?;
+    pub async fn suggested_albums(&self, id: &str) -> Result<Vec<AlbumSimple>> {
+        if let Some(cache) = self.suggested_albums_cache.get(id).await {
+            return Ok(cache);
+        }
 
-        Ok(suggested_albums
+        let client = self.get_client().await;
+        let suggested_albums = client.suggested_albums(id).await?;
+
+        let suggested_albums: Vec<_> = suggested_albums
             .albums
             .items
             .into_iter()
             .map(|x| parse_album_simple(x, &self.max_audio_quality))
-            .collect())
+            .collect();
+
+        self.suggested_albums_cache
+            .insert(id.to_string(), suggested_albums.clone())
+            .await;
+
+        Ok(suggested_albums)
     }
 
     pub async fn featured_albums(&self) -> Result<Vec<(String, Vec<AlbumSimple>)>> {
+        if let Some(cache) = self.featured_albums_cache.get().await {
+            return Ok(cache);
+        }
+
         let client = self.get_client().await;
         let featured = client.featured_albums().await?;
 
-        Ok(featured
+        let featured: Vec<_> = featured
             .into_iter()
             .map(|featured| {
                 let featured_type = featured.0;
@@ -154,15 +243,23 @@ impl Client {
 
                 (featured_type, albums)
             })
-            .collect())
+            .collect();
+
+        self.featured_albums_cache.set(featured.clone()).await;
+
+        Ok(featured)
     }
 
     pub async fn featured_playlists(&self) -> Result<Vec<(String, Vec<Playlist>)>> {
+        if let Some(cache) = self.featured_playlists_cache.get().await {
+            return Ok(cache);
+        }
+
         let client = self.get_client().await;
         let user_id = client.get_user_id();
         let featured = client.featured_playlists().await?;
 
-        Ok(featured
+        let featured: Vec<_> = featured
             .into_iter()
             .map(|featured| {
                 let featured_type = featured.0;
@@ -178,65 +275,90 @@ impl Client {
 
                 (featured_type, playlists)
             })
-            .collect())
+            .collect();
+
+        self.featured_playlists_cache.set(featured.clone()).await;
+
+        Ok(featured)
     }
 
     pub async fn playlist(&self, id: u32) -> Result<Playlist> {
+        if let Some(cache) = self.playlist_cache.get(&id).await {
+            return Ok(cache);
+        }
+
         let client = self.get_client().await;
         let user_id = client.get_user_id();
         let playlist = client.playlist(id).await?;
 
-        Ok(models::parse_playlist(
-            playlist,
-            user_id,
-            &self.max_audio_quality,
-        ))
+        let playlist = models::parse_playlist(playlist, user_id, &self.max_audio_quality);
+
+        self.playlist_cache.insert(id, playlist.clone()).await;
+        Ok(playlist)
     }
 
-    pub async fn artist_albums(&self, artist_id: u32) -> Result<Vec<AlbumSimple>> {
-        let client = self.get_client().await;
-        let albums = client.artist_releases(artist_id, None).await?;
+    pub async fn artist_albums(&self, id: u32) -> Result<Vec<AlbumSimple>> {
+        if let Some(cache) = self.artist_albums_cache.get(&id).await {
+            return Ok(cache);
+        }
 
-        Ok(albums.into_iter().map(|release| release.into()).collect())
+        let client = self.get_client().await;
+        let albums = client.artist_releases(id, None).await?;
+
+        let albums: Vec<_> = albums.into_iter().map(|release| release.into()).collect();
+
+        self.artist_albums_cache.insert(id, albums.clone()).await;
+
+        Ok(albums)
     }
 
     pub async fn add_favorite_album(&self, id: &str) -> Result<()> {
         let client = self.get_client().await;
         client.add_favorite_album(id).await?;
+        self.favorites_cache.clear().await;
         Ok(())
     }
 
     pub async fn remove_favorite_album(&self, id: &str) -> Result<()> {
         let client = self.get_client().await;
         client.remove_favorite_album(id).await?;
+        self.favorites_cache.clear().await;
         Ok(())
     }
 
     pub async fn add_favorite_artist(&self, id: &str) -> Result<()> {
         let client = self.get_client().await;
         client.add_favorite_artist(id).await?;
+        self.favorites_cache.clear().await;
         Ok(())
     }
 
     pub async fn remove_favorite_artist(&self, id: &str) -> Result<()> {
         let client = self.get_client().await;
         client.remove_favorite_artist(id).await?;
+        self.favorites_cache.clear().await;
         Ok(())
     }
 
     pub async fn add_favorite_playlist(&self, id: &str) -> Result<()> {
         let client = self.get_client().await;
         client.add_favorite_playlist(id).await?;
+        self.favorites_cache.clear().await;
         Ok(())
     }
 
     pub async fn remove_favorite_playlist(&self, id: &str) -> Result<()> {
         let client = self.get_client().await;
         client.remove_favorite_playlist(id).await?;
+        self.favorites_cache.clear().await;
         Ok(())
     }
 
     pub async fn favorites(&self) -> Result<Favorites> {
+        if let Some(cache) = self.favorites_cache.get().await {
+            return Ok(cache);
+        }
+
         let client = self.get_client().await;
         let (favorites, favorite_playlists) = tokio::join!(
             client.favorites(1000),
@@ -258,14 +380,17 @@ impl Client {
 
         favorite_playlists.sort_by(|a, b| a.title.cmp(&b.title));
 
-        Ok(Favorites {
+        let favorites = Favorites {
             albums: albums
                 .into_iter()
                 .map(|x| parse_album(x, &self.max_audio_quality))
                 .collect(),
             artists: artists.into_iter().map(|x| x.into()).collect(),
             playlists: favorite_playlists,
-        })
+        };
+
+        self.favorites_cache.set(favorites.clone()).await;
+        Ok(favorites)
     }
 }
 
@@ -282,4 +407,54 @@ async fn user_playlists(
         .into_iter()
         .map(|playlist| models::parse_playlist(playlist, user_id, max_audio_quality))
         .collect())
+}
+
+#[derive(Debug)]
+struct SimpleCache<T> {
+    value: RwLock<Option<T>>,
+    ttl: Duration,
+    created: RwLock<Option<Instant>>,
+}
+
+impl<T> SimpleCache<T> {
+    pub fn new(ttl: Duration) -> Self {
+        Self {
+            value: RwLock::new(None),
+            ttl,
+            created: RwLock::new(None),
+        }
+    }
+
+    pub async fn get(&self) -> Option<T>
+    where
+        T: Clone,
+    {
+        if self.valid().await {
+            self.value.read().await.clone()
+        } else {
+            None
+        }
+    }
+
+    pub async fn set(&self, value: T) {
+        let mut val_lock = self.value.write().await;
+        let mut time_lock = self.created.write().await;
+        *val_lock = Some(value);
+        *time_lock = Some(Instant::now());
+    }
+
+    pub async fn clear(&self) {
+        let mut val_lock = self.value.write().await;
+        let mut time_lock = self.created.write().await;
+        *val_lock = None;
+        *time_lock = None;
+    }
+
+    async fn valid(&self) -> bool {
+        let time_lock = self.created.read().await;
+        match *time_lock {
+            Some(created) => created.elapsed() < self.ttl,
+            None => false,
+        }
+    }
 }

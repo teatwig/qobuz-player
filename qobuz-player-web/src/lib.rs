@@ -10,7 +10,7 @@ use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
 use qobuz_player_controls::{
     Broadcast,
-    models::{AlbumSimple, Favorites, Playlist},
+    models::{Album, AlbumSimple, Favorites, Playlist},
     notification::Notification,
     tracklist,
 };
@@ -18,13 +18,9 @@ use routes::{
     album, artist, auth, controls, discover, favorites, now_playing, playlist, queue, search,
 };
 use std::{convert::Infallible, sync::Arc};
-use time::Duration;
 use tokio::{
-    sync::{
-        RwLock,
-        broadcast::{self, Sender},
-    },
-    time::Instant,
+    join,
+    sync::broadcast::{self, Sender},
 };
 use tokio_stream::StreamExt as _;
 use tokio_stream::wrappers::BroadcastStream;
@@ -51,8 +47,6 @@ async fn create_router(state: Arc<qobuz_player_state::State>) -> Router {
     let shared_state = Arc::new(AppState {
         tx: tx.clone(),
         player_state: state.clone(),
-        favorites_cache: Cache::new(Duration::weeks(1)),
-        discover_cache: Cache::new(Duration::days(1)),
     });
     tokio::spawn(background_task(tx, state.broadcast.clone()));
 
@@ -175,8 +169,38 @@ async fn sse_handler(
 pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
     pub player_state: Arc<qobuz_player_state::State>,
-    pub favorites_cache: Cache<Favorites>,
-    pub discover_cache: Cache<Discover>,
+}
+
+impl AppState {
+    pub async fn get_favorites(&self) -> Favorites {
+        self.player_state.client.favorites().await.unwrap()
+    }
+
+    pub async fn get_album(&self, id: &str) -> AlbumData {
+        let (album, suggested_albums) = join!(
+            self.player_state.client.album(id),
+            self.player_state.client.suggested_albums(id),
+        );
+
+        let album = album.unwrap();
+        let suggested_albums = suggested_albums.unwrap();
+
+        AlbumData {
+            album,
+            suggested_albums,
+        }
+    }
+
+    pub async fn is_album_favorite(&self, id: &str) -> bool {
+        let favorites = self.get_favorites().await;
+        favorites.albums.iter().any(|album| album.id == id)
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct AlbumData {
+    pub album: Album,
+    pub suggested_albums: Vec<AlbumSimple>,
 }
 
 #[derive(Clone)]
@@ -189,53 +213,4 @@ pub(crate) struct ServerSentEvent {
 pub(crate) struct Discover {
     pub albums: Vec<(String, Vec<AlbumSimple>)>,
     pub playlists: Vec<(String, Vec<Playlist>)>,
-}
-
-pub(crate) struct Cache<T> {
-    value: RwLock<Option<T>>,
-    ttl: Duration,
-    created: RwLock<Option<Instant>>,
-}
-
-impl<T> Cache<T> {
-    pub fn new(ttl: Duration) -> Self {
-        Self {
-            value: RwLock::new(None),
-            ttl,
-            created: RwLock::new(None),
-        }
-    }
-
-    pub async fn get(&self) -> Option<T>
-    where
-        T: Clone,
-    {
-        if self.valid().await {
-            self.value.read().await.clone()
-        } else {
-            None
-        }
-    }
-
-    pub async fn set(&self, value: T) {
-        let mut val_lock = self.value.write().await;
-        let mut time_lock = self.created.write().await;
-        *val_lock = Some(value);
-        *time_lock = Some(Instant::now());
-    }
-
-    pub async fn clear(&self) {
-        let mut val_lock = self.value.write().await;
-        let mut time_lock = self.created.write().await;
-        *val_lock = None;
-        *time_lock = None;
-    }
-
-    async fn valid(&self) -> bool {
-        let time_lock = self.created.read().await;
-        match *time_lock {
-            Some(created) => created.elapsed() < self.ttl,
-            None => false,
-        }
-    }
 }
