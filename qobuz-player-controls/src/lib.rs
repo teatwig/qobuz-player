@@ -218,8 +218,6 @@ impl Player {
 
                 if let Some(first_track) = tracklist.queue.first_mut() {
                     first_track.status = TrackStatus::Playing;
-                    let track_url = self.client.track_url(first_track.id).await?;
-                    self.sink.query_track_url(&track_url)?;
                 }
 
                 self.broadcast_tracklist(tracklist.clone());
