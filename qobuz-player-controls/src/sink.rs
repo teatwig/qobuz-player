@@ -4,7 +4,8 @@ use std::time::Duration;
 
 use crate::{Broadcast, Time, error::Error};
 use rodio::{Source, decoder::DecoderBuilder, queue::queue};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
+use tokio::task::JoinHandle;
 
 pub struct Sink {
     stream_handle: rodio::OutputStream,
@@ -12,6 +13,7 @@ pub struct Sink {
     sender: Arc<rodio::queue::SourcesQueueInput>,
     broadcast: Arc<Broadcast>,
     duration_played: Arc<RwLock<Duration>>,
+    current_download: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -30,10 +32,15 @@ impl Sink {
             sender,
             broadcast,
             duration_played: Default::default(),
+            current_download: Default::default(),
         })
     }
 
     pub async fn clear(&mut self) -> Result<()> {
+        if let Some(handle) = self.current_download.lock().await.take() {
+            handle.abort();
+        }
+
         let (sender, receiver) = queue(true);
         let sink = rodio::Sink::connect_new(self.stream_handle.mixer());
         sink.append(receiver);
@@ -73,15 +80,17 @@ impl Sink {
     }
 
     pub async fn query_track_url(&self, track_url: &str) -> Result<()> {
+        if let Some(handle) = &self.current_download.lock().await.take() {
+            handle.abort();
+        }
+
         let track_url = track_url.to_string();
         let sender = self.sender.clone();
         let broadcast = self.broadcast.clone();
         let duration_played = self.duration_played.clone();
 
-        // TODO: Cancelation signal. Cancel download when new download starts and when dropping
-        // Cancel thread or request?
-        tokio::spawn(async move {
-            let resp = reqwest::get(track_url).await.unwrap();
+        let handle = tokio::spawn(async move {
+            let resp = reqwest::get(&track_url).await.unwrap();
             let cursor = Cursor::new(resp.bytes().await.unwrap());
 
             let source = DecoderBuilder::new()
@@ -102,8 +111,10 @@ impl Sink {
                 broadcast.track_finished();
             }
         });
-        self.play();
 
+        *self.current_download.lock().await = Some(handle);
+
+        self.play();
         Ok(())
     }
 
