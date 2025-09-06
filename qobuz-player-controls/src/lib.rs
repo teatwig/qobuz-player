@@ -184,7 +184,7 @@ impl Player {
         let mut tracklist = self.tracklist.write().await;
         let current_position = tracklist.current_position();
 
-        if !force && new_position < current_position && current_position == 1 {
+        if !force && new_position < current_position && current_position == 0 {
             self.sink.seek(Time::default())?;
             return Ok(());
         }
@@ -222,6 +222,8 @@ impl Player {
             self.first_track_queried = false;
             self.set_target_state(tracklist::Status::Paused).await;
             self.sink.pause();
+            let mut position_lock = self.position.write().await;
+            *position_lock = Default::default();
         }
 
         self.broadcast_tracklist(tracklist.clone());
@@ -343,7 +345,7 @@ impl Player {
             .collect();
 
         if shuffle {
-            let mut rng = rand::rng();
+            let mut rng = rand::thread_rng();
             tracks.shuffle(&mut rng);
         }
 
@@ -462,8 +464,15 @@ impl Player {
 
                     let current_position = tracklist.current_position();
                     let new_position = current_position + 1;
-                    tracklist.skip_to_track(new_position);
+                    if tracklist.skip_to_track(new_position).is_none() {
+                        tracklist.reset();
+                        self.set_target_state(tracklist::Status::Paused).await;
+                        self.sink.pause();
+                        let mut position_lock = self.position.write().await;
+                        *position_lock = Default::default();
+                    };
                     self.next_track_is_queried = false;
+                    self.first_track_queried = false;
                     self.broadcast_tracklist(tracklist.clone());
                     false
                 }

@@ -32,16 +32,14 @@ jobs:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
-          profile: minimal
-          override: true
+          toolchain: nightly
           target: aarch64-unknown-linux-gnu
 
       - name: Add arm64
         run: dpkg --add-architecture arm64 && apt update
 
       - name: Install dependencies
-        run: apt install -y curl libgstreamer1.0-dev:arm64 g++-aarch64-linux-gnu libc6-dev-arm64-cross libglib2.0-dev:arm64 nodejs npm pkg-config:arm64 libssl-dev:arm64
+        run: apt install -y curl librust-alsa-dev:arm64 g++-aarch64-linux-gnu libc6-dev-arm64-cross libglib2.0-dev:arm64 nodejs npm pkg-config:arm64 libssl-dev:arm64
 
       - name: npm install
         working-directory: qobuz-player-web
