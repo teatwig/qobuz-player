@@ -15,11 +15,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+      - name: Install dependencies
+        run: brew install gstreamer
 
       - name: npm install
         working-directory: qobuz-player-web
