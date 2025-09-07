@@ -149,8 +149,12 @@ pub async fn run() -> Result<(), Error> {
 
             let client = Arc::new(Client::new(username, password, max_audio_quality));
 
-            let (status, broadcast, volume, position) =
-                Player::start_player(tracklist.clone(), client.clone());
+            let mut player = Player::new(tracklist.clone(), client.clone());
+
+            let status = player.status();
+            let broadcast = player.broadcast();
+            let volume = player.volume();
+            let position = player.position();
 
             let state = Arc::new(
                 State::new(
@@ -160,10 +164,10 @@ pub async fn run() -> Result<(), Error> {
                     cli.web_secret,
                     tracklist.clone(),
                     database,
-                    status.into(),
+                    status,
                     broadcast.clone(),
-                    volume.into(),
-                    position.into(),
+                    volume,
+                    position,
                 )
                 .await,
             );
@@ -197,22 +201,16 @@ pub async fn run() -> Result<(), Error> {
             });
 
             if cli.rfid {
-                qobuz_player_rfid::init(state.clone()).await;
-                broadcast.quit();
+                tokio::spawn(async {
+                    qobuz_player_rfid::init(state).await;
+                });
             } else if !cli.disable_tui {
-                qobuz_player_tui::init(state.clone()).await;
-
-                debug!("tui exited, quitting");
-                broadcast.quit();
-            } else {
-                debug!("waiting for ctrlc");
-                tokio::signal::ctrl_c()
-                    .await
-                    .expect("error waiting for ctrlc");
-                debug!("ctrlc received, quitting");
-                broadcast.quit();
+                tokio::spawn(async {
+                    qobuz_player_tui::init(state).await;
+                });
             };
 
+            player.player_loop().await.unwrap();
             Ok(())
         }
         Commands::Config { command } => match command {
