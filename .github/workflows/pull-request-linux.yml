@@ -31,4 +31,7 @@ jobs:
         run: npm run build
 
       - name: Build player ${{ matrix.arch }} 
-        run: cargo build --release
+        run: cargo build
+
+      - name: Build player ${{ matrix.arch }} 
+        run: cargo build --features gpio
