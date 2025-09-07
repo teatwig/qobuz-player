@@ -282,6 +282,7 @@ impl App {
 
     fn exit(&mut self) {
         self.exit = true;
+        self.state.broadcast.quit();
     }
 }
 

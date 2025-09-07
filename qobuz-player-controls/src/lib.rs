@@ -1,5 +1,6 @@
 use crate::{
     models::{Track, TrackStatus},
+    readonly::ReadOnly,
     time::Time,
 };
 use client::Client;
@@ -10,7 +11,6 @@ use rand::seq::SliceRandom;
 use sink::Sink;
 use std::{sync::Arc, time::Duration};
 use tokio::{
-    runtime::Builder,
     select,
     sync::{
         RwLock,
@@ -44,51 +44,43 @@ pub struct Player {
     first_track_queried: bool,
 }
 
-#[allow(clippy::type_complexity)]
 impl Player {
-    pub fn start_player(
-        tracklist: Arc<RwLock<Tracklist>>,
-        client: Arc<Client>,
-    ) -> (
-        Arc<RwLock<tracklist::Status>>,
-        Arc<Broadcast>,
-        Arc<RwLock<f64>>,
-        Arc<RwLock<Time>>,
-    ) {
+    pub fn new(tracklist: Arc<RwLock<Tracklist>>, client: Arc<Client>) -> Self {
         let target_status = Arc::new(RwLock::new(Default::default()));
         let (tx, rx) = broadcast::channel(20);
         let broadcast = Arc::new(Broadcast { tx, rx });
         let volume = Arc::new(RwLock::new(1.0));
         let position = Arc::new(RwLock::new(Default::default()));
 
-        let target_status_clone = target_status.clone();
-        let broadcast_clone = broadcast.clone();
-        let volume_clone = volume.clone();
-        let position_clone = position.clone();
+        let sink = Sink::new(broadcast.clone()).unwrap();
 
-        std::thread::spawn(move || {
-            let rt = Builder::new_current_thread().enable_all().build().unwrap();
+        Self {
+            tracklist,
+            target_status,
+            client,
+            broadcast,
+            sink,
+            volume,
+            position,
+            next_track_is_queried: false,
+            first_track_queried: false,
+        }
+    }
 
-            rt.block_on(async {
-                let sink = Sink::new(broadcast_clone.clone()).unwrap();
-                Player {
-                    tracklist,
-                    target_status: target_status_clone,
-                    client,
-                    broadcast: broadcast_clone,
-                    sink,
-                    volume: volume_clone,
-                    position: position_clone,
-                    next_track_is_queried: false,
-                    first_track_queried: false,
-                }
-                .player_loop()
-                .await
-                .unwrap();
-            });
-        });
+    pub fn status(&self) -> ReadOnly<tracklist::Status> {
+        self.target_status.clone().into()
+    }
 
-        (target_status, broadcast, volume, position)
+    pub fn broadcast(&self) -> Arc<Broadcast> {
+        self.broadcast.clone()
+    }
+
+    pub fn volume(&self) -> ReadOnly<f64> {
+        self.volume.clone().into()
+    }
+
+    pub fn position(&self) -> ReadOnly<Time> {
+        self.position.clone().into()
     }
 
     async fn play_pause(&mut self) -> Result<()> {
@@ -352,8 +344,7 @@ impl Player {
             .collect();
 
         if shuffle {
-            let mut rng = rand::thread_rng();
-            tracks.shuffle(&mut rng);
+            tracks.shuffle(&mut rand::rng());
         }
 
         let mut tracklist = Tracklist {
