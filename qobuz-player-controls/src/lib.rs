@@ -10,13 +10,13 @@ use rand::seq::SliceRandom;
 use sink::Sink;
 use std::{sync::Arc, time::Duration};
 use tokio::{
+    runtime::Builder,
     select,
     sync::{
         RwLock,
         broadcast::{self, Receiver, Sender},
     },
 };
-use tracing::debug;
 use tracklist::{SingleTracklist, Tracklist, TracklistType};
 
 pub use qobuz_player_client::client::AudioQuality;
@@ -58,27 +58,34 @@ impl Player {
         let target_status = Arc::new(RwLock::new(Default::default()));
         let (tx, rx) = broadcast::channel(20);
         let broadcast = Arc::new(Broadcast { tx, rx });
-        let sink = Sink::new(broadcast.clone()).unwrap();
-        let volume = Arc::new(RwLock::new(sink.volume()));
+        let volume = Arc::new(RwLock::new(1.0));
         let position = Arc::new(RwLock::new(Default::default()));
 
-        let mut player = Self {
-            tracklist,
-            target_status: target_status.clone(),
-            client,
-            broadcast: broadcast.clone(),
-            sink,
-            volume: volume.clone(),
-            position: position.clone(),
-            next_track_is_queried: false,
-            first_track_queried: false,
-        };
+        let target_status_clone = target_status.clone();
+        let broadcast_clone = broadcast.clone();
+        let volume_clone = volume.clone();
+        let position_clone = position.clone();
 
-        tokio::spawn(async move {
-            match player.player_loop().await {
-                Ok(_) => debug!("player loop exited successfully"),
-                Err(error) => debug!("player loop error {error}"),
-            }
+        std::thread::spawn(move || {
+            let rt = Builder::new_current_thread().enable_all().build().unwrap();
+
+            rt.block_on(async {
+                let sink = Sink::new(broadcast_clone.clone()).unwrap();
+                Player {
+                    tracklist,
+                    target_status: target_status_clone,
+                    client,
+                    broadcast: broadcast_clone,
+                    sink,
+                    volume: volume_clone,
+                    position: position_clone,
+                    next_track_is_queried: false,
+                    first_track_queried: false,
+                }
+                .player_loop()
+                .await
+                .unwrap();
+            });
         });
 
         (target_status, broadcast, volume, position)

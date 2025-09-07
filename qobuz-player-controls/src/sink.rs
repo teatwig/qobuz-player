@@ -25,6 +25,7 @@ impl Sink {
 
         let sink = rodio::Sink::connect_new(stream_handle.mixer());
         sink.append(receiver);
+        sink.set_volume(1.0);
 
         Ok(Self {
             sink,
