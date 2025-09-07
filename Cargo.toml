@@ -13,7 +13,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.3.2"
+version = "0.4.0"
 edition = "2024"
 license-file = "LICENSE"
 repository = "https://github.com/sofusa/qobuz-player"
@@ -32,7 +32,6 @@ rust-embed = { version = "*", features = ["axum", "tokio", "mime_guess"] }
 dialoguer = "*"
 dirs = "*"
 futures = "*"
-gstreamer = { version = "*", features = ["serde", "v1_16"] }
 leptos = { version = "*", features = ["ssr"] }
 md5 = "*"
 mime = "*"
@@ -50,3 +49,4 @@ tracing = "*"
 tracing-subscriber = { version = "*", features = ["env-filter"] }
 url = "*"
 moka = { version = "*", features = ["future"]}
+rodio = "*"

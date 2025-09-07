@@ -19,10 +19,6 @@ pub async fn init(state: Arc<State>) {
                     return;
                 }
                 Notification::Status { status } => match status {
-                    qobuz_player_controls::tracklist::Status::Stopped => {
-                        pin.set_low();
-                        tracing::info!("Gpio low");
-                    }
                     qobuz_player_controls::tracklist::Status::Paused => {
                         pin.set_low();
                         tracing::info!("Gpio low");

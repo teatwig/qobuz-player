@@ -15,9 +15,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Install dependencies
-        run: brew install gstreamer
-
       - name: npm install
         working-directory: qobuz-player-web
         run: npm install
@@ -27,4 +24,4 @@ jobs:
         run: npm run build
 
       - name: Build player ${{ matrix.arch }} 
-        run: cargo build --release
+        run: cargo build

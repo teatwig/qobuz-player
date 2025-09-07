@@ -19,15 +19,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-
       - name: Install dependencies
-        run: sudo apt update && sudo apt install -y librust-glib-dev librust-gstreamer-dev npm
+        run: sudo apt update && sudo apt install -y librust-alsa-dev
 
       - name: npm install
         working-directory: qobuz-player-web
@@ -38,4 +31,7 @@ jobs:
         run: npm run build
 
       - name: Build player ${{ matrix.arch }} 
-        run: cargo build --release
+        run: cargo build
+
+      - name: Build player ${{ matrix.arch }} 
+        run: cargo build --features gpio
