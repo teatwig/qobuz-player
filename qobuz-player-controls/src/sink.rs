@@ -2,10 +2,13 @@ use std::io::Cursor;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::{Broadcast, Time, error::Error};
 use rodio::{Source, decoder::DecoderBuilder, queue::queue};
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
+
+use crate::Result;
+use crate::broadcast::Broadcast;
+use crate::time::Time;
 
 pub struct Sink {
     stream_handle: rodio::OutputStream,
@@ -15,8 +18,6 @@ pub struct Sink {
     duration_played: Arc<RwLock<Duration>>,
     current_download: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
-
-type Result<T, E = Error> = std::result::Result<T, E>;
 
 impl Sink {
     pub fn new(broadcast: Arc<Broadcast>) -> Result<Self> {

@@ -9,7 +9,7 @@ use futures::stream::Stream;
 use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
 use qobuz_player_controls::{
-    Broadcast,
+    broadcast::Broadcast,
     models::{Album, AlbumSimple, Favorites, Playlist},
     notification::Notification,
     tracklist,

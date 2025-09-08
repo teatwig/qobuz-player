@@ -1,5 +1,5 @@
 use crate::{
-    Time,
+    time::Time,
     tracklist::{self, Tracklist},
 };
 

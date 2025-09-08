@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use database::{Database, LinkRequest};
 use qobuz_player_controls::{
-    Broadcast,
+    broadcast::Broadcast,
     client::Client,
     readonly::ReadOnly,
     time::Time,

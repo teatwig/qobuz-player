@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
-use qobuz_player_controls::{AudioQuality, Player, client::Client, notification::Notification};
+use qobuz_player_controls::{
+    AudioQuality, client::Client, notification::Notification, player::Player,
+};
 use qobuz_player_state::{State, database::Database};
 use snafu::prelude::*;
 use tokio::sync::RwLock;
