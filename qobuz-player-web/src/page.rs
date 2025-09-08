@@ -44,8 +44,6 @@ pub(crate) fn page<'a>(
                 <div
                     id="toast-container"
                     class="flex fixed top-8 right-8 z-20 flex-col gap-4"
-                    hx-swap="afterbegin"
-                    sse-swap="error,warn,success,info"
                 ></div>
 
                 {children()}

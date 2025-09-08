@@ -27,6 +27,22 @@ function initSse() {
     slider.value = event.data;
   });
 
+  evtSource.addEventListener("error", (event) => {
+    htmx.swap("#toast-container", event.data, { swapStyle: "afterbegin" });
+  });
+
+  evtSource.addEventListener("warn", (event) => {
+    htmx.swap("#toast-container", event.data, { swapStyle: "afterbegin" });
+  });
+
+  evtSource.addEventListener("success", (event) => {
+    htmx.swap("#toast-container", event.data, { swapStyle: "afterbegin" });
+  });
+
+  evtSource.addEventListener("info", (event) => {
+    htmx.swap("#toast-container", event.data, { swapStyle: "afterbegin" });
+  });
+
   evtSource.addEventListener("position", (event) => {
     const slider = document.getElementById("progress-slider");
     if (slider === null) {
