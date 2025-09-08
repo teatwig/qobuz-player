@@ -1,5 +1,6 @@
 use std::io::Cursor;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use rodio::{decoder::DecoderBuilder, queue::queue};
@@ -18,6 +19,7 @@ pub struct Sink {
     broadcast: Arc<Broadcast>,
     current_download: Arc<Mutex<Option<JoinHandle<()>>>>,
     position_timer: Arc<RwLock<Timer>>,
+    buffering: Arc<AtomicBool>,
 }
 
 impl Sink {
@@ -28,7 +30,6 @@ impl Sink {
         let sink = rodio::Sink::connect_new(stream_handle.mixer());
         sink.append(receiver);
         sink.set_volume(1.0);
-        let position_timer = Default::default();
 
         Ok(Self {
             sink,
@@ -36,7 +37,8 @@ impl Sink {
             sender,
             broadcast,
             current_download: Default::default(),
-            position_timer,
+            position_timer: Default::default(),
+            buffering: Default::default(),
         })
     }
 
@@ -58,7 +60,10 @@ impl Sink {
 
     pub async fn play(&self) {
         self.sink.play();
-        self.position_timer.write().await.start();
+
+        if !self.buffering.load(Ordering::Relaxed) {
+            self.position_timer.write().await.start();
+        }
     }
 
     pub async fn pause(&self) {
@@ -90,6 +95,9 @@ impl Sink {
         let broadcast = self.broadcast.clone();
         let position_timer = self.position_timer.clone();
 
+        let buffering = self.buffering.clone();
+        buffering.store(true, Ordering::Relaxed);
+
         let handle = tokio::spawn(async move {
             let resp = reqwest::get(&track_url).await.unwrap();
             let cursor = Cursor::new(resp.bytes().await.unwrap());
@@ -100,6 +108,8 @@ impl Sink {
                 .build()
                 .unwrap();
 
+            buffering.store(false, Ordering::Relaxed);
+            position_timer.write().await.start();
             let signal = sender.append_with_signal(source);
 
             if signal.iter().next().is_some() {

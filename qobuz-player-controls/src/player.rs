@@ -32,21 +32,18 @@ pub struct Player {
 
 impl Player {
     pub fn new(tracklist: Arc<RwLock<Tracklist>>, client: Arc<Client>) -> Self {
-        let target_status = Arc::new(RwLock::new(Default::default()));
         let broadcast = Arc::new(Broadcast::new());
         let volume = Arc::new(RwLock::new(1.0));
-        let position = Arc::new(RwLock::new(Default::default()));
-
         let sink = Sink::new(broadcast.clone()).unwrap();
 
         Self {
             tracklist,
-            target_status,
+            target_status: Default::default(),
             client,
             broadcast,
             sink,
             volume,
-            position,
+            position: Default::default(),
             next_track_is_queried: false,
             first_track_queried: false,
         }
