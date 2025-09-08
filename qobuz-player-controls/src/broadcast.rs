@@ -1,10 +1,9 @@
+use std::time::Duration;
+
 use crate::Result;
 use tokio::sync::broadcast::{self, Receiver, Sender};
 
-use crate::{
-    notification::{self, Notification, PlayNotification},
-    time::Time,
-};
+use crate::notification::{self, Notification, PlayNotification};
 
 #[derive(Debug)]
 pub struct Broadcast {
@@ -111,7 +110,7 @@ impl Broadcast {
             .unwrap();
     }
 
-    pub fn seek(&self, time: Time) {
+    pub fn seek(&self, time: Duration) {
         self.tx
             .send(Notification::Play(PlayNotification::Seek { time }))
             .unwrap();

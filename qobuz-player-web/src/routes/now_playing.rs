@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use axum::{
     Router,
@@ -9,7 +9,6 @@ use axum::{
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::{
     models,
-    time::Time,
     tracklist::{self, Tracklist, TracklistType},
 };
 
@@ -63,7 +62,7 @@ async fn set_position(
     State(state): State<Arc<AppState>>,
     axum::Form(parameters): axum::Form<SliderParameters>,
 ) -> impl IntoResponse {
-    let time = Time::from_mseconds(parameters.value as u64);
+    let time = Duration::from_millis(parameters.value as u64);
     state.player_state.broadcast.seek(time);
 }
 
@@ -152,7 +151,7 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let tracklist_clone = tracklist.clone();
     let current_track = tracklist.current_track().cloned();
 
-    let position_mseconds = state.player_state.position.read().await.mseconds();
+    let position_mseconds = state.player_state.position.read().await.as_millis();
     let current_status = state.player_state.target_status.read().await;
     let current_status_copy = *current_status;
     let current_volume = (*state.player_state.volume.read().await * 100.0) as u32;
@@ -173,7 +172,7 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let tracklist = state.player_state.tracklist.read().await;
     let current_track = tracklist.current_track().cloned();
-    let position_mseconds = state.player_state.position.read().await.mseconds();
+    let position_mseconds = state.player_state.position.read().await.as_millis();
     let current_status = state.player_state.target_status.read().await;
     let current_volume = (*state.player_state.volume.read().await * 100.0) as u32;
 
@@ -189,7 +188,7 @@ async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoRes
 }
 
 #[component]
-fn progress(position_mseconds: u64, duration_seconds: Option<u32>) -> impl IntoView {
+fn progress(position_mseconds: u128, duration_seconds: Option<u32>) -> impl IntoView {
     let duration_mseconds = duration_seconds.map_or(0, |x| x * 1000);
 
     let position_string = mseconds_to_mm_ss(position_mseconds);
@@ -238,7 +237,7 @@ pub(crate) fn player_state(playing: bool) -> impl IntoView {
 fn now_playing(
     tracklist: Tracklist,
     current_track: Option<models::Track>,
-    position_mseconds: u64,
+    position_mseconds: u128,
     current_status: tracklist::Status,
     current_volume: u32,
 ) -> impl IntoView {
@@ -350,7 +349,7 @@ fn now_playing(
     }
 }
 
-fn mseconds_to_mm_ss<T: Into<u64>>(mseconds: T) -> String {
+fn mseconds_to_mm_ss<T: Into<u128>>(mseconds: T) -> String {
     let seconds = mseconds.into() / 1000;
 
     let minutes = seconds / 60;

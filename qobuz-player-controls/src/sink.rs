@@ -9,7 +9,6 @@ use tokio::task::JoinHandle;
 
 use crate::Result;
 use crate::broadcast::Broadcast;
-use crate::time::Time;
 use crate::timer::Timer;
 
 pub struct Sink {
@@ -71,14 +70,13 @@ impl Sink {
         self.position_timer.write().await.pause();
     }
 
-    pub fn seek(&self, time: Time) -> Result<()> {
-        let duration = Duration::from_millis(time.mseconds());
+    pub fn seek(&self, duration: Duration) -> Result<()> {
         self.sink.try_seek(duration)?;
         Ok(())
     }
 
-    pub async fn position(&self) -> Time {
-        Time::from_mseconds(self.position_timer.read().await.elapsed().as_millis() as u64)
+    pub async fn position(&self) -> Duration {
+        self.position_timer.read().await.elapsed()
     }
 
     pub fn is_playing(&self) -> bool {

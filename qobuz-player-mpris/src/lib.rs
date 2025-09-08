@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property, RootInterface,
@@ -88,7 +88,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
-        let clock = qobuz_player_controls::time::Time::from_seconds(offset.as_secs() as u64);
+        let clock = Duration::from_secs(offset.as_secs() as u64);
         self.state.broadcast.seek(clock);
         Ok(())
     }
@@ -158,7 +158,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn position(&self) -> fdo::Result<Time> {
-        let position_seconds = self.state.position.read().await.mseconds();
+        let position_seconds = self.state.position.read().await.as_millis();
         let time = Time::from_millis(position_seconds as i64);
         Ok(time)
     }

@@ -10,7 +10,6 @@ pub mod player;
 pub mod readonly;
 pub(crate) mod simple_cache;
 pub mod sink;
-pub mod time;
 pub mod timer;
 pub mod tracklist;
 

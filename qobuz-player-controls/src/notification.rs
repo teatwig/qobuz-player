@@ -1,13 +1,12 @@
-use crate::{
-    time::Time,
-    tracklist::{self, Tracklist},
-};
+use std::time::Duration;
+
+use crate::tracklist::{self, Tracklist};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Notification {
     Play(PlayNotification),
     Status { status: tracklist::Status },
-    Position { position: Time },
+    Position { position: Duration },
     CurrentTrackList { tracklist: Tracklist },
     Quit,
     Message { message: Message },
@@ -36,6 +35,6 @@ pub enum PlayNotification {
     Pause,
     JumpForward,
     JumpBackward,
-    Seek { time: Time },
+    Seek { time: Duration },
     TrackFinished,
 }

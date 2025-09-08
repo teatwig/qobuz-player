@@ -14,7 +14,6 @@ use crate::{
     client::Client,
     readonly::ReadOnly,
     sink::Sink,
-    time::Time,
     tracklist::{self, Tracklist},
 };
 
@@ -25,7 +24,7 @@ pub struct Player {
     broadcast: Arc<Broadcast>,
     sink: Sink,
     volume: Arc<RwLock<f64>>,
-    position: Arc<RwLock<Time>>,
+    position: Arc<RwLock<Duration>>,
     next_track_is_queried: bool,
     first_track_queried: bool,
 }
@@ -61,7 +60,7 @@ impl Player {
         self.volume.clone().into()
     }
 
-    pub fn position(&self) -> ReadOnly<Time> {
+    pub fn position(&self) -> ReadOnly<Duration> {
         self.position.clone().into()
     }
 
@@ -128,10 +127,10 @@ impl Player {
             .read()
             .await
             .current_track()
-            .map(|x| Time::from_seconds(x.duration_seconds as u64));
+            .map(|x| Duration::from_secs(x.duration_seconds as u64));
 
         if let Some(duration) = duration {
-            let ten_seconds = Time::from_seconds(10);
+            let ten_seconds = Duration::from_secs(10);
             let next_position = self.sink.position().await + ten_seconds;
 
             if next_position < duration {
@@ -147,10 +146,10 @@ impl Player {
     async fn jump_backward(&mut self) -> Result<()> {
         let current_position = self.sink.position().await;
 
-        if current_position.mseconds() < 10000 {
-            self.sink.seek(Time::default())?;
+        if current_position.as_millis() < 10000 {
+            self.sink.seek(Duration::default())?;
         } else {
-            let ten_seconds = Time::from_seconds(10);
+            let ten_seconds = Duration::from_secs(10);
             let seek_position = current_position - ten_seconds;
 
             self.sink.seek(seek_position)?;
@@ -164,7 +163,7 @@ impl Player {
         let current_position = tracklist.current_position();
 
         if !force && new_position < current_position && current_position == 0 {
-            self.sink.seek(Time::default())?;
+            self.sink.seek(Duration::default())?;
             return Ok(());
         }
 
@@ -179,9 +178,9 @@ impl Player {
             && new_position < current_position
             && total_tracks != current_position
             && new_position != 0
-            && self.sink.position().await.mseconds() > 1000
+            && self.sink.position().await.as_millis() > 1000
         {
-            self.sink.seek(Time::default())?;
+            self.sink.seek(Duration::default())?;
             return Ok(());
         }
 
@@ -355,7 +354,7 @@ impl Player {
             .map(|x| x.duration_seconds);
 
         if let Some(duration) = duration {
-            let position = position.seconds();
+            let position = position.as_secs();
             let track_about_to_finish = (duration as i16 - position as i16) < 10;
 
             if track_about_to_finish && !self.next_track_is_queried {
