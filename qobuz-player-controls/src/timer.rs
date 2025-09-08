@@ -1,31 +1,31 @@
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]
-pub(crate) struct Stopwatch {
+pub struct Timer {
     start_time: Option<Instant>,
     elapsed: Duration,
 }
 
-impl Stopwatch {
-    pub fn new() -> Self {
-        Stopwatch {
+impl Timer {
+    pub(crate) fn new() -> Self {
+        Self {
             start_time: None,
             elapsed: Duration::ZERO,
         }
     }
 
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.start_time = None;
         self.elapsed = Duration::ZERO;
     }
 
-    pub fn start(&mut self) {
+    pub(crate) fn start(&mut self) {
         if self.start_time.is_none() {
             self.start_time = Some(Instant::now());
         }
     }
 
-    pub fn pause(&mut self) {
+    pub(crate) fn pause(&mut self) {
         if let Some(start) = self.start_time {
             self.elapsed += start.elapsed();
             self.start_time = None;
@@ -40,7 +40,7 @@ impl Stopwatch {
     }
 }
 
-impl Default for Stopwatch {
+impl Default for Timer {
     fn default() -> Self {
         Self::new()
     }
@@ -58,7 +58,7 @@ mod tests {
 
     #[test]
     fn test_resume_accumulates_time() {
-        let mut sw = Stopwatch::new();
+        let mut sw = Timer::new();
 
         sw.start();
         std::thread::sleep(Duration::from_millis(100));
@@ -77,7 +77,7 @@ mod tests {
 
     #[test]
     fn test_pause_stops_time_accumulation() {
-        let mut sw = Stopwatch::new();
+        let mut sw = Timer::new();
 
         sw.start();
         std::thread::sleep(Duration::from_millis(100));

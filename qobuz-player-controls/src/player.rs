@@ -89,13 +89,13 @@ impl Player {
         }
 
         self.set_target_state(tracklist::Status::Playing).await;
-        self.sink.play();
+        self.sink.play().await;
         Ok(())
     }
 
     async fn pause(&mut self) {
         self.set_target_state(tracklist::Status::Paused).await;
-        self.sink.pause();
+        self.sink.pause().await;
     }
 
     async fn set_target_state(&self, state: tracklist::Status) {
@@ -163,7 +163,7 @@ impl Player {
 
     /// Skip to a specific track in the tracklist.
     async fn skip_to_position(&mut self, new_position: u32, force: bool) -> Result<()> {
-        let mut tracklist = self.tracklist.write().await;
+        let mut tracklist = self.tracklist.read().await.clone();
         let current_position = tracklist.current_position();
 
         if !force && new_position < current_position && current_position == 0 {
@@ -188,9 +188,6 @@ impl Player {
             return Ok(());
         }
 
-        // TODO: Still a bit broken
-        // Cannot skip back to first in tracklist
-        // Breaks when next overflow, which should reset
         if let Some(next_track) = tracklist.skip_to_track(new_position) {
             let next_track_url = self.track_url(next_track.id).await?;
             self.sink.clear().await?;
@@ -203,12 +200,12 @@ impl Player {
             self.next_track_is_queried = false;
             self.first_track_queried = false;
             self.set_target_state(tracklist::Status::Paused).await;
-            self.sink.pause();
+            self.sink.pause().await;
             let mut position_lock = self.position.write().await;
             *position_lock = Default::default();
         }
 
-        self.broadcast_tracklist(tracklist.clone());
+        self.broadcast_tracklist(tracklist);
 
         Ok(())
     }
@@ -238,7 +235,6 @@ impl Player {
             let track_url = self.track_url(first_track.id).await?;
             self.query_track_url(&track_url).await?;
             self.first_track_queried = true;
-            self.set_target_state(tracklist::Status::Playing).await;
         }
 
         self.broadcast_tracklist(tracklist);
@@ -439,20 +435,18 @@ impl Player {
                     false
                 }
                 PlayNotification::TrackFinished => {
-                    let mut tracklist = self.tracklist.write().await;
+                    let mut tracklist = self.tracklist.read().await.clone();
 
                     let current_position = tracklist.current_position();
                     let new_position = current_position + 1;
                     if tracklist.skip_to_track(new_position).is_none() {
                         tracklist.reset();
                         self.set_target_state(tracklist::Status::Paused).await;
-                        self.sink.pause();
-                        let mut position_lock = self.position.write().await;
-                        *position_lock = Default::default();
+                        self.sink.pause().await;
                     };
                     self.next_track_is_queried = false;
                     self.first_track_queried = false;
-                    self.broadcast_tracklist(tracklist.clone());
+                    self.broadcast_tracklist(tracklist);
                     false
                 }
             },

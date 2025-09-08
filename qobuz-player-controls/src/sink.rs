@@ -2,21 +2,22 @@ use std::io::Cursor;
 use std::sync::Arc;
 use std::time::Duration;
 
-use rodio::{Source, decoder::DecoderBuilder, queue::queue};
+use rodio::{decoder::DecoderBuilder, queue::queue};
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
 
 use crate::Result;
 use crate::broadcast::Broadcast;
 use crate::time::Time;
+use crate::timer::Timer;
 
 pub struct Sink {
     stream_handle: rodio::OutputStream,
     sink: rodio::Sink,
     sender: Arc<rodio::queue::SourcesQueueInput>,
     broadcast: Arc<Broadcast>,
-    duration_played: Arc<RwLock<Duration>>,
     current_download: Arc<Mutex<Option<JoinHandle<()>>>>,
+    position_timer: Arc<RwLock<Timer>>,
 }
 
 impl Sink {
@@ -27,14 +28,15 @@ impl Sink {
         let sink = rodio::Sink::connect_new(stream_handle.mixer());
         sink.append(receiver);
         sink.set_volume(1.0);
+        let position_timer = Default::default();
 
         Ok(Self {
             sink,
             stream_handle,
             sender,
             broadcast,
-            duration_played: Default::default(),
             current_download: Default::default(),
+            position_timer,
         })
     }
 
@@ -49,19 +51,19 @@ impl Sink {
 
         self.sink = sink;
         self.sender = sender;
-
-        let mut duration_played = self.duration_played.write().await;
-        *duration_played = Duration::default();
+        self.position_timer.write().await.clear();
 
         Ok(())
     }
 
-    pub fn play(&self) {
+    pub async fn play(&self) {
         self.sink.play();
+        self.position_timer.write().await.start();
     }
 
-    pub fn pause(&self) {
+    pub async fn pause(&self) {
         self.sink.pause();
+        self.position_timer.write().await.pause();
     }
 
     pub fn seek(&self, time: Time) -> Result<()> {
@@ -71,10 +73,7 @@ impl Sink {
     }
 
     pub async fn position(&self) -> Time {
-        let position = self.sink.get_pos();
-        let duration_played = self.duration_played.read().await;
-        let current_track_position = position - *duration_played;
-        Time::from_mseconds(current_track_position.as_millis() as u64)
+        Time::from_mseconds(self.position_timer.read().await.elapsed().as_millis() as u64)
     }
 
     pub fn is_playing(&self) -> bool {
@@ -89,7 +88,7 @@ impl Sink {
         let track_url = track_url.to_string();
         let sender = self.sender.clone();
         let broadcast = self.broadcast.clone();
-        let duration_played = self.duration_played.clone();
+        let position_timer = self.position_timer.clone();
 
         let handle = tokio::spawn(async move {
             let resp = reqwest::get(&track_url).await.unwrap();
@@ -101,22 +100,17 @@ impl Sink {
                 .build()
                 .unwrap();
 
-            let source_duration = source.total_duration();
-
             let signal = sender.append_with_signal(source);
 
             if signal.iter().next().is_some() {
-                if let Some(source_duration) = source_duration {
-                    let mut duration_played = duration_played.write().await;
-                    *duration_played += source_duration;
-                }
                 broadcast.track_finished();
+                position_timer.write().await.clear();
             }
         });
 
         *self.current_download.lock().await = Some(handle);
 
-        self.play();
+        self.play().await;
         Ok(())
     }
 
