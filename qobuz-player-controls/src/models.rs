@@ -11,7 +11,8 @@ use qobuz_player_client::{
         track::Track as QobuzTrack,
     },
 };
-use std::{fmt::Debug, str::FromStr};
+use std::fmt::Debug;
+use time::macros::format_description;
 
 pub fn parse_search_results(
     search_results: SearchAllResults,
@@ -103,10 +104,14 @@ pub(crate) fn parse_album_simple(
     }
 }
 
+fn extract_year(date_str: &str) -> i32 {
+    let format = format_description!("[year]-[month]-[day]");
+    let date = time::Date::parse(date_str, &format).expect("failed to parse date");
+    date.year()
+}
+
 pub(crate) fn parse_album(value: QobuzAlbum, max_audio_quality: &AudioQuality) -> Album {
-    let year = chrono::NaiveDate::from_str(&value.release_date_original)
-        .expect("failed to parse date")
-        .format("%Y");
+    let year = extract_year(&value.release_date_original);
 
     let tracks = value.tracks.map_or(Default::default(), |tracks| {
         tracks

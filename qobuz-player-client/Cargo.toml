@@ -7,7 +7,7 @@ repository.workspace = true
 
 [dependencies]
 base64 = { workspace = true }
-chrono = { workspace = true }
+time = { workspace = true }
 md5 = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }

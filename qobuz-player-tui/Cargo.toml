@@ -10,11 +10,9 @@ repository.workspace = true
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 qobuz-player-state = { version = "*", path = "../qobuz-player-state" }
 
-futures = { workspace = true }
 ratatui = "*"
 ratatui-image = "*"
 tui-input = "*"
 image = "*"
 reqwest = { workspace = true }
-tracing = { workspace = true }
 tokio = { workspace = true }

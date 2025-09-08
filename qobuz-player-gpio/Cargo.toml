@@ -12,6 +12,5 @@ gpio = ["rppal"]
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 qobuz-player-state = { version = "*", path = "../qobuz-player-state" }
 
-tokio = { workspace = true }
 tracing = { workspace = true }
 rppal = { version = "*", optional = true }

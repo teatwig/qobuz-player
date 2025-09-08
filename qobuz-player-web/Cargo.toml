@@ -22,4 +22,3 @@ tokio = { workspace = true }
 rust-embed = { workspace = true }
 serde = { workspace = true }
 tokio-stream = { workspace = true }
-tracing = { workspace = true }

@@ -597,7 +597,7 @@ async fn track_url(
     max_audio_quality: &AudioQuality,
 ) -> Result<TrackURL> {
     let endpoint = format!("{}{}", base_url, Endpoint::TrackURL);
-    let now = format!("{}", chrono::Utc::now().timestamp());
+    let now = format!("{}", time::OffsetDateTime::now_utc().unix_timestamp());
 
     let sig = format!(
         "trackgetFileUrlformat_id{max_audio_quality}intentstreamtrack_id{track_id}{now}{secret}"
