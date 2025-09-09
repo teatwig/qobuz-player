@@ -85,13 +85,13 @@ impl Player {
         }
 
         self.set_target_state(tracklist::Status::Playing).await;
-        self.sink.play().await;
+        self.sink.play();
         Ok(())
     }
 
     async fn pause(&mut self) {
         self.set_target_state(tracklist::Status::Paused).await;
-        self.sink.pause().await;
+        self.sink.pause();
     }
 
     async fn set_target_state(&self, state: tracklist::Status) {
@@ -134,9 +134,9 @@ impl Player {
             let next_position = self.sink.position().await + ten_seconds;
 
             if next_position < duration {
-                self.sink.seek(next_position)?;
+                self.sink.seek(next_position).await?;
             } else {
-                self.sink.seek(duration)?;
+                self.sink.seek(duration).await?;
             }
         }
 
@@ -147,12 +147,12 @@ impl Player {
         let current_position = self.sink.position().await;
 
         if current_position.as_millis() < 10000 {
-            self.sink.seek(Duration::default())?;
+            self.sink.seek(Duration::default()).await?;
         } else {
             let ten_seconds = Duration::from_secs(10);
             let seek_position = current_position - ten_seconds;
 
-            self.sink.seek(seek_position)?;
+            self.sink.seek(seek_position).await?;
         }
         Ok(())
     }
@@ -163,7 +163,7 @@ impl Player {
         let current_position = tracklist.current_position();
 
         if !force && new_position < current_position && current_position == 0 {
-            self.sink.seek(Duration::default())?;
+            self.sink.seek(Duration::default()).await?;
             return Ok(());
         }
 
@@ -180,7 +180,7 @@ impl Player {
             && new_position != 0
             && self.sink.position().await.as_millis() > 1000
         {
-            self.sink.seek(Duration::default())?;
+            self.sink.seek(Duration::default()).await?;
             return Ok(());
         }
 
@@ -196,7 +196,7 @@ impl Player {
             self.next_track_is_queried = false;
             self.first_track_queried = false;
             self.set_target_state(tracklist::Status::Paused).await;
-            self.sink.pause().await;
+            self.sink.pause();
             let mut position_lock = self.position.write().await;
             *position_lock = Default::default();
         }
@@ -427,7 +427,7 @@ impl Player {
                     false
                 }
                 PlayNotification::Seek { time } => {
-                    self.sink.seek(time).unwrap();
+                    self.sink.seek(time).await.unwrap();
                     false
                 }
                 PlayNotification::TrackFinished => {
@@ -438,7 +438,7 @@ impl Player {
                     if tracklist.skip_to_track(new_position).is_none() {
                         tracklist.reset();
                         self.set_target_state(tracklist::Status::Paused).await;
-                        self.sink.pause().await;
+                        self.sink.pause();
                     };
                     self.next_track_is_queried = false;
                     self.first_track_queried = false;
