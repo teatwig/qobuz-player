@@ -111,8 +111,7 @@ impl Player {
 
     async fn set_volume(&self, volume: f64) {
         self.sink.set_volume(volume);
-        let mut volume_guard = self.volume.write().await;
-        *volume_guard = volume;
+        *self.volume.write().await = volume;
     }
 
     fn broadcast_tracklist(&self, tracklist: Tracklist) {
@@ -197,8 +196,7 @@ impl Player {
             self.first_track_queried = false;
             self.set_target_state(tracklist::Status::Paused).await;
             self.sink.pause();
-            let mut position_lock = self.position.write().await;
-            *position_lock = Default::default();
+            *self.position.write().await = Default::default();
         }
 
         self.broadcast_tracklist(tracklist);
@@ -448,19 +446,15 @@ impl Player {
             },
             Notification::Quit => true,
             Notification::Status { status } => {
-                let mut status_lock = self.target_status.write().await;
-                *status_lock = status;
-
+                *self.target_status.write().await = status;
                 false
             }
             Notification::Position { position } => {
-                let mut position_lock = self.position.write().await;
-                *position_lock = position;
+                *self.position.write().await = position;
                 false
             }
             Notification::CurrentTrackList { tracklist } => {
-                let mut tracklist_lock = self.tracklist.write().await;
-                *tracklist_lock = tracklist;
+                *self.tracklist.write().await = tracklist;
                 false
             }
             Notification::Message { message: _ } => false,

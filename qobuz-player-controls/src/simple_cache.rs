@@ -29,22 +29,17 @@ impl<T> SimpleCache<T> {
     }
 
     pub async fn set(&self, value: T) {
-        let mut val_lock = self.value.write().await;
-        let mut time_lock = self.created.write().await;
-        *val_lock = Some(value);
-        *time_lock = Some(Instant::now());
+        *self.value.write().await = Some(value);
+        *self.created.write().await = Some(Instant::now());
     }
 
     pub async fn clear(&self) {
-        let mut val_lock = self.value.write().await;
-        let mut time_lock = self.created.write().await;
-        *val_lock = None;
-        *time_lock = None;
+        *self.value.write().await = None;
+        *self.created.write().await = None;
     }
 
     async fn valid(&self) -> bool {
-        let time_lock = self.created.read().await;
-        match *time_lock {
+        match *self.created.read().await {
             Some(created) => created.elapsed() < self.ttl,
             None => false,
         }
