@@ -87,7 +87,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
     let tracklist = state.player_state.tracklist.read().await;
 
     render(html! {
-        <Page active_page=Page::None current_status=&current_status tracklist=&tracklist>
+        <Page active_page=Page::None current_status=*current_status tracklist=&tracklist>
             <LazyLoadComponent url=url />
         </Page>
     })

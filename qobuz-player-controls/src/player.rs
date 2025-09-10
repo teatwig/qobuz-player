@@ -68,7 +68,7 @@ impl Player {
         let target_status = *self.target_status.read().await;
 
         match target_status {
-            Status::Playing => self.pause().await,
+            Status::Playing | Status::Buffering => self.pause().await,
             Status::Paused => self.play().await?,
         }
 
@@ -224,6 +224,7 @@ impl Player {
     async fn new_queue(&mut self, tracklist: Tracklist) -> Result<()> {
         self.sink.clear().await?;
         self.next_track_is_queried = false;
+        self.set_target_status(Status::Buffering).await;
 
         if let Some(first_track) = tracklist.current_track() {
             let track_url = self.track_url(first_track.id).await?;
@@ -249,8 +250,7 @@ impl Player {
             queue: vec![track],
         };
 
-        self.new_queue(tracklist).await?;
-        self.play().await
+        self.new_queue(tracklist).await
     }
 
     async fn play_album(&mut self, album_id: &str, index: u32) -> Result<()> {
@@ -273,8 +273,7 @@ impl Player {
         };
 
         tracklist.skip_to_track(index - unstreambale_tracks_to_index);
-        self.new_queue(tracklist).await?;
-        self.play().await
+        self.new_queue(tracklist).await
     }
 
     async fn play_top_tracks(&mut self, artist_id: u32, index: u32) -> Result<()> {
@@ -296,8 +295,7 @@ impl Player {
         };
 
         tracklist.skip_to_track(index - unstreambale_tracks_to_index);
-        self.new_queue(tracklist).await?;
-        self.play().await
+        self.new_queue(tracklist).await
     }
 
     async fn play_playlist(&mut self, playlist_id: u32, index: u32, shuffle: bool) -> Result<()> {
@@ -330,8 +328,7 @@ impl Player {
         };
 
         tracklist.skip_to_track(index - unstreambale_tracks_to_index);
-        self.new_queue(tracklist).await?;
-        self.play().await
+        self.new_queue(tracklist).await
     }
 
     async fn tick(&mut self) -> Result<()> {
@@ -403,6 +400,10 @@ impl Player {
                 }
                 PlayNotification::Play => {
                     self.play().await.unwrap();
+                    false
+                }
+                PlayNotification::DoneBuffering => {
+                    self.set_target_status(Status::Playing).await;
                     false
                 }
                 PlayNotification::Pause => {

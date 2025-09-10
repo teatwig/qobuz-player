@@ -80,6 +80,7 @@ async fn background_task(tx: Sender<ServerSentEvent>, receiver: Arc<Broadcast>) 
                     let message_data = match status {
                         Status::Paused => "pause",
                         Status::Playing => "play",
+                        Status::Buffering => "buffering",
                     };
 
                     let event = ServerSentEvent {

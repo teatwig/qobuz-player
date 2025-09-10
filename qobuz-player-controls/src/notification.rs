@@ -37,4 +37,5 @@ pub enum PlayNotification {
     JumpBackward,
     Seek { time: Duration },
     TrackFinished,
+    DoneBuffering,
 }

@@ -40,7 +40,7 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let tracklist_clone = tracklist.clone();
 
     render(html! {
-        <Page active_page=Page::Queue current_status=&current_status tracklist=&tracklist>
+        <Page active_page=Page::Queue current_status=*current_status tracklist=&tracklist>
             <Queue tracklist=tracklist_clone />
         </Page>
     })

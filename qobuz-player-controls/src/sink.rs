@@ -103,17 +103,19 @@ impl Sink {
             let source_duration = source.total_duration();
             let signal = sender.append_with_signal(source);
 
-            if signal.iter().next().is_some() {
-                if let Some(source_duration) = source_duration {
-                    *duration_played.write().await += source_duration;
+            broadcast.done_buffering();
+
+            tokio::spawn(async move {
+                if signal.iter().next().is_some() {
+                    if let Some(source_duration) = source_duration {
+                        *duration_played.write().await += source_duration;
+                    }
+                    broadcast.track_finished();
                 }
-                broadcast.track_finished();
-            }
+            });
         });
 
         *self.current_download.lock().await = Some(handle);
-
-        self.play();
         Ok(())
     }
 

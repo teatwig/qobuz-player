@@ -38,7 +38,7 @@ pub(crate) fn megaphone(solid: bool) -> impl IntoView {
 }
 
 #[component]
-pub(crate) fn arrow_path() -> impl IntoView {
+pub(crate) fn loading_spinner() -> impl IntoView {
     html! {
         <svg
             xmlns="http://www.w3.org/2000/svg"

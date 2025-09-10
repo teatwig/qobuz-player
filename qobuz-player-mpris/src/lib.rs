@@ -99,7 +99,7 @@ impl PlayerInterface for MprisPlayer {
 
     async fn playback_status(&self) -> fdo::Result<PlaybackStatus> {
         let status = match *self.state.target_status.read().await {
-            Status::Paused => PlaybackStatus::Paused,
+            Status::Paused | Status::Buffering => PlaybackStatus::Paused,
             Status::Playing => PlaybackStatus::Playing,
         };
 
@@ -203,13 +203,14 @@ pub async fn init(state: Arc<State>) {
                 Notification::Quit => return,
                 Notification::Status { status } => {
                     let (can_play, can_pause) = match status {
+                        Status::Buffering => (false, false),
                         Status::Paused => (true, true),
                         Status::Playing => (true, true),
                     };
 
                     let playback_status = match status {
+                        Status::Paused | Status::Buffering => PlaybackStatus::Paused,
                         Status::Playing => PlaybackStatus::Playing,
-                        Status::Paused => PlaybackStatus::Paused,
                     };
 
                     server

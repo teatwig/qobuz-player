@@ -21,7 +21,7 @@ pub(crate) enum Page {
 pub(crate) fn page<'a>(
     children: Children,
     active_page: Page,
-    current_status: &'a Status,
+    current_status: Status,
     tracklist: &'a Tracklist,
 ) -> impl IntoView {
     html! {
@@ -38,7 +38,7 @@ pub(crate) fn page<'a>(
                     hx-preserve
                     class="fixed top-8 right-8 z-10 p-2 rounded-lg pointer-events-none m-safe bg-gray-900/20 my-indicator backdrop-blur size-12"
                 >
-                    <icons::ArrowPath />
+                    <icons::LoadingSpinner />
                 </div>
 
                 <div
@@ -49,7 +49,7 @@ pub(crate) fn page<'a>(
                 {children()}
                 {(active_page != Page::NowPlaying)
                     .then(|| {
-                        html! { <Controls current_status=&current_status tracklist=tracklist /> }
+                        html! { <Controls current_status=current_status tracklist=tracklist /> }
                     })}
                 <Navigation active_page=active_page />
 

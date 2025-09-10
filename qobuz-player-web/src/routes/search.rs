@@ -66,7 +66,7 @@ async fn index(
     let tracklist = state.player_state.tracklist.read().await;
 
     let html = html! {
-        <Page active_page=Page::Search current_status=&current_status tracklist=&tracklist>
+        <Page active_page=Page::Search current_status=*current_status tracklist=&tracklist>
             <Search search_results=search_results tab=tab />
         </Page>
     };

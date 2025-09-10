@@ -21,7 +21,7 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState)
         None => return,
     };
 
-    let title = format!("Playing {}", get_status_icon(state.status));
+    let title = get_status(state.status).to_string();
     let block = block(&title, false);
 
     let length = state
@@ -94,10 +94,11 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState)
     frame.render_widget(Text::from(lines), info_chunks[0]);
 }
 
-fn get_status_icon(state: Status) -> String {
+fn get_status(state: Status) -> String {
     match state {
-        Status::Playing => "⏵".to_string(),
-        Status::Paused => "⏸ ".to_string(),
+        Status::Playing => "Playing ⏵".to_string(),
+        Status::Paused => "Paused ⏸ ".to_string(),
+        Status::Buffering => "Buffering".to_string(),
     }
 }
 

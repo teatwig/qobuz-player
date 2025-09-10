@@ -16,7 +16,7 @@ use crate::{
     AppState,
     components::Info,
     html,
-    icons::{Backward, Forward, Pause, Play},
+    icons::{Backward, Forward, LoadingSpinner, Pause, Play},
     page::Page,
     view::render,
 };
@@ -86,25 +86,31 @@ async fn set_volume(
 }
 
 async fn status_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    if *state.player_state.target_status.read().await == Status::Playing {
-        render(html! { <PlayPause play=true /> })
-    } else {
-        render(html! { <PlayPause play=false /> })
-    }
+    let status = *state.player_state.target_status.read().await;
+
+    render(html! { <PlayPause status=status /> })
 }
 
 #[component]
-fn play_pause(play: bool) -> impl IntoView {
+fn play_pause(status: Status) -> impl IntoView {
+    let playing = match status {
+        Status::Paused | Status::Buffering => false,
+        Status::Playing => true,
+    };
+
+    let status_icon = match status {
+        Status::Playing => html! { <Pause /> }.into_any(),
+        Status::Buffering => html! { <LoadingSpinner /> }.into_any(),
+        Status::Paused => html! { <Play /> }.into_any(),
+    };
+
     html! {
         <button
             class="transition-colors cursor-pointer"
             hx-swap="none"
-            hx-put=format!("{}", if play { "/pause" } else { "/play" })
+            hx-put=format!("{}", if playing { "/pause" } else { "/play" })
         >
-            {match play {
-                true => html! { <Pause /> }.into_any(),
-                false => html! { <Play /> }.into_any(),
-            }}
+            {status_icon}
         </button>
     }
 }
@@ -133,7 +139,7 @@ async fn play(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 
 async fn pause(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     state.player_state.broadcast.pause();
-    render(html! { <PlayPause play=false /> })
+    render(html! { <PlayPause status=Status::Paused /> })
 }
 
 async fn previous(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -155,7 +161,7 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let current_volume = (*state.player_state.volume.read().await * 100.0) as u32;
 
     render(html! {
-        <Page active_page=Page::NowPlaying current_status=&current_status tracklist=&tracklist>
+        <Page active_page=Page::NowPlaying current_status=*current_status tracklist=&tracklist>
             <NowPlaying
                 tracklist=tracklist_clone
                 current_track=current_track
@@ -216,7 +222,7 @@ fn progress(position_mseconds: u128, duration_seconds: Option<u32>) -> impl Into
 }
 
 #[component]
-pub(crate) fn player_state(playing: bool) -> impl IntoView {
+pub(crate) fn player_state(status: Status) -> impl IntoView {
     html! {
         <div
             hx-trigger="status"
@@ -226,7 +232,7 @@ pub(crate) fn player_state(playing: bool) -> impl IntoView {
             hx-target="this"
             class="flex justify-center"
         >
-            <PlayPause play=playing />
+            <PlayPause status=status />
         </div>
     }
 }
@@ -264,11 +270,6 @@ fn now_playing(
             tracklist.album_id.as_ref().map(|id| format!("/album/{id}")),
         ),
         TracklistType::None => (None, None),
-    };
-
-    let playing = match current_status {
-        Status::Paused => false,
-        Status::Playing => true,
     };
 
     let (title, artist_link, duration_seconds, explicit, hires_available) = current_track
@@ -337,7 +338,7 @@ fn now_playing(
                 <div class="flex flex-col gap-4">
                     <div class="flex flex-row gap-2 justify-center h-10">
                         <Previous />
-                        <PlayerState playing=playing />
+                        <PlayerState status=current_status />
                         <Next />
                     </div>
                     <VolumeSlider current_volume=current_volume />

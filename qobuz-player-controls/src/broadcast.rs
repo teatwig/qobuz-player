@@ -31,6 +31,12 @@ impl Broadcast {
             .unwrap();
     }
 
+    pub fn done_buffering(&self) {
+        self.tx
+            .send(Notification::Play(PlayNotification::DoneBuffering))
+            .unwrap();
+    }
+
     pub fn next(&self) {
         self.tx
             .send(Notification::Play(PlayNotification::Next))

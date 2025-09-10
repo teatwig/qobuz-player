@@ -17,6 +17,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub enum Status {
     Playing,
+    Buffering,
     #[default]
     Paused,
 }

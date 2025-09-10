@@ -19,7 +19,7 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 }
 
 #[component]
-pub(crate) fn controls<'a>(current_status: &'a Status, tracklist: &'a Tracklist) -> impl IntoView {
+pub(crate) fn controls<'a>(current_status: Status, tracklist: &'a Tracklist) -> impl IntoView {
     html! {
         <div
             hx-get="/controls"
@@ -29,7 +29,7 @@ pub(crate) fn controls<'a>(current_status: &'a Status, tracklist: &'a Tracklist)
             hx-preserve
             id="controls"
         >
-            <ControlsPartial current_status=&current_status tracklist=tracklist />
+            <ControlsPartial current_status=current_status tracklist=tracklist />
         </div>
     }
 }
@@ -38,17 +38,12 @@ async fn controls(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let current_status = state.player_state.target_status.read().await;
     let tracklist = state.player_state.tracklist.read().await;
 
-    render(html! { <ControlsPartial current_status=&current_status tracklist=&tracklist /> })
+    render(html! { <ControlsPartial current_status=*current_status tracklist=&tracklist /> })
 }
 
 #[component]
-fn controls_partial<'a>(current_status: &'a Status, tracklist: &'a Tracklist) -> impl IntoView {
+fn controls_partial<'a>(current_status: Status, tracklist: &'a Tracklist) -> impl IntoView {
     let track_title = tracklist.current_track().map(|track| track.title.clone());
-
-    let (playing, show) = match current_status {
-        Status::Paused => (false, true),
-        Status::Playing => (true, true),
-    };
 
     let (image, title, entity_link) = match tracklist.list_type() {
         TracklistType::Album(tracklist) => (
@@ -75,38 +70,33 @@ fn controls_partial<'a>(current_status: &'a Status, tracklist: &'a Tracklist) ->
     };
 
     html! {
-        {show
-            .then(|| {
-                html! {
-                    <div class="h-16"></div>
-                    <div class="fixed right-0 left-0 bottom-14 px-safe-offset-2 py-safe">
-                        <div class="flex gap-2 justify-between items-center p-2 rounded-md bg-gray-900/70 backdrop-blur">
-                            <a
-                                class="flex overflow-hidden gap-2 items-center w-full"
-                                hx-target="unset"
-                                href=entity_link
-                            >
-                                {image}
-                                <div class="flex overflow-hidden flex-wrap gap-2 leading-none">
-                                    <span class="truncate">{title}</span>
-                                    <span class="text-gray-500 truncate">{track_title}</span>
-                                </div>
-                            </a>
-                            <div class="flex gap-4 items-center">
-                                <span class="hidden w-8 sm:flex">
-                                    <Previous />
-                                </span>
-                                <span class="flex w-8">
-                                    <PlayerState playing=playing />
-                                </span>
-                                <span class="flex w-8">
-                                    <Next />
-                                </span>
-                            </div>
-                        </div>
+        <div class="h-16"></div>
+        <div class="fixed right-0 left-0 bottom-14 px-safe-offset-2 py-safe">
+            <div class="flex gap-2 justify-between items-center p-2 rounded-md bg-gray-900/70 backdrop-blur">
+                <a
+                    class="flex overflow-hidden gap-2 items-center w-full"
+                    hx-target="unset"
+                    href=entity_link
+                >
+                    {image}
+                    <div class="flex overflow-hidden flex-wrap gap-2 leading-none">
+                        <span class="truncate">{title}</span>
+                        <span class="text-gray-500 truncate">{track_title}</span>
                     </div>
-                }
-            })}
+                </a>
+                <div class="flex gap-4 items-center">
+                    <span class="hidden w-8 sm:flex">
+                        <Previous />
+                    </span>
+                    <span class="flex w-8">
+                        <PlayerState status=current_status />
+                    </span>
+                    <span class="flex w-8">
+                        <Next />
+                    </span>
+                </div>
+            </div>
+        </div>
     }
 }
 

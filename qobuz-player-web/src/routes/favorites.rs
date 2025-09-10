@@ -31,7 +31,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(tab): Path<Tab>) -> impl
     let current_status = state.player_state.target_status.read().await;
 
     render(html! {
-        <Page active_page=Page::Favorites current_status=&current_status tracklist=&tracklist>
+        <Page active_page=Page::Favorites current_status=*current_status tracklist=&tracklist>
             <Favorites favorites=favorites tab=tab />
         </Page>
     })
