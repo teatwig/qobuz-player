@@ -8,8 +8,8 @@ use axum::{
 };
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::{
-    models,
-    tracklist::{self, Tracklist, TracklistType},
+    Status, models,
+    tracklist::{Tracklist, TracklistType},
 };
 
 use crate::{
@@ -86,9 +86,7 @@ async fn set_volume(
 }
 
 async fn status_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let current_status = state.player_state.target_status.read().await;
-
-    if *current_status == tracklist::Status::Playing {
+    if *state.player_state.target_status.read().await == Status::Playing {
         render(html! { <PlayPause play=true /> })
     } else {
         render(html! { <PlayPause play=false /> })
@@ -238,7 +236,7 @@ fn now_playing(
     tracklist: Tracklist,
     current_track: Option<models::Track>,
     position_mseconds: u128,
-    current_status: tracklist::Status,
+    current_status: Status,
     current_volume: u32,
 ) -> impl IntoView {
     let cover_image = current_track.as_ref().and_then(|track| track.image.clone());
@@ -269,8 +267,8 @@ fn now_playing(
     };
 
     let playing = match current_status {
-        tracklist::Status::Paused => false,
-        tracklist::Status::Playing => true,
+        Status::Paused => false,
+        Status::Playing => true,
     };
 
     let (title, artist_link, duration_seconds, explicit, hires_available) = current_track

@@ -45,13 +45,6 @@ pub struct Tracklist {
     pub(crate) list_type: TracklistType,
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
-pub enum Status {
-    Playing,
-    #[default]
-    Paused,
-}
-
 impl Tracklist {
     pub fn new() -> Self {
         Default::default()

@@ -5,11 +5,7 @@ use mpris_server::{
     Server, Time, TrackId, Volume,
     zbus::{self, fdo},
 };
-use qobuz_player_controls::{
-    models::Track,
-    notification::Notification,
-    tracklist::{self},
-};
+use qobuz_player_controls::{Status, models::Track, notification::Notification};
 use qobuz_player_state::State;
 
 struct MprisPlayer {
@@ -102,11 +98,9 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn playback_status(&self) -> fdo::Result<PlaybackStatus> {
-        let current_status = *self.state.target_status.read().await;
-
-        let status = match current_status {
-            tracklist::Status::Paused => PlaybackStatus::Paused,
-            tracklist::Status::Playing => PlaybackStatus::Playing,
+        let status = match *self.state.target_status.read().await {
+            Status::Paused => PlaybackStatus::Paused,
+            Status::Playing => PlaybackStatus::Playing,
         };
 
         Ok(status)
@@ -209,13 +203,13 @@ pub async fn init(state: Arc<State>) {
                 Notification::Quit => return,
                 Notification::Status { status } => {
                     let (can_play, can_pause) = match status {
-                        tracklist::Status::Paused => (true, true),
-                        tracklist::Status::Playing => (true, true),
+                        Status::Paused => (true, true),
+                        Status::Playing => (true, true),
                     };
 
                     let playback_status = match status {
-                        tracklist::Status::Playing => PlaybackStatus::Playing,
-                        tracklist::Status::Paused => PlaybackStatus::Paused,
+                        Status::Playing => PlaybackStatus::Playing,
+                        Status::Paused => PlaybackStatus::Paused,
                     };
 
                     server

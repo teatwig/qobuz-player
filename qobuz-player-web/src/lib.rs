@@ -9,10 +9,10 @@ use futures::stream::Stream;
 use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
 use qobuz_player_controls::{
+    Status,
     broadcast::Broadcast,
     models::{Album, AlbumSimple, Favorites, Playlist},
     notification::Notification,
-    tracklist,
 };
 use routes::{
     album, artist, auth, controls, discover, favorites, now_playing, playlist, queue, search,
@@ -78,8 +78,8 @@ async fn background_task(tx: Sender<ServerSentEvent>, receiver: Arc<Broadcast>) 
             match notification {
                 Notification::Status { status } => {
                     let message_data = match status {
-                        tracklist::Status::Paused => "pause",
-                        tracklist::Status::Playing => "play",
+                        Status::Paused => "pause",
+                        Status::Playing => "play",
                     };
 
                     let event = ServerSentEvent {

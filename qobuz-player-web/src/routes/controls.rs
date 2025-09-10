@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use axum::{Router, extract::State, response::IntoResponse, routing::get};
 use leptos::{IntoView, component, prelude::*};
-use qobuz_player_controls::tracklist::{self, Status, Tracklist, TracklistType};
+use qobuz_player_controls::{
+    Status,
+    tracklist::{Tracklist, TracklistType},
+};
 
 use crate::{
     AppState, html,
@@ -43,8 +46,8 @@ fn controls_partial<'a>(current_status: &'a Status, tracklist: &'a Tracklist) ->
     let track_title = tracklist.current_track().map(|track| track.title.clone());
 
     let (playing, show) = match current_status {
-        tracklist::Status::Paused => (false, true),
-        tracklist::Status::Playing => (true, true),
+        Status::Paused => (false, true),
+        Status::Playing => (true, true),
     };
 
     let (image, title, entity_link) = match tracklist.list_type() {

@@ -2,7 +2,7 @@ use rand::seq::SliceRandom;
 use tokio::{select, sync::RwLock};
 
 use crate::{
-    Result,
+    Result, Status,
     models::{Album, Track, TrackStatus},
     notification::{Notification, PlayNotification},
     tracklist::{SingleTracklist, TracklistType},
@@ -19,7 +19,7 @@ use crate::{
 
 pub struct Player {
     tracklist: Arc<RwLock<Tracklist>>,
-    target_status: Arc<RwLock<tracklist::Status>>,
+    target_status: Arc<RwLock<Status>>,
     client: Arc<Client>,
     broadcast: Arc<Broadcast>,
     sink: Sink,
@@ -48,7 +48,7 @@ impl Player {
         }
     }
 
-    pub fn status(&self) -> ReadOnly<tracklist::Status> {
+    pub fn status(&self) -> ReadOnly<Status> {
         self.target_status.clone().into()
     }
 
@@ -68,8 +68,8 @@ impl Player {
         let target_status = *self.target_status.read().await;
 
         match target_status {
-            tracklist::Status::Playing => self.pause().await,
-            tracklist::Status::Paused => self.play().await?,
+            Status::Playing => self.pause().await,
+            Status::Paused => self.play().await?,
         }
 
         Ok(())
@@ -84,19 +84,19 @@ impl Player {
             self.first_track_queried = true;
         }
 
-        self.set_target_state(tracklist::Status::Playing).await;
+        self.set_target_status(Status::Playing).await;
         self.sink.play();
         Ok(())
     }
 
     async fn pause(&mut self) {
-        self.set_target_state(tracklist::Status::Paused).await;
+        self.set_target_status(Status::Paused).await;
         self.sink.pause();
     }
 
-    async fn set_target_state(&self, state: tracklist::Status) {
+    async fn set_target_status(&self, status: Status) {
         self.broadcast
-            .send(Notification::Status { status: state })
+            .send(Notification::Status { status })
             .unwrap();
     }
 
@@ -194,7 +194,7 @@ impl Player {
             self.sink.clear().await?;
             self.next_track_is_queried = false;
             self.first_track_queried = false;
-            self.set_target_state(tracklist::Status::Paused).await;
+            self.set_target_status(Status::Paused).await;
             self.sink.pause();
             *self.position.write().await = Default::default();
         }
@@ -336,7 +336,7 @@ impl Player {
 
     async fn tick(&mut self) -> Result<()> {
         let target_status = *self.target_status.read().await;
-        if target_status != tracklist::Status::Playing {
+        if target_status != Status::Playing {
             return Ok(());
         }
 
@@ -435,7 +435,7 @@ impl Player {
                     let new_position = current_position + 1;
                     if tracklist.skip_to_track(new_position).is_none() {
                         tracklist.reset();
-                        self.set_target_state(tracklist::Status::Paused).await;
+                        self.set_target_status(Status::Paused).await;
                         self.sink.pause();
                     };
                     self.next_track_is_queried = false;

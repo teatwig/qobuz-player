@@ -1,5 +1,5 @@
 use leptos::{IntoView, component, prelude::*};
-use qobuz_player_controls::tracklist::{Status, Tracklist};
+use qobuz_player_controls::{Status, tracklist::Tracklist};
 
 use crate::{
     html,

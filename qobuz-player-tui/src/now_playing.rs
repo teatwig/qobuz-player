@@ -1,5 +1,5 @@
 use crate::ui::block;
-use qobuz_player_controls::{models::Track, tracklist};
+use qobuz_player_controls::{Status, models::Track};
 use ratatui::{prelude::*, widgets::*};
 use ratatui_image::{StatefulImage, protocol::StatefulProtocol};
 
@@ -11,7 +11,7 @@ pub(crate) struct NowPlayingState {
     pub(crate) tracklist_length: u32,
     pub(crate) tracklist_position: u32,
     pub(crate) show_tracklist_position: bool,
-    pub(crate) status: tracklist::Status,
+    pub(crate) status: Status,
     pub(crate) duration_ms: u32,
 }
 
@@ -94,10 +94,10 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, state: &mut NowPlayingState)
     frame.render_widget(Text::from(lines), info_chunks[0]);
 }
 
-fn get_status_icon(state: tracklist::Status) -> String {
+fn get_status_icon(state: Status) -> String {
     match state {
-        tracklist::Status::Playing => "⏵".to_string(),
-        tracklist::Status::Paused => "⏸ ".to_string(),
+        Status::Playing => "⏵".to_string(),
+        Status::Paused => "⏸ ".to_string(),
     }
 }
 

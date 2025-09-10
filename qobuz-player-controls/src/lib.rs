@@ -13,3 +13,10 @@ pub mod sink;
 pub mod tracklist;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
+
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
+pub enum Status {
+    Playing,
+    #[default]
+    Paused,
+}

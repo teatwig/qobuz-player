@@ -4,7 +4,7 @@ use crate::{
 };
 use core::fmt;
 use image::load_from_memory;
-use qobuz_player_controls::tracklist::{self, Tracklist};
+use qobuz_player_controls::{Status, tracklist::Tracklist};
 use qobuz_player_state::State;
 use ratatui::{
     DefaultTerminal,
@@ -298,10 +298,7 @@ async fn fetch_image(image_url: &str) -> Option<(StatefulProtocol, f32)> {
     Some((picker.new_resize_protocol(image), ratio))
 }
 
-pub(crate) async fn get_current_state(
-    tracklist: Tracklist,
-    status: tracklist::Status,
-) -> NowPlayingState {
+pub(crate) async fn get_current_state(tracklist: Tracklist, status: Status) -> NowPlayingState {
     let (entity, image_url, show_tracklist_position) = match &tracklist.list_type() {
         qobuz_player_controls::tracklist::TracklistType::Album(tracklist) => (
             Some(tracklist.title.clone()),
