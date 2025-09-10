@@ -160,6 +160,8 @@ impl Player {
     async fn skip_to_position(&mut self, new_position: u32, force: bool) -> Result<()> {
         let mut tracklist = self.tracklist.read().await.clone();
         let current_position = tracklist.current_position();
+        self.set_target_status(Status::Buffering).await;
+        *self.position.write().await = Default::default();
 
         if !force && new_position < current_position && current_position == 0 {
             self.sink.seek(Duration::default()).await?;

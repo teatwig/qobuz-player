@@ -43,9 +43,12 @@ impl Sink {
             handle.abort();
         }
 
+        let volume = self.sink.volume();
+
         let (sender, receiver) = queue(true);
         let sink = rodio::Sink::connect_new(self.stream_handle.mixer());
         sink.append(receiver);
+        sink.set_volume(volume);
 
         self.sink = sink;
         self.sender = sender;
@@ -122,10 +125,6 @@ impl Sink {
     pub fn set_volume(&self, volume: f32) {
         let volume_pow = volume.clamp(0.0, 1.0).powi(3);
         self.sink.set_volume(volume_pow);
-    }
-
-    pub fn volume(&self) -> f64 {
-        self.sink.volume() as f64
     }
 }
 

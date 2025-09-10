@@ -19,12 +19,12 @@ pub async fn init(state: Arc<State>) {
                     return;
                 }
                 Notification::Status { status } => match status {
-                    qobuz_player_controls::Status::Paused
-                    | qobuz_player_controls::Status::Buffering => {
+                    qobuz_player_controls::Status::Paused => {
                         pin.set_low();
                         tracing::info!("Gpio low");
                     }
-                    qobuz_player_controls::Status::Playing => {
+                    qobuz_player_controls::Status::Playing
+                    | qobuz_player_controls::Status::Buffering => {
                         pin.set_high();
                         tracing::info!("Gpio high");
                     }
