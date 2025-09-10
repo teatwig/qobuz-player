@@ -79,6 +79,7 @@ impl Player {
         if !self.first_track_queried
             && let Some(current_track) = self.tracklist.read().await.current_track()
         {
+            self.set_target_status(Status::Buffering).await;
             let track_url = self.track_url(current_track.id).await?;
             self.query_track_url(&track_url).await?;
             self.first_track_queried = true;

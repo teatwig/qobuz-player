@@ -124,7 +124,7 @@ pub async fn init(state: Arc<qobuz_player_state::State>) {
         },
     };
 
-    let _app_result = app.run(&mut terminal).await;
+    _ = app.run(&mut terminal).await;
     ratatui::restore();
 }
 
