@@ -132,6 +132,7 @@ pub async fn run() -> Result<(), Error> {
             let tracklist = Arc::new(RwLock::new(
                 database.get_tracklist().await.unwrap_or_default(),
             ));
+            let volume = database.get_volume().await.unwrap_or(1.0);
 
             let username = cli.username.unwrap_or_else(|| {
                 database_credentials
@@ -151,7 +152,7 @@ pub async fn run() -> Result<(), Error> {
 
             let client = Arc::new(Client::new(username, password, max_audio_quality));
 
-            let mut player = Player::new(tracklist.clone(), client.clone());
+            let mut player = Player::new(tracklist.clone(), client.clone(), volume);
 
             let status = player.status();
             let broadcast = player.broadcast();
@@ -253,8 +254,16 @@ async fn store_state_loop(state: Arc<State>) {
     let mut broadcast_receiver = state.broadcast.notify_receiver();
 
     loop {
-        if let Ok(Notification::CurrentTrackList { tracklist }) = broadcast_receiver.recv().await {
-            state.database.set_tracklist(&tracklist).await;
+        if let Ok(notification) = broadcast_receiver.recv().await {
+            match notification {
+                Notification::CurrentTrackList { tracklist } => {
+                    state.database.set_tracklist(&tracklist).await;
+                }
+                Notification::Volume { volume } => {
+                    state.database.set_volume(volume).await;
+                }
+                _ => (),
+            }
         }
     }
 }

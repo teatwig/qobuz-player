@@ -20,13 +20,13 @@ pub struct Sink {
 }
 
 impl Sink {
-    pub fn new(broadcast: Arc<Broadcast>) -> Result<Self> {
+    pub fn new(broadcast: Arc<Broadcast>, volume: f32) -> Result<Self> {
         let stream_handle = rodio::OutputStreamBuilder::open_default_stream()?;
         let (sender, receiver) = queue(true);
 
         let sink = rodio::Sink::connect_new(stream_handle.mixer());
         sink.append(receiver);
-        sink.set_volume(1.0);
+        sink.set_volume(volume);
 
         Ok(Self {
             sink,
@@ -117,9 +117,9 @@ impl Sink {
         Ok(())
     }
 
-    pub fn set_volume(&self, volume: f64) {
+    pub fn set_volume(&self, volume: f32) {
         let volume_pow = volume.clamp(0.0, 1.0).powi(3);
-        self.sink.set_volume(volume_pow as f32);
+        self.sink.set_volume(volume_pow);
     }
 
     pub fn volume(&self) -> f64 {

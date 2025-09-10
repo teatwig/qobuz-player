@@ -113,6 +113,40 @@ impl Database {
         row.ok().map(|x| x.tracklist.0)
     }
 
+    pub async fn set_volume(&self, volume: f32) {
+        sqlx::query!(
+            r#"
+           delete from volume
+        "#
+        )
+        .execute(&self.pool)
+        .await
+        .expect("database failure");
+
+        sqlx::query!(
+            r#"
+            INSERT INTO volume (volume) VALUES (?1);
+        "#,
+            volume
+        )
+        .execute(&self.pool)
+        .await
+        .expect("failed to insert new volume");
+    }
+
+    pub async fn get_volume(&self) -> Option<f32> {
+        let row = sqlx::query_as!(
+            VolumeDb,
+            r#"
+            SELECT volume FROM volume
+        "#
+        )
+        .fetch_one(&self.pool)
+        .await;
+
+        row.ok().map(|x| x.volume as f32)
+    }
+
     pub async fn set_max_audio_quality(&self, quality: AudioQuality) {
         let quality_id = quality as i32;
 
@@ -253,6 +287,11 @@ pub struct DatabaseConfiguration {
 #[derive(Debug, sqlx::FromRow, serde::Deserialize)]
 struct TracklistDb {
     tracklist: Json<Tracklist>,
+}
+
+#[derive(Debug, sqlx::FromRow, serde::Deserialize)]
+struct VolumeDb {
+    volume: f64,
 }
 
 async fn create_credentials_row(pool: &Pool<Sqlite>) {

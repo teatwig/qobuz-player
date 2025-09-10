@@ -23,17 +23,17 @@ pub struct Player {
     client: Arc<Client>,
     broadcast: Arc<Broadcast>,
     sink: Sink,
-    volume: Arc<RwLock<f64>>,
+    volume: Arc<RwLock<f32>>,
     position: Arc<RwLock<Duration>>,
     next_track_is_queried: bool,
     first_track_queried: bool,
 }
 
 impl Player {
-    pub fn new(tracklist: Arc<RwLock<Tracklist>>, client: Arc<Client>) -> Self {
+    pub fn new(tracklist: Arc<RwLock<Tracklist>>, client: Arc<Client>, volume: f32) -> Self {
         let broadcast = Arc::new(Broadcast::new());
-        let volume = Arc::new(RwLock::new(1.0));
-        let sink = Sink::new(broadcast.clone()).unwrap();
+        let sink = Sink::new(broadcast.clone(), volume).unwrap();
+        let volume = Arc::new(RwLock::new(volume));
 
         Self {
             tracklist,
@@ -56,7 +56,7 @@ impl Player {
         self.broadcast.clone()
     }
 
-    pub fn volume(&self) -> ReadOnly<f64> {
+    pub fn volume(&self) -> ReadOnly<f32> {
         self.volume.clone().into()
     }
 
@@ -109,7 +109,7 @@ impl Player {
         self.sink.query_track_url(track_url).await
     }
 
-    async fn set_volume(&self, volume: f64) {
+    async fn set_volume(&self, volume: f32) {
         self.sink.set_volume(volume);
         *self.volume.write().await = volume;
     }

@@ -80,7 +80,7 @@ async fn set_volume(
         volume = 100;
     };
 
-    let formatted_volume = volume as f64 / 100.0;
+    let formatted_volume = volume as f32 / 100.0;
 
     state.player_state.broadcast.set_volume(formatted_volume);
 }

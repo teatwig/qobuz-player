@@ -10,7 +10,7 @@ pub enum Notification {
     CurrentTrackList { tracklist: Tracklist },
     Quit,
     Message { message: Message },
-    Volume { volume: f64 },
+    Volume { volume: f32 },
 }
 
 #[derive(Debug, Clone, PartialEq)]

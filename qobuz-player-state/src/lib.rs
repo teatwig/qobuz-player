@@ -20,7 +20,7 @@ pub struct State {
     pub link_request: Mutex<Option<LinkRequest>>,
     pub tracklist: ReadOnly<Tracklist>,
     pub target_status: ReadOnly<tracklist::Status>,
-    pub volume: ReadOnly<f64>,
+    pub volume: ReadOnly<f32>,
     pub position: ReadOnly<Duration>,
     pub broadcast: Arc<Broadcast>,
 }
@@ -36,7 +36,7 @@ impl State {
         database: Database,
         target_status: ReadOnly<tracklist::Status>,
         broadcast: Arc<Broadcast>,
-        volume: ReadOnly<f64>,
+        volume: ReadOnly<f32>,
         position: ReadOnly<Duration>,
     ) -> Self {
         let link_request = Mutex::new(None);

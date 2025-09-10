@@ -149,11 +149,11 @@ impl PlayerInterface for MprisPlayer {
 
     async fn volume(&self) -> fdo::Result<Volume> {
         let volume = self.state.volume.read().await;
-        Ok(*volume)
+        Ok(*volume as f64)
     }
 
     async fn set_volume(&self, volume: Volume) -> zbus::Result<()> {
-        self.state.broadcast.set_volume(volume);
+        self.state.broadcast.set_volume(volume as f32);
         Ok(())
     }
 
@@ -253,7 +253,7 @@ pub async fn init(state: Arc<State>) {
                 Notification::Message { message: _ } => {}
                 Notification::Volume { volume } => {
                     server
-                        .properties_changed([Property::Volume(volume)])
+                        .properties_changed([Property::Volume(volume.into())])
                         .await
                         .unwrap();
                 }
