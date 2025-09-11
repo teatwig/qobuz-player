@@ -126,8 +126,8 @@ impl Sink {
 
             done_buffering_tx.send(()).unwrap();
 
-            tokio::spawn(async move {
-                if signal.iter().next().is_some() {
+            tokio::task::spawn_blocking(move || {
+                if signal.into_iter().next().is_some() {
                     if let Some(source_duration) = source_duration {
                         *duration_played.write().unwrap() += source_duration;
                     }
