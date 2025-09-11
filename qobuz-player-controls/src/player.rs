@@ -471,7 +471,6 @@ impl Player {
             self.sink.pause();
         };
         self.next_track_is_queried = false;
-        self.first_track_queried = false;
         self.broadcast_tracklist(tracklist);
     }
 
