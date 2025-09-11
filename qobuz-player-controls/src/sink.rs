@@ -40,6 +40,7 @@ impl Sink {
     }
 
     pub async fn clear(&mut self) -> Result<()> {
+        *self.duration_played.write().await = Default::default();
         if let Some(handle) = self.current_download.lock().await.take() {
             handle.abort();
         }
@@ -54,8 +55,6 @@ impl Sink {
         self.sink = sink;
         self.sender = sender;
 
-        *self.duration_played.write().await = Default::default();
-
         Ok(())
     }
 
@@ -68,16 +67,21 @@ impl Sink {
     }
 
     pub async fn seek(&self, duration: Duration) -> Result<()> {
-        self.sink.try_seek(duration)?;
         *self.duration_played.write().await = Default::default();
+        self.sink.try_seek(duration)?;
 
         Ok(())
     }
 
     pub async fn position(&self) -> Duration {
         let position = self.sink.get_pos();
-        let duration_played = self.duration_played.read().await;
-        position - *duration_played
+        let duration_played = *self.duration_played.read().await;
+
+        if position < duration_played {
+            return Default::default();
+        }
+
+        position - duration_played
     }
 
     pub fn is_playing(&self) -> bool {
@@ -109,19 +113,14 @@ impl Sink {
 
             broadcast.done_buffering();
 
-            let (tx, rx) = tokio::sync::oneshot::channel();
-
-            tokio::task::spawn_blocking(move || {
-                _ = signal.into_iter().next();
-                _ = tx.send(());
-            });
-
             tokio::spawn(async move {
-                _ = rx.await;
-                if let Some(source_duration) = source_duration {
-                    *duration_played.write().await += source_duration;
+                if signal.iter().next().is_some() {
+                    if let Some(source_duration) = source_duration {
+                        *duration_played.write().await += source_duration;
+                    }
+
+                    broadcast.track_finished();
                 }
-                broadcast.track_finished();
             });
         });
 
