@@ -105,7 +105,7 @@ impl Sink {
             done_buffering_tx.send(()).unwrap();
 
             tokio::task::spawn_blocking(move || {
-                if signal.into_iter().next().is_some() {
+                if signal.recv().is_ok() {
                     track_finished_tx.send(()).unwrap();
                 }
             });

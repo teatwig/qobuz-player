@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 pub use qobuz_player_client::client::AudioQuality;
+use tokio::sync::watch;
 
 use crate::error::Error;
 pub mod broadcast;
@@ -14,6 +17,8 @@ pub mod timer;
 pub mod tracklist;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
+
+pub type PositionReviever = watch::Receiver<Duration>;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub enum Status {

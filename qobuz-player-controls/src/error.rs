@@ -23,6 +23,13 @@ pub enum Error {
         message: String,
     },
     PoisonError,
+    SendError,
+}
+
+impl<T> From<tokio::sync::watch::error::SendError<T>> for Error {
+    fn from(_: tokio::sync::watch::error::SendError<T>) -> Self {
+        Error::SendError
+    }
 }
 
 impl<T> From<std::sync::PoisonError<T>> for Error {

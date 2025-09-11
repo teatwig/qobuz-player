@@ -9,7 +9,7 @@ use futures::stream::Stream;
 use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
 use qobuz_player_controls::{
-    Status,
+    PositionReviever, Status,
     broadcast::Broadcast,
     models::{Album, AlbumSimple, Favorites, Playlist},
     notification::Notification,
@@ -32,23 +32,31 @@ mod page;
 mod routes;
 mod view;
 
-pub async fn init(state: Arc<qobuz_player_state::State>) {
+pub async fn init(state: Arc<qobuz_player_state::State>, position_receiver: PositionReviever) {
     let listener = tokio::net::TcpListener::bind(&state.web_interface)
         .await
         .unwrap();
 
-    let router = create_router(state.clone()).await;
+    let router = create_router(state.clone(), position_receiver).await;
 
     axum::serve(listener, router).await.unwrap();
 }
 
-async fn create_router(state: Arc<qobuz_player_state::State>) -> Router {
+async fn create_router(
+    state: Arc<qobuz_player_state::State>,
+    position_receiver: PositionReviever,
+) -> Router {
     let (tx, _rx) = broadcast::channel::<ServerSentEvent>(100);
     let shared_state = Arc::new(AppState {
         tx: tx.clone(),
         player_state: state.clone(),
+        position_receiver: position_receiver.clone(),
     });
-    tokio::spawn(background_task(tx, state.broadcast.clone()));
+    tokio::spawn(background_task(
+        tx,
+        state.broadcast.clone(),
+        position_receiver,
+    ));
 
     axum::Router::new()
         .route("/sse", get(sse_handler))
@@ -70,78 +78,87 @@ async fn create_router(state: Arc<qobuz_player_state::State>) -> Router {
         .with_state(shared_state.clone())
 }
 
-async fn background_task(tx: Sender<ServerSentEvent>, receiver: Arc<Broadcast>) {
+async fn background_task(
+    tx: Sender<ServerSentEvent>,
+    receiver: Arc<Broadcast>,
+    mut position: PositionReviever,
+) {
     let mut receiver = receiver.notify_receiver();
 
     loop {
-        if let Ok(notification) = receiver.recv().await {
-            match notification {
-                Notification::Status { status } => {
-                    let message_data = match status {
-                        Status::Paused => "pause",
-                        Status::Playing => "play",
-                        Status::Buffering => "buffering",
-                    };
+        tokio::select! {
+            Ok(_) = position.changed() => {
+                let position_duration = position.borrow_and_update();
+                let event = ServerSentEvent {
+                    event_name: "position".into(),
+                    event_data: position_duration.as_millis().to_string(),
+                };
 
-                    let event = ServerSentEvent {
-                        event_name: "status".into(),
-                        event_data: message_data.into(),
-                    };
-                    _ = tx.send(event);
-                }
-                Notification::Position { position } => {
-                    let event = ServerSentEvent {
-                        event_name: "position".into(),
-                        event_data: position.as_millis().to_string(),
-                    };
+                _ = tx.send(event);
+            },
+            notification = receiver.recv() => {
+                if let Ok(notification) = notification {
+                    match notification {
+                        Notification::Status { status } => {
+                            let message_data = match status {
+                                Status::Paused => "pause",
+                                Status::Playing => "play",
+                                Status::Buffering => "buffering",
+                            };
 
-                    _ = tx.send(event);
-                }
-                Notification::CurrentTrackList { tracklist: _ } => {
-                    let event = ServerSentEvent {
-                        event_name: "tracklist".into(),
-                        event_data: Default::default(),
-                    };
-                    _ = tx.send(event);
-                }
-                Notification::Quit => break,
-                Notification::Message { message } => {
-                    let toast = components::toast(message.clone()).to_html();
-
-                    let event = match message {
-                        qobuz_player_controls::notification::Message::Error(_) => ServerSentEvent {
-                            event_name: "error".into(),
-                            event_data: toast,
-                        },
-                        qobuz_player_controls::notification::Message::Warning(_) => {
-                            ServerSentEvent {
-                                event_name: "warn".into(),
-                                event_data: toast,
-                            }
+                            let event = ServerSentEvent {
+                                event_name: "status".into(),
+                                event_data: message_data.into(),
+                            };
+                            _ = tx.send(event);
                         }
-                        qobuz_player_controls::notification::Message::Success(_) => {
-                            ServerSentEvent {
-                                event_name: "success".into(),
-                                event_data: toast,
-                            }
+                        Notification::CurrentTrackList { tracklist: _ } => {
+                            let event = ServerSentEvent {
+                                event_name: "tracklist".into(),
+                                event_data: Default::default(),
+                            };
+                            _ = tx.send(event);
                         }
-                        qobuz_player_controls::notification::Message::Info(_) => ServerSentEvent {
-                            event_name: "info".into(),
-                            event_data: toast,
-                        },
+                        Notification::Quit => break,
+                        Notification::Message { message } => {
+                            let toast = components::toast(message.clone()).to_html();
+
+                            let event = match message {
+                                qobuz_player_controls::notification::Message::Error(_) => ServerSentEvent {
+                                    event_name: "error".into(),
+                                    event_data: toast,
+                                },
+                                qobuz_player_controls::notification::Message::Warning(_) => {
+                                    ServerSentEvent {
+                                        event_name: "warn".into(),
+                                        event_data: toast,
+                                    }
+                                }
+                                qobuz_player_controls::notification::Message::Success(_) => {
+                                    ServerSentEvent {
+                                        event_name: "success".into(),
+                                        event_data: toast,
+                                    }
+                                }
+                                qobuz_player_controls::notification::Message::Info(_) => ServerSentEvent {
+                                    event_name: "info".into(),
+                                    event_data: toast,
+                                },
+                            };
+                            _ = tx.send(event);
+                        }
+                        Notification::Volume { volume } => {
+                            let volume = (volume * 100.0) as u32;
+                            let event = ServerSentEvent {
+                                event_name: "volume".into(),
+                                event_data: volume.to_string(),
+                            };
+                            _ = tx.send(event);
+                        }
+                        Notification::Play(_) => (),
                     };
-                    _ = tx.send(event);
                 }
-                Notification::Volume { volume } => {
-                    let volume = (volume * 100.0) as u32;
-                    let event = ServerSentEvent {
-                        event_name: "volume".into(),
-                        event_data: volume.to_string(),
-                    };
-                    _ = tx.send(event);
-                }
-                Notification::Play(_) => (),
-            };
+            }
         }
     }
 }
@@ -169,6 +186,7 @@ async fn sse_handler(
 pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
     pub player_state: Arc<qobuz_player_state::State>,
+    pub position_receiver: PositionReviever,
 }
 
 impl AppState {

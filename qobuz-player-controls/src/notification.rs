@@ -6,7 +6,6 @@ use crate::{Status, tracklist::Tracklist};
 pub enum Notification {
     Play(PlayNotification),
     Status { status: Status },
-    Position { position: Duration },
     CurrentTrackList { tracklist: Tracklist },
     Quit,
     Message { message: Message },

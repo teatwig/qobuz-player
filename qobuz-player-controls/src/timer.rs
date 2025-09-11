@@ -14,9 +14,14 @@ impl Timer {
         }
     }
 
-    pub(crate) fn clear(&mut self) {
+    pub(crate) fn stop(&mut self) {
         self.start_time = None;
         self.elapsed = Duration::ZERO;
+    }
+
+    pub(crate) fn reset(&mut self) {
+        self.stop();
+        self.start();
     }
 
     pub(crate) fn start(&mut self) {

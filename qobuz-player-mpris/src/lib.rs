@@ -5,11 +5,12 @@ use mpris_server::{
     Server, Time, TrackId, Volume,
     zbus::{self, fdo},
 };
-use qobuz_player_controls::{Status, models::Track, notification::Notification};
+use qobuz_player_controls::{PositionReviever, Status, models::Track, notification::Notification};
 use qobuz_player_state::State;
 
 struct MprisPlayer {
     state: Arc<State>,
+    position_receiver: PositionReviever,
 }
 
 impl RootInterface for MprisPlayer {
@@ -152,8 +153,8 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn position(&self) -> fdo::Result<Time> {
-        let position_seconds = self.state.position.read().await.as_millis();
-        let time = Time::from_millis(position_seconds as i64);
+        let position_millis = self.position_receiver.borrow().as_millis();
+        let time = Time::from_millis(position_millis as i64);
         Ok(time)
     }
 
@@ -190,12 +191,18 @@ impl PlayerInterface for MprisPlayer {
     }
 }
 
-pub async fn init(state: Arc<State>) {
+pub async fn init(state: Arc<State>, position_receiver: PositionReviever) {
     let mut receiver = state.broadcast.notify_receiver();
 
-    let server = Server::new("com.github.sofusa-quboz-player", MprisPlayer { state })
-        .await
-        .unwrap();
+    let server = Server::new(
+        "com.github.sofusa-quboz-player",
+        MprisPlayer {
+            state,
+            position_receiver,
+        },
+    )
+    .await
+    .unwrap();
 
     loop {
         if let Ok(notification) = receiver.recv().await {
@@ -222,7 +229,6 @@ pub async fn init(state: Arc<State>) {
                         .await
                         .unwrap();
                 }
-                Notification::Position { position: _ } => {}
                 Notification::CurrentTrackList { tracklist } => {
                     let current_track = tracklist.current_track();
 

@@ -155,7 +155,7 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let tracklist_clone = tracklist.clone();
     let current_track = tracklist.current_track().cloned();
 
-    let position_mseconds = state.player_state.position.read().await.as_millis();
+    let position_mseconds = state.position_receiver.borrow().as_millis();
     let current_status = state.player_state.target_status.read().await;
     let current_status_copy = *current_status;
     let current_volume = (*state.player_state.volume.read().await * 100.0) as u32;
@@ -176,7 +176,8 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let tracklist = state.player_state.tracklist.read().await;
     let current_track = tracklist.current_track().cloned();
-    let position_mseconds = state.player_state.position.read().await.as_millis();
+
+    let position_mseconds = state.position_receiver.borrow().as_millis();
     let current_status = state.player_state.target_status.read().await;
     let current_volume = (*state.player_state.volume.read().await * 100.0) as u32;
 

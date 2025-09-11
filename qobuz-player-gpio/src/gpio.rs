@@ -29,7 +29,6 @@ pub async fn init(state: Arc<State>) {
                         tracing::info!("Gpio high");
                     }
                 },
-                Notification::Position { position: _ } => {}
                 Notification::CurrentTrackList { tracklist: _ } => {}
                 Notification::Message { message: _ } => {}
                 Notification::Volume { volume: _ } => {}

@@ -157,7 +157,6 @@ pub async fn run() -> Result<(), Error> {
             let status = player.status();
             let broadcast = player.broadcast();
             let volume = player.volume();
-            let position = player.position();
 
             let state = Arc::new(
                 State::new(
@@ -170,7 +169,6 @@ pub async fn run() -> Result<(), Error> {
                     status,
                     broadcast.clone(),
                     volume,
-                    position,
                 )
                 .await,
             );
@@ -178,15 +176,17 @@ pub async fn run() -> Result<(), Error> {
             #[cfg(target_os = "linux")]
             if !cli.disable_mpris {
                 let state = state.clone();
+                let position_receiver = player.position();
                 tokio::spawn(async {
-                    qobuz_player_mpris::init(state).await;
+                    qobuz_player_mpris::init(state, position_receiver).await;
                 });
             }
 
             if cli.web {
                 let state = state.clone();
+                let position_receiver = player.position();
                 tokio::spawn(async {
-                    qobuz_player_web::init(state).await;
+                    qobuz_player_web::init(state, position_receiver).await;
                 });
             }
 
@@ -208,8 +208,9 @@ pub async fn run() -> Result<(), Error> {
                     qobuz_player_rfid::init(state).await;
                 });
             } else if !cli.disable_tui {
+                let position_receiver = player.position();
                 tokio::spawn(async {
-                    qobuz_player_tui::init(state).await;
+                    qobuz_player_tui::init(state, position_receiver).await;
                 });
             };
 

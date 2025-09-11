@@ -4,7 +4,7 @@ use crate::{
 };
 use core::fmt;
 use image::load_from_memory;
-use qobuz_player_controls::{Status, tracklist::Tracklist};
+use qobuz_player_controls::{PositionReviever, Status, tracklist::Tracklist};
 use qobuz_player_state::State;
 use ratatui::{
     DefaultTerminal,
@@ -18,6 +18,7 @@ use tokio::time::{self, Duration};
 
 pub(crate) struct App {
     pub(crate) state: Arc<State>,
+    pub(crate) position: PositionReviever,
     pub(crate) current_screen: Tab,
     pub(crate) exit: bool,
     pub(crate) should_draw: bool,
@@ -93,15 +94,15 @@ impl App {
 
         while !self.exit {
             tokio::select! {
+                Ok(_) = self.position.changed() => {
+                    self.now_playing.duration_ms = self.position.borrow_and_update().as_millis() as u32;
+                    self.should_draw = true;
+                },
                 maybe_notification = receiver.recv() => {
                     if let Ok(notification) = maybe_notification {
                         match notification {
                             qobuz_player_controls::notification::Notification::Status { status } => {
                                 self.now_playing.status = status;
-                                self.should_draw = true;
-                            },
-                            qobuz_player_controls::notification::Notification::Position { position } => {
-                                self.now_playing.duration_ms = position.as_millis() as u32;
                                 self.should_draw = true;
                             },
                             qobuz_player_controls::notification::Notification::CurrentTrackList { tracklist } => {

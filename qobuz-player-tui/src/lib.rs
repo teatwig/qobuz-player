@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use app::{App, FilteredListState, UnfilteredListState, get_current_state};
 use favorites::FavoritesState;
 use queue::QueueState;
 use ratatui::{prelude::*, widgets::*};
 use search::SearchState;
-use tokio::try_join;
+use tokio::{sync::watch, try_join};
 use ui::center;
 
 mod app;
@@ -17,7 +17,7 @@ mod queue;
 mod search;
 mod ui;
 
-pub async fn init(state: Arc<qobuz_player_state::State>) {
+pub async fn init(state: Arc<qobuz_player_state::State>, position: watch::Receiver<Duration>) {
     let mut terminal = ratatui::init();
 
     draw_loading_screen(&mut terminal);
@@ -64,6 +64,7 @@ pub async fn init(state: Arc<qobuz_player_state::State>) {
     let mut app = App {
         state,
         now_playing,
+        position,
         current_screen: Default::default(),
         exit: Default::default(),
         should_draw: true,

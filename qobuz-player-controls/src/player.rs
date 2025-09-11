@@ -1,11 +1,14 @@
 use rand::seq::SliceRandom;
 use tokio::{
     select,
-    sync::{RwLock, watch::Receiver},
+    sync::{
+        RwLock,
+        watch::{self, Receiver, Sender},
+    },
 };
 
 use crate::{
-    Result, Status,
+    PositionReviever, Result, Status,
     models::{Album, Track, TrackStatus},
     notification::{Notification, PlayNotification},
     timer::Timer,
@@ -28,8 +31,8 @@ pub struct Player {
     broadcast: Arc<Broadcast>,
     sink: Sink,
     volume: Arc<RwLock<f32>>,
-    position: Arc<RwLock<Duration>>,
     position_timer: Timer,
+    position: Sender<Duration>,
     next_track_is_queried: bool,
     first_track_queried: bool,
     track_finished: Receiver<()>,
@@ -45,6 +48,8 @@ impl Player {
         let track_finished = sink.track_finished();
         let done_buffering = sink.done_buffering();
 
+        let (position, _) = watch::channel(Default::default());
+
         Self {
             tracklist,
             target_status: Default::default(),
@@ -52,8 +57,8 @@ impl Player {
             broadcast,
             sink,
             volume,
-            position: Default::default(),
             position_timer: Default::default(),
+            position,
             next_track_is_queried: false,
             first_track_queried: false,
             track_finished,
@@ -73,8 +78,8 @@ impl Player {
         self.volume.clone().into()
     }
 
-    pub fn position(&self) -> ReadOnly<Duration> {
-        self.position.clone().into()
+    pub fn position(&self) -> PositionReviever {
+        self.position.subscribe()
     }
 
     async fn play_pause(&mut self) -> Result<()> {
@@ -179,11 +184,12 @@ impl Player {
 
     /// Skip to a specific track in the tracklist.
     async fn skip_to_position(&mut self, new_position: u32, force: bool) -> Result<()> {
-        self.position_timer.clear();
+        self.position_timer.stop();
         let mut tracklist = self.tracklist.read().await.clone();
         let current_position = tracklist.current_position();
         self.set_target_status(Status::Buffering).await;
-        *self.position.write().await = Default::default();
+
+        self.position.send(Default::default())?;
 
         if !force && new_position < current_position && current_position == 0 {
             self.seek(Duration::default())?;
@@ -221,7 +227,7 @@ impl Player {
             self.first_track_queried = false;
             self.set_target_status(Status::Paused).await;
             self.sink.pause();
-            *self.position.write().await = Default::default();
+            self.position.send(Default::default())?;
         }
 
         self.broadcast_tracklist(tracklist);
@@ -247,7 +253,7 @@ impl Player {
     }
 
     async fn new_queue(&mut self, tracklist: Tracklist) -> Result<()> {
-        self.position_timer.clear();
+        self.position_timer.stop();
         self.sink.clear().await?;
         self.next_track_is_queried = false;
         self.set_target_status(Status::Buffering).await;
@@ -365,7 +371,7 @@ impl Player {
 
         let position = self.position_timer.elapsed();
 
-        self.broadcast.send(Notification::Position { position })?;
+        self.position.send(position)?;
 
         let duration = self
             .tracklist
@@ -458,10 +464,6 @@ impl Player {
                 *self.target_status.write().await = status;
                 false
             }
-            Notification::Position { position } => {
-                *self.position.write().await = position;
-                false
-            }
             Notification::CurrentTrackList { tracklist } => {
                 *self.tracklist.write().await = tracklist;
                 false
@@ -475,7 +477,7 @@ impl Player {
     }
 
     async fn track_finished(&mut self) {
-        self.position_timer.clear();
+        self.position_timer.reset();
         let mut tracklist = self.tracklist.read().await.clone();
 
         let current_position = tracklist.current_position();
