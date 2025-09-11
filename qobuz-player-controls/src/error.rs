@@ -22,6 +22,13 @@ pub enum Error {
     StreamError {
         message: String,
     },
+    PoisonError,
+}
+
+impl<T> From<std::sync::PoisonError<T>> for Error {
+    fn from(_: std::sync::PoisonError<T>) -> Self {
+        Error::PoisonError
+    }
 }
 
 impl From<rodio::source::SeekError> for Error {

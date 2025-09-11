@@ -1,5 +1,8 @@
 use rand::seq::SliceRandom;
-use tokio::{select, sync::RwLock};
+use tokio::{
+    select,
+    sync::{RwLock, watch::Receiver},
+};
 
 use crate::{
     Result, Status,
@@ -27,13 +30,18 @@ pub struct Player {
     position: Arc<RwLock<Duration>>,
     next_track_is_queried: bool,
     first_track_queried: bool,
+    track_finished: Receiver<()>,
+    done_buffering: Receiver<()>,
 }
 
 impl Player {
     pub fn new(tracklist: Arc<RwLock<Tracklist>>, client: Arc<Client>, volume: f32) -> Self {
         let broadcast = Arc::new(Broadcast::new());
-        let sink = Sink::new(broadcast.clone(), volume).unwrap();
+        let sink = Sink::new(volume).unwrap();
         let volume = Arc::new(RwLock::new(volume));
+
+        let track_finished = sink.track_finished();
+        let done_buffering = sink.done_buffering();
 
         Self {
             tracklist,
@@ -45,6 +53,8 @@ impl Player {
             position: Default::default(),
             next_track_is_queried: false,
             first_track_queried: false,
+            track_finished,
+            done_buffering,
         }
     }
 
@@ -81,7 +91,7 @@ impl Player {
         {
             self.set_target_status(Status::Buffering).await;
             let track_url = self.track_url(current_track.id).await?;
-            self.query_track_url(&track_url).await?;
+            self.query_track_url(&track_url)?;
             self.first_track_queried = true;
         }
 
@@ -106,8 +116,8 @@ impl Player {
         Ok(track_url)
     }
 
-    async fn query_track_url(&self, track_url: &str) -> Result<()> {
-        self.sink.query_track_url(track_url).await
+    fn query_track_url(&self, track_url: &str) -> Result<()> {
+        self.sink.query_track_url(track_url)
     }
 
     async fn set_volume(&self, volume: f32) {
@@ -131,12 +141,12 @@ impl Player {
 
         if let Some(duration) = duration {
             let ten_seconds = Duration::from_secs(10);
-            let next_position = self.sink.position().await + ten_seconds;
+            let next_position = self.sink.position()? + ten_seconds;
 
             if next_position < duration {
-                self.sink.seek(next_position).await?;
+                self.sink.seek(next_position)?;
             } else {
-                self.sink.seek(duration).await?;
+                self.sink.seek(duration)?;
             }
         }
 
@@ -144,15 +154,15 @@ impl Player {
     }
 
     async fn jump_backward(&mut self) -> Result<()> {
-        let current_position = self.sink.position().await;
+        let current_position = self.sink.position()?;
 
         if current_position.as_millis() < 10000 {
-            self.sink.seek(Duration::default()).await?;
+            self.sink.seek(Duration::default())?;
         } else {
             let ten_seconds = Duration::from_secs(10);
             let seek_position = current_position - ten_seconds;
 
-            self.sink.seek(seek_position).await?;
+            self.sink.seek(seek_position)?;
         }
         Ok(())
     }
@@ -165,7 +175,7 @@ impl Player {
         *self.position.write().await = Default::default();
 
         if !force && new_position < current_position && current_position == 0 {
-            self.sink.seek(Duration::default()).await?;
+            self.sink.seek(Duration::default())?;
             return Ok(());
         }
 
@@ -180,9 +190,9 @@ impl Player {
             && new_position < current_position
             && total_tracks != current_position
             && new_position != 0
-            && self.sink.position().await.as_millis() > 1000
+            && self.sink.position()?.as_millis() > 1000
         {
-            self.sink.seek(Duration::default()).await?;
+            self.sink.seek(Duration::default())?;
             return Ok(());
         }
 
@@ -190,7 +200,7 @@ impl Player {
             let next_track_url = self.track_url(next_track.id).await?;
             self.sink.clear().await?;
             self.next_track_is_queried = false;
-            self.query_track_url(&next_track_url).await?;
+            self.query_track_url(&next_track_url)?;
             self.first_track_queried = true;
         } else {
             tracklist.reset();
@@ -231,7 +241,7 @@ impl Player {
 
         if let Some(first_track) = tracklist.current_track() {
             let track_url = self.track_url(first_track.id).await?;
-            self.query_track_url(&track_url).await?;
+            self.query_track_url(&track_url)?;
             self.first_track_queried = true;
         }
 
@@ -340,7 +350,7 @@ impl Player {
             return Ok(());
         }
 
-        let position = self.sink.position().await;
+        let position = self.sink.position()?;
 
         self.broadcast.send(Notification::Position { position })?;
 
@@ -360,7 +370,7 @@ impl Player {
 
                 if let Some(next_track) = tracklist.next_track() {
                     let next_track_url = self.track_url(next_track.id).await?;
-                    self.query_track_url(&next_track_url).await?;
+                    self.query_track_url(&next_track_url)?;
                     self.first_track_queried = true;
                     self.next_track_is_queried = true;
                 }
@@ -405,10 +415,6 @@ impl Player {
                     self.play().await.unwrap();
                     false
                 }
-                PlayNotification::DoneBuffering => {
-                    self.set_target_status(Status::Playing).await;
-                    false
-                }
                 PlayNotification::Pause => {
                     self.pause().await;
                     false
@@ -429,22 +435,7 @@ impl Player {
                     false
                 }
                 PlayNotification::Seek { time } => {
-                    self.sink.seek(time).await.unwrap();
-                    false
-                }
-                PlayNotification::TrackFinished => {
-                    let mut tracklist = self.tracklist.read().await.clone();
-
-                    let current_position = tracklist.current_position();
-                    let new_position = current_position + 1;
-                    if tracklist.skip_to_track(new_position).is_none() {
-                        tracklist.reset();
-                        self.set_target_status(Status::Paused).await;
-                        self.sink.pause();
-                    };
-                    self.next_track_is_queried = false;
-                    self.first_track_queried = false;
-                    self.broadcast_tracklist(tracklist);
+                    self.sink.seek(time).unwrap();
                     false
                 }
             },
@@ -469,6 +460,21 @@ impl Player {
         }
     }
 
+    async fn track_finished(&mut self) {
+        let mut tracklist = self.tracklist.read().await.clone();
+
+        let current_position = tracklist.current_position();
+        let new_position = current_position + 1;
+        if tracklist.skip_to_track(new_position).is_none() {
+            tracklist.reset();
+            self.set_target_status(Status::Paused).await;
+            self.sink.pause();
+        };
+        self.next_track_is_queried = false;
+        self.first_track_queried = false;
+        self.broadcast_tracklist(tracklist);
+    }
+
     pub async fn player_loop(&mut self) -> Result<()> {
         let mut receiver = self.broadcast.notify_receiver();
         let mut interval = tokio::time::interval(Duration::from_millis(500));
@@ -484,6 +490,14 @@ impl Player {
                     if break_received {
                         break;
                     }
+                }
+
+                Ok(_) = self.track_finished.changed() => {
+                    self.track_finished().await;
+                }
+
+                Ok(_) = self.done_buffering.changed() => {
+                    self.set_target_status(Status::Playing).await;
                 }
             }
         }

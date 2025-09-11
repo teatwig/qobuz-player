@@ -1,26 +1,26 @@
 use std::io::Cursor;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
 use rodio::Source;
 use rodio::{decoder::DecoderBuilder, queue::queue};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::watch::{Receiver, Sender};
 use tokio::task::JoinHandle;
 
 use crate::Result;
-use crate::broadcast::Broadcast;
 
 pub struct Sink {
     stream_handle: rodio::OutputStream,
     sink: rodio::Sink,
     sender: Arc<rodio::queue::SourcesQueueInput>,
-    broadcast: Arc<Broadcast>,
     current_download: Arc<Mutex<Option<JoinHandle<()>>>>,
     duration_played: Arc<RwLock<Duration>>,
+    track_finished_tx: Sender<()>,
+    done_buffering_tx: Sender<()>,
 }
 
 impl Sink {
-    pub fn new(broadcast: Arc<Broadcast>, volume: f32) -> Result<Self> {
+    pub fn new(volume: f32) -> Result<Self> {
         let mut stream_handle = rodio::OutputStreamBuilder::open_default_stream()?;
         stream_handle.log_on_drop(false);
         let (sender, receiver) = queue(true);
@@ -29,19 +29,31 @@ impl Sink {
         sink.append(receiver);
         sink.set_volume(volume);
 
+        let (track_finished_tx, _) = tokio::sync::watch::channel(());
+        let (done_buffering_tx, _) = tokio::sync::watch::channel(());
+
         Ok(Self {
             sink,
             stream_handle,
             sender,
-            broadcast,
             current_download: Default::default(),
             duration_played: Default::default(),
+            track_finished_tx,
+            done_buffering_tx,
         })
     }
 
+    pub fn track_finished(&self) -> Receiver<()> {
+        self.track_finished_tx.subscribe()
+    }
+
+    pub fn done_buffering(&self) -> Receiver<()> {
+        self.done_buffering_tx.subscribe()
+    }
+
     pub async fn clear(&mut self) -> Result<()> {
-        *self.duration_played.write().await = Default::default();
-        if let Some(handle) = self.current_download.lock().await.take() {
+        *self.duration_played.write()? = Default::default();
+        if let Some(handle) = self.current_download.lock()?.take() {
             handle.abort();
         }
 
@@ -66,37 +78,38 @@ impl Sink {
         self.sink.pause();
     }
 
-    pub async fn seek(&self, duration: Duration) -> Result<()> {
-        *self.duration_played.write().await = Default::default();
+    pub fn seek(&self, duration: Duration) -> Result<()> {
+        *self.duration_played.write()? = Default::default();
         self.sink.try_seek(duration)?;
 
         Ok(())
     }
 
-    pub async fn position(&self) -> Duration {
+    pub fn position(&self) -> Result<Duration> {
         let position = self.sink.get_pos();
-        let duration_played = *self.duration_played.read().await;
+        let duration_played = *self.duration_played.read()?;
 
         if position < duration_played {
-            return Default::default();
+            return Ok(Default::default());
         }
 
-        position - duration_played
+        Ok(position - duration_played)
     }
 
     pub fn is_playing(&self) -> bool {
         !self.sink.is_paused()
     }
 
-    pub async fn query_track_url(&self, track_url: &str) -> Result<()> {
-        if let Some(handle) = self.current_download.lock().await.take() {
+    pub fn query_track_url(&self, track_url: &str) -> Result<()> {
+        if let Some(handle) = self.current_download.lock()?.take() {
             handle.abort();
         }
 
         let track_url = track_url.to_string();
         let sender = self.sender.clone();
-        let broadcast = self.broadcast.clone();
         let duration_played = self.duration_played.clone();
+        let track_finished_tx = self.track_finished_tx.clone();
+        let done_buffering_tx = self.done_buffering_tx.clone();
 
         let handle = tokio::spawn(async move {
             let resp = reqwest::get(&track_url).await.unwrap();
@@ -111,20 +124,20 @@ impl Sink {
             let source_duration = source.total_duration();
             let signal = sender.append_with_signal(source);
 
-            broadcast.done_buffering();
+            done_buffering_tx.send(()).unwrap();
 
             tokio::spawn(async move {
                 if signal.iter().next().is_some() {
                     if let Some(source_duration) = source_duration {
-                        *duration_played.write().await += source_duration;
+                        *duration_played.write().unwrap() += source_duration;
                     }
 
-                    broadcast.track_finished();
+                    track_finished_tx.send(()).unwrap();
                 }
             });
         });
 
-        *self.current_download.lock().await = Some(handle);
+        *self.current_download.lock()? = Some(handle);
         Ok(())
     }
 
