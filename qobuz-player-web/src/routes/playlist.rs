@@ -91,7 +91,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
     let url = format!("/playlist/{id}/content");
 
     let current_status = state.player_state.target_status.read().await;
-    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist = state.tracklist_receiver.borrow().clone();
 
     render(html! {
         <Page active_page=Page::None current_status=*current_status tracklist=&tracklist>
@@ -106,8 +106,7 @@ async fn content(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> imp
     let is_favorite = favorites.playlists.iter().any(|playlist| playlist.id == id);
 
     let rfid = state.player_state.rfid;
-    let tracklist = state.player_state.tracklist.read().await;
-    let currently_playing = tracklist.currently_playing();
+    let currently_playing = state.tracklist_receiver.borrow().currently_playing();
 
     render(html! {
         <Playlist
@@ -124,15 +123,11 @@ async fn tracks_partial(
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
     let playlist = state.player_state.client.playlist(id).await.unwrap();
-    let tracklist = state.player_state.tracklist.read().await;
+    let currently_playing = state.tracklist_receiver.borrow().currently_playing();
 
-    render(html! {
-        <Tracks
-            tracks=playlist.tracks
-            playlist_id=playlist.id
-            now_playing_id=tracklist.currently_playing()
-        />
-    })
+    render(
+        html! { <Tracks tracks=playlist.tracks playlist_id=playlist.id now_playing_id=currently_playing /> },
+    )
 }
 
 #[component]

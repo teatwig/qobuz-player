@@ -36,7 +36,7 @@ async fn skip_to(
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let current_status = state.player_state.target_status.read().await;
-    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist = state.tracklist_receiver.borrow();
     let tracklist_clone = tracklist.clone();
 
     render(html! {
@@ -91,8 +91,8 @@ fn queue(tracklist: Tracklist) -> impl IntoView {
 }
 
 async fn queue_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let tracklist = state.player_state.tracklist.read().await;
-    render(html! { <QueueList tracklist=tracklist.clone() /> })
+    let tracklist = state.tracklist_receiver.borrow().clone();
+    render(html! { <QueueList tracklist=tracklist /> })
 }
 
 #[component]

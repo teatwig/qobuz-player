@@ -5,12 +5,15 @@ use mpris_server::{
     Server, Time, TrackId, Volume,
     zbus::{self, fdo},
 };
-use qobuz_player_controls::{PositionReviever, Status, models::Track, notification::Notification};
+use qobuz_player_controls::{
+    PositionReceiver, Status, TracklistReceiver, models::Track, notification::Notification,
+};
 use qobuz_player_state::State;
 
 struct MprisPlayer {
     state: Arc<State>,
-    position_receiver: PositionReviever,
+    position_receiver: PositionReceiver,
+    tracklist_receiver: TracklistReceiver,
 }
 
 impl RootInterface for MprisPlayer {
@@ -132,7 +135,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn metadata(&self) -> fdo::Result<Metadata> {
-        let tracklist = self.state.tracklist.read().await;
+        let tracklist = self.tracklist_receiver.borrow();
         let current_track = tracklist.current_track();
 
         if let Some(current_track) = current_track {
@@ -191,7 +194,11 @@ impl PlayerInterface for MprisPlayer {
     }
 }
 
-pub async fn init(state: Arc<State>, position_receiver: PositionReviever) {
+pub async fn init(
+    state: Arc<State>,
+    position_receiver: PositionReceiver,
+    mut tracklist_receiver: TracklistReceiver,
+) {
     let mut receiver = state.broadcast.notify_receiver();
 
     let server = Server::new(
@@ -199,66 +206,72 @@ pub async fn init(state: Arc<State>, position_receiver: PositionReviever) {
         MprisPlayer {
             state,
             position_receiver,
+            tracklist_receiver: tracklist_receiver.clone(),
         },
     )
     .await
     .unwrap();
 
     loop {
-        if let Ok(notification) = receiver.recv().await {
-            match notification {
-                Notification::Quit => return,
-                Notification::Status { status } => {
-                    let (can_play, can_pause) = match status {
-                        Status::Buffering => (false, false),
-                        Status::Paused => (true, true),
-                        Status::Playing => (true, true),
-                    };
+        tokio::select! {
+            Ok(_) = tracklist_receiver.changed() => {
+                let tracklist = tracklist_receiver.borrow_and_update().clone();
+                let current_track = tracklist.current_track();
 
-                    let playback_status = match status {
-                        Status::Paused | Status::Buffering => PlaybackStatus::Paused,
-                        Status::Playing => PlaybackStatus::Playing,
-                    };
+                if let Some(current_track) = current_track {
+                    let metadata = track_to_metadata(current_track);
+
+                    let current_position = tracklist.current_position();
+                    let total_tracks = tracklist.total();
+
+                    let can_previous = current_position != 0;
+                    let can_next = !(total_tracks != 0 && current_position == total_tracks - 1);
 
                     server
                         .properties_changed([
-                            Property::CanPlay(can_play),
-                            Property::CanPause(can_pause),
-                            Property::PlaybackStatus(playback_status),
+                            Property::Metadata(metadata),
+                            Property::CanGoPrevious(can_previous),
+                            Property::CanGoNext(can_next),
                         ])
                         .await
                         .unwrap();
                 }
-                Notification::CurrentTrackList { tracklist } => {
-                    let current_track = tracklist.current_track();
+            },
+            notification = receiver.recv() => {
+                if let Ok(notification) = notification {
+                    match notification {
+                        Notification::Quit => return,
+                        Notification::Status { status } => {
+                            let (can_play, can_pause) = match status {
+                                Status::Buffering => (false, false),
+                                Status::Paused => (true, true),
+                                Status::Playing => (true, true),
+                            };
 
-                    if let Some(current_track) = current_track {
-                        let metadata = track_to_metadata(current_track);
+                            let playback_status = match status {
+                                Status::Paused | Status::Buffering => PlaybackStatus::Paused,
+                                Status::Playing => PlaybackStatus::Playing,
+                            };
 
-                        let current_position = tracklist.current_position();
-                        let total_tracks = tracklist.total();
-
-                        let can_previous = current_position != 0;
-                        let can_next = !(total_tracks != 0 && current_position == total_tracks - 1);
-
-                        server
-                            .properties_changed([
-                                Property::Metadata(metadata),
-                                Property::CanGoPrevious(can_previous),
-                                Property::CanGoNext(can_next),
-                            ])
-                            .await
-                            .unwrap();
+                            server
+                                .properties_changed([
+                                    Property::CanPlay(can_play),
+                                    Property::CanPause(can_pause),
+                                    Property::PlaybackStatus(playback_status),
+                                ])
+                                .await
+                                .unwrap();
+                        }
+                        Notification::Message { message: _ } => {}
+                        Notification::Volume { volume } => {
+                            server
+                                .properties_changed([Property::Volume(volume.into())])
+                                .await
+                                .unwrap();
+                        }
+                        Notification::Play(_play_notification) => (),
                     }
                 }
-                Notification::Message { message: _ } => {}
-                Notification::Volume { volume } => {
-                    server
-                        .properties_changed([Property::Volume(volume.into())])
-                        .await
-                        .unwrap();
-                }
-                Notification::Play(_play_notification) => (),
             }
         }
     }

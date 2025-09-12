@@ -8,7 +8,7 @@ use tokio::{
 };
 
 use crate::{
-    PositionReviever, Result, Status,
+    PositionReceiver, Result, Status, TracklistReceiver,
     models::{Album, Track, TrackStatus},
     notification::{Notification, PlayNotification},
     timer::Timer,
@@ -25,7 +25,8 @@ use crate::{
 };
 
 pub struct Player {
-    tracklist: Arc<RwLock<Tracklist>>,
+    tracklist_tx: Sender<Tracklist>,
+    tracklist_rx: Receiver<Tracklist>,
     target_status: Arc<RwLock<Status>>,
     client: Arc<Client>,
     broadcast: Arc<Broadcast>,
@@ -40,7 +41,7 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(tracklist: Arc<RwLock<Tracklist>>, client: Arc<Client>, volume: f32) -> Self {
+    pub fn new(tracklist: Tracklist, client: Arc<Client>, volume: f32) -> Self {
         let broadcast = Arc::new(Broadcast::new());
         let sink = Sink::new(volume).unwrap();
         let volume = Arc::new(RwLock::new(volume));
@@ -49,9 +50,11 @@ impl Player {
         let done_buffering = sink.done_buffering();
 
         let (position, _) = watch::channel(Default::default());
+        let (tracklist_tx, tracklist_rx) = watch::channel(tracklist);
 
         Self {
-            tracklist,
+            tracklist_tx,
+            tracklist_rx,
             target_status: Default::default(),
             client,
             broadcast,
@@ -78,8 +81,12 @@ impl Player {
         self.volume.clone().into()
     }
 
-    pub fn position(&self) -> PositionReviever {
+    pub fn position(&self) -> PositionReceiver {
         self.position.subscribe()
+    }
+
+    pub fn tracklist(&self) -> TracklistReceiver {
+        self.tracklist_tx.subscribe()
     }
 
     async fn play_pause(&mut self) -> Result<()> {
@@ -125,7 +132,7 @@ impl Player {
 
     async fn play(&mut self) -> Result<()> {
         if !self.first_track_queried
-            && let Some(current_track) = self.tracklist.read().await.current_track()
+            && let Some(current_track) = self.tracklist_rx.borrow().current_track()
         {
             self.set_target_status(Status::Buffering).await;
             let track_url = self.track_url(current_track.id).await?;
@@ -167,9 +174,7 @@ impl Player {
     }
 
     fn broadcast_tracklist(&self, tracklist: Tracklist) {
-        self.broadcast
-            .send(Notification::CurrentTrackList { tracklist })
-            .unwrap();
+        self.tracklist_tx.send(tracklist).unwrap();
     }
 
     fn seek(&mut self, duration: Duration) -> Result<()> {
@@ -177,11 +182,10 @@ impl Player {
         self.sink.seek(duration)
     }
 
-    async fn jump_forward(&mut self) -> Result<()> {
+    fn jump_forward(&mut self) -> Result<()> {
         let duration = self
-            .tracklist
-            .read()
-            .await
+            .tracklist_rx
+            .borrow()
             .current_track()
             .map(|x| Duration::from_secs(x.duration_seconds as u64));
 
@@ -216,7 +220,7 @@ impl Player {
     /// Skip to a specific track in the tracklist.
     async fn skip_to_position(&mut self, new_position: u32, force: bool) -> Result<()> {
         self.stop_timer()?;
-        let mut tracklist = self.tracklist.read().await.clone();
+        let mut tracklist = self.tracklist_rx.borrow().clone();
         let current_position = tracklist.current_position();
         self.set_target_status(Status::Buffering).await;
 
@@ -267,12 +271,12 @@ impl Player {
     }
 
     async fn next(&mut self) -> Result<()> {
-        let current_position = self.tracklist.read().await.current_position();
+        let current_position = self.tracklist_rx.borrow().current_position();
         self.skip_to_position(current_position + 1, true).await
     }
 
     async fn previous(&mut self) -> Result<()> {
-        let current_position = self.tracklist.read().await.current_position();
+        let current_position = self.tracklist_rx.borrow().current_position();
 
         let next = if current_position == 0 {
             0
@@ -405,9 +409,8 @@ impl Player {
         self.position.send(position)?;
 
         let duration = self
-            .tracklist
-            .read()
-            .await
+            .tracklist_rx
+            .borrow()
             .current_track()
             .map(|x| x.duration_seconds);
 
@@ -416,7 +419,7 @@ impl Player {
             let track_about_to_finish = (duration as i16 - position as i16) < 10;
 
             if track_about_to_finish && !self.next_track_is_queried {
-                let tracklist = self.tracklist.read().await;
+                let tracklist = self.tracklist_rx.borrow();
 
                 if let Some(next_track) = tracklist.next_track() {
                     let next_track_url = self.track_url(next_track.id).await?;
@@ -477,7 +480,7 @@ impl Player {
                     false
                 }
                 PlayNotification::JumpForward => {
-                    self.jump_forward().await.unwrap();
+                    self.jump_forward().unwrap();
                     false
                 }
                 PlayNotification::JumpBackward => {
@@ -495,10 +498,6 @@ impl Player {
                 *self.target_status.write().await = status;
                 false
             }
-            Notification::CurrentTrackList { tracklist } => {
-                *self.tracklist.write().await = tracklist;
-                false
-            }
             Notification::Message { message: _ } => false,
             Notification::Volume { volume } => {
                 self.set_volume(volume).await;
@@ -509,7 +508,8 @@ impl Player {
 
     async fn track_finished(&mut self) -> Result<()> {
         self.reset_timer()?;
-        let mut tracklist = self.tracklist.read().await.clone();
+        self.position_timer.reset();
+        let mut tracklist = self.tracklist_rx.borrow().clone();
 
         let current_position = tracklist.current_position();
         let new_position = current_position + 1;
@@ -546,6 +546,7 @@ impl Player {
                 }
 
                 Ok(_) = self.done_buffering.changed() => {
+                    self.position_timer.reset();
                     self.start_timer()?;
                     self.set_target_status(Status::Playing).await;
                 }

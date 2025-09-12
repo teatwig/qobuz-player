@@ -36,7 +36,7 @@ pub(crate) fn controls<'a>(current_status: Status, tracklist: &'a Tracklist) -> 
 
 async fn controls(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let current_status = state.player_state.target_status.read().await;
-    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist = state.tracklist_receiver.borrow();
 
     render(html! { <ControlsPartial current_status=*current_status tracklist=&tracklist /> })
 }

@@ -1,12 +1,11 @@
 use std::time::Duration;
 
-use crate::{Status, tracklist::Tracklist};
+use crate::Status;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Notification {
     Play(PlayNotification),
     Status { status: Status },
-    CurrentTrackList { tracklist: Tracklist },
     Quit,
     Message { message: Message },
     Volume { volume: f32 },

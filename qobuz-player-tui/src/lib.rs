@@ -1,11 +1,12 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use app::{App, FilteredListState, UnfilteredListState, get_current_state};
 use favorites::FavoritesState;
+use qobuz_player_controls::{PositionReceiver, TracklistReceiver};
 use queue::QueueState;
 use ratatui::{prelude::*, widgets::*};
 use search::SearchState;
-use tokio::{sync::watch, try_join};
+use tokio::try_join;
 use ui::center;
 
 mod app;
@@ -17,7 +18,11 @@ mod queue;
 mod search;
 mod ui;
 
-pub async fn init(state: Arc<qobuz_player_state::State>, position: watch::Receiver<Duration>) {
+pub async fn init(
+    state: Arc<qobuz_player_state::State>,
+    position: PositionReceiver,
+    tracklist: TracklistReceiver,
+) {
     let mut terminal = ratatui::init();
 
     draw_loading_screen(&mut terminal);
@@ -55,9 +60,9 @@ pub async fn init(state: Arc<qobuz_player_state::State>, position: watch::Receiv
         })
         .collect();
 
-    let tracklist = state.tracklist.read().await.clone();
+    let tracklist_value = tracklist.borrow().clone();
     let status = *state.target_status.read().await;
-    let now_playing = get_current_state(tracklist, status).await;
+    let now_playing = get_current_state(tracklist_value, status).await;
 
     let client_clone = state.client.clone();
 
@@ -65,6 +70,7 @@ pub async fn init(state: Arc<qobuz_player_state::State>, position: watch::Receiv
         state,
         now_playing,
         position,
+        tracklist,
         current_screen: Default::default(),
         exit: Default::default(),
         should_draw: true,

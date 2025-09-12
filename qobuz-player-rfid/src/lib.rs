@@ -1,12 +1,12 @@
 use dialoguer::Input;
-use qobuz_player_controls::tracklist;
+use qobuz_player_controls::{TracklistReceiver, tracklist};
 use qobuz_player_state::{
     State,
     database::{LinkRequest, ReferenceType},
 };
 use std::sync::Arc;
 
-pub async fn init(state: Arc<State>) {
+pub async fn init(state: Arc<State>, tracklist_receiver: TracklistReceiver) {
     loop {
         match Input::<String>::new()
             .with_prompt("Scan rfid")
@@ -19,7 +19,7 @@ pub async fn init(state: Arc<State>) {
                         submit_link_playlist(state.clone(), &res, *playlist)
                     }
                 },
-                None => handle_play_scan(&state, &res).await,
+                None => handle_play_scan(&state, &res, &tracklist_receiver).await,
             },
 
             Err(_) => continue,
@@ -27,7 +27,7 @@ pub async fn init(state: Arc<State>) {
     }
 }
 
-async fn handle_play_scan(state: &State, res: &str) {
+async fn handle_play_scan(state: &State, res: &str, tracklist_receiver: &TracklistReceiver) {
     let reference = match state.database.get_reference(res).await {
         Some(reference) => reference,
         None => {
@@ -35,7 +35,7 @@ async fn handle_play_scan(state: &State, res: &str) {
         }
     };
 
-    let tracklist = state.tracklist.read().await;
+    let tracklist = tracklist_receiver.borrow();
     let now_playing = tracklist.list_type();
     match reference {
         LinkRequest::Album(id) => {

@@ -9,7 +9,7 @@ use futures::stream::Stream;
 use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
 use qobuz_player_controls::{
-    PositionReviever, Status,
+    PositionReceiver, Status, TracklistReceiver,
     broadcast::Broadcast,
     models::{Album, AlbumSimple, Favorites, Playlist},
     notification::Notification,
@@ -32,30 +32,37 @@ mod page;
 mod routes;
 mod view;
 
-pub async fn init(state: Arc<qobuz_player_state::State>, position_receiver: PositionReviever) {
+pub async fn init(
+    state: Arc<qobuz_player_state::State>,
+    position_receiver: PositionReceiver,
+    tracklist_receiver: TracklistReceiver,
+) {
     let listener = tokio::net::TcpListener::bind(&state.web_interface)
         .await
         .unwrap();
 
-    let router = create_router(state.clone(), position_receiver).await;
+    let router = create_router(state.clone(), position_receiver, tracklist_receiver).await;
 
     axum::serve(listener, router).await.unwrap();
 }
 
 async fn create_router(
     state: Arc<qobuz_player_state::State>,
-    position_receiver: PositionReviever,
+    position_receiver: PositionReceiver,
+    tracklist_receiver: TracklistReceiver,
 ) -> Router {
     let (tx, _rx) = broadcast::channel::<ServerSentEvent>(100);
     let shared_state = Arc::new(AppState {
         tx: tx.clone(),
         player_state: state.clone(),
         position_receiver: position_receiver.clone(),
+        tracklist_receiver: tracklist_receiver.clone(),
     });
     tokio::spawn(background_task(
         tx,
         state.broadcast.clone(),
         position_receiver,
+        tracklist_receiver,
     ));
 
     axum::Router::new()
@@ -81,7 +88,8 @@ async fn create_router(
 async fn background_task(
     tx: Sender<ServerSentEvent>,
     receiver: Arc<Broadcast>,
-    mut position: PositionReviever,
+    mut position: PositionReceiver,
+    mut tracklist: TracklistReceiver,
 ) {
     let mut receiver = receiver.notify_receiver();
 
@@ -94,6 +102,14 @@ async fn background_task(
                     event_data: position_duration.as_millis().to_string(),
                 };
 
+                _ = tx.send(event);
+            },
+            Ok(_) = tracklist.changed() => {
+                _ = tracklist.borrow_and_update();
+                let event = ServerSentEvent {
+                    event_name: "tracklist".into(),
+                    event_data: Default::default(),
+                };
                 _ = tx.send(event);
             },
             notification = receiver.recv() => {
@@ -109,13 +125,6 @@ async fn background_task(
                             let event = ServerSentEvent {
                                 event_name: "status".into(),
                                 event_data: message_data.into(),
-                            };
-                            _ = tx.send(event);
-                        }
-                        Notification::CurrentTrackList { tracklist: _ } => {
-                            let event = ServerSentEvent {
-                                event_name: "tracklist".into(),
-                                event_data: Default::default(),
                             };
                             _ = tx.send(event);
                         }
@@ -186,7 +195,8 @@ async fn sse_handler(
 pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
     pub player_state: Arc<qobuz_player_state::State>,
-    pub position_receiver: PositionReviever,
+    pub position_receiver: PositionReceiver,
+    pub tracklist_receiver: TracklistReceiver,
 }
 
 impl AppState {

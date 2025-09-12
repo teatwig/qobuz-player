@@ -40,9 +40,7 @@ async fn top_tracks_partial(
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
     let artist = state.player_state.client.artist_page(id).await.unwrap();
-    let tracklist = state.player_state.tracklist.read().await;
-
-    let now_playing_id = tracklist.currently_playing();
+    let now_playing_id = state.tracklist_receiver.borrow().currently_playing();
 
     render(
         html! { <ListTracks artist_id=artist.id tracks=artist.top_tracks now_playing_id=now_playing_id /> },
@@ -90,7 +88,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
     let url = format!("/artist/{id}/content");
 
     let current_status = state.player_state.target_status.read().await;
-    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist = state.tracklist_receiver.borrow().clone();
 
     render(html! {
         <Page active_page=Page::None current_status=*current_status tracklist=&tracklist>
@@ -106,8 +104,7 @@ async fn content(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> imp
         state.player_state.client.similar_artists(id),
     );
 
-    let tracklist = state.player_state.tracklist.read().await;
-    let now_playing_id = tracklist.currently_playing();
+    let now_playing_id = state.tracklist_receiver.borrow().currently_playing();
 
     let artist = artist.unwrap();
     let similar_artists = similar_artists.unwrap();

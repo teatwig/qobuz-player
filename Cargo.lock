@@ -3434,6 +3434,7 @@ dependencies = [
  "mpris-server",
  "qobuz-player-controls",
  "qobuz-player-state",
+ "tokio",
 ]
 
 [[package]]

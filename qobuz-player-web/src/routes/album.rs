@@ -84,7 +84,7 @@ async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> imp
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
     let url = format!("/album/{id}/content");
     let current_status = state.player_state.target_status.read().await;
-    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist = state.tracklist_receiver.borrow();
 
     render(html! {
         <Page active_page=Page::None current_status=*current_status tracklist=&tracklist>
@@ -96,8 +96,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
 async fn content(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
     let album_data = state.get_album(&id).await;
     let rfid = state.player_state.rfid;
-    let tracklist = state.player_state.tracklist.read().await;
-    let currently_playing = tracklist.currently_playing();
+    let currently_playing = state.tracklist_receiver.borrow().currently_playing();
     let is_favorite = state.is_album_favorite(&id).await;
 
     render(html! {
@@ -116,7 +115,7 @@ async fn album_tracks_partial(
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     let album = state.player_state.client.album(&id).await.unwrap();
-    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist = state.tracklist_receiver.borrow();
 
     render(html! {
         <AlbumTracks

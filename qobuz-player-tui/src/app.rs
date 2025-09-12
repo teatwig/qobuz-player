@@ -4,7 +4,7 @@ use crate::{
 };
 use core::fmt;
 use image::load_from_memory;
-use qobuz_player_controls::{PositionReviever, Status, tracklist::Tracklist};
+use qobuz_player_controls::{PositionReceiver, Status, TracklistReceiver, tracklist::Tracklist};
 use qobuz_player_state::State;
 use ratatui::{
     DefaultTerminal,
@@ -18,7 +18,8 @@ use tokio::time::{self, Duration};
 
 pub(crate) struct App {
     pub(crate) state: Arc<State>,
-    pub(crate) position: PositionReviever,
+    pub(crate) position: PositionReceiver,
+    pub(crate) tracklist: TracklistReceiver,
     pub(crate) current_screen: Tab,
     pub(crate) exit: bool,
     pub(crate) should_draw: bool,
@@ -98,6 +99,13 @@ impl App {
                     self.now_playing.duration_ms = self.position.borrow_and_update().as_millis() as u32;
                     self.should_draw = true;
                 },
+                Ok(_) = self.tracklist.changed() => {
+                    let tracklist = self.tracklist.borrow_and_update().clone();
+                    self.queue.queue.items = tracklist.queue().to_vec();
+                    let status = self.state.target_status.read().await;
+                    self.now_playing = get_current_state(tracklist, *status).await;
+                    self.should_draw = true;
+                },
                 maybe_notification = receiver.recv() => {
                     if let Ok(notification) = maybe_notification {
                         match notification {
@@ -105,12 +113,6 @@ impl App {
                                 self.now_playing.status = status;
                                 self.should_draw = true;
                             },
-                            qobuz_player_controls::notification::Notification::CurrentTrackList { tracklist } => {
-                                self.queue.queue.items = tracklist.queue().to_vec();
-                                let status = self.state.target_status.read().await;
-                                self.now_playing = get_current_state(tracklist, *status).await;
-                                self.should_draw = true;
-                            }
                             qobuz_player_controls::notification::Notification::Quit => {
                                 self.exit = true;
                             }

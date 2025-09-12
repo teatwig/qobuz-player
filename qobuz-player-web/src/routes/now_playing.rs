@@ -151,7 +151,7 @@ async fn next(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 }
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist = state.tracklist_receiver.borrow().clone();
     let tracklist_clone = tracklist.clone();
     let current_track = tracklist.current_track().cloned();
 
@@ -174,7 +174,7 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 }
 
 async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let tracklist = state.player_state.tracklist.read().await;
+    let tracklist = state.tracklist_receiver.borrow().clone();
     let current_track = tracklist.current_track().cloned();
 
     let position_mseconds = state.position_receiver.borrow().as_millis();
@@ -183,7 +183,7 @@ async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoRes
 
     render(html! {
         <NowPlaying
-            tracklist=tracklist.clone()
+            tracklist=tracklist
             current_track=current_track
             position_mseconds=position_mseconds
             current_status=*current_status
