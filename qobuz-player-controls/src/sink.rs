@@ -1,10 +1,9 @@
 use std::io::Cursor;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use rodio::Source;
 use rodio::{decoder::DecoderBuilder, queue::queue};
-use tokio::sync::watch::{Receiver, Sender};
+use tokio::sync::watch::{self, Receiver, Sender};
 use tokio::task::JoinHandle;
 
 use crate::Result;
@@ -14,7 +13,6 @@ pub struct Sink {
     sink: rodio::Sink,
     sender: Arc<rodio::queue::SourcesQueueInput>,
     current_download: Arc<Mutex<Option<JoinHandle<()>>>>,
-    duration_played: Arc<RwLock<Duration>>,
     track_finished_tx: Sender<()>,
     done_buffering_tx: Sender<()>,
 }
@@ -29,15 +27,14 @@ impl Sink {
         sink.append(receiver);
         set_volume(&sink, volume);
 
-        let (track_finished_tx, _) = tokio::sync::watch::channel(());
-        let (done_buffering_tx, _) = tokio::sync::watch::channel(());
+        let (track_finished_tx, _) = watch::channel(());
+        let (done_buffering_tx, _) = watch::channel(());
 
         Ok(Self {
             sink,
             stream_handle,
             sender,
             current_download: Default::default(),
-            duration_played: Default::default(),
             track_finished_tx,
             done_buffering_tx,
         })
@@ -52,7 +49,6 @@ impl Sink {
     }
 
     pub async fn clear(&mut self) -> Result<()> {
-        *self.duration_played.write()? = Default::default();
         if let Some(handle) = self.current_download.lock()?.take() {
             handle.abort();
         }
@@ -79,25 +75,9 @@ impl Sink {
     }
 
     pub fn seek(&self, duration: Duration) -> Result<()> {
-        *self.duration_played.write()? = Default::default();
         self.sink.try_seek(duration)?;
 
         Ok(())
-    }
-
-    pub fn position(&self) -> Result<Duration> {
-        let position = self.sink.get_pos();
-        let duration_played = *self.duration_played.read()?;
-
-        if position < duration_played {
-            return Ok(Default::default());
-        }
-
-        Ok(position - duration_played)
-    }
-
-    pub fn is_playing(&self) -> bool {
-        !self.sink.is_paused()
     }
 
     pub fn query_track_url(&self, track_url: &str) -> Result<()> {
@@ -107,7 +87,6 @@ impl Sink {
 
         let track_url = track_url.to_string();
         let sender = self.sender.clone();
-        let duration_played = self.duration_played.clone();
         let track_finished_tx = self.track_finished_tx.clone();
         let done_buffering_tx = self.done_buffering_tx.clone();
 
@@ -121,17 +100,12 @@ impl Sink {
                 .build()
                 .unwrap();
 
-            let source_duration = source.total_duration();
             let signal = sender.append_with_signal(source);
 
             done_buffering_tx.send(()).unwrap();
 
             tokio::task::spawn_blocking(move || {
                 if signal.into_iter().next().is_some() {
-                    if let Some(source_duration) = source_duration {
-                        *duration_played.write().unwrap() += source_duration;
-                    }
-
                     track_finished_tx.send(()).unwrap();
                 }
             });

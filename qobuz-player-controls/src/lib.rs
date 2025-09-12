@@ -10,6 +10,7 @@ pub mod player;
 pub mod readonly;
 pub(crate) mod simple_cache;
 pub mod sink;
+pub mod timer;
 pub mod tracklist;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
