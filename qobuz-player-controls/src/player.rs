@@ -486,6 +486,7 @@ impl Player {
             tracklist.reset();
             self.set_target_status(Status::Paused).await;
             self.sink.pause();
+            self.position_timer.stop();
         };
         self.next_track_is_queried = false;
         self.broadcast_tracklist(tracklist);
