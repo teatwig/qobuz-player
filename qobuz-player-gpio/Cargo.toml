@@ -13,4 +13,5 @@ qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 qobuz-player-state = { version = "*", path = "../qobuz-player-state" }
 
 tracing = { workspace = true }
+tokio = { workspace = true }
 rppal = { version = "*", optional = true }

@@ -10,7 +10,6 @@ pub mod error;
 pub mod models;
 pub mod notification;
 pub mod player;
-pub mod readonly;
 pub(crate) mod simple_cache;
 pub mod sink;
 pub mod timer;

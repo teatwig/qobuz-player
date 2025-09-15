@@ -6,7 +6,8 @@ use mpris_server::{
     zbus::{self, fdo},
 };
 use qobuz_player_controls::{
-    PositionReceiver, Status, TracklistReceiver, models::Track, notification::Notification,
+    PositionReceiver, Status, StatusReceiver, TracklistReceiver, VolumeReceiver, models::Track,
+    notification::Notification,
 };
 use qobuz_player_state::State;
 
@@ -14,6 +15,8 @@ struct MprisPlayer {
     state: Arc<State>,
     position_receiver: PositionReceiver,
     tracklist_receiver: TracklistReceiver,
+    volume_receiver: VolumeReceiver,
+    status_receiver: StatusReceiver,
 }
 
 impl RootInterface for MprisPlayer {
@@ -102,7 +105,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn playback_status(&self) -> fdo::Result<PlaybackStatus> {
-        let status = match *self.state.target_status.read().await {
+        let status = match *self.status_receiver.borrow() {
             Status::Paused | Status::Buffering => PlaybackStatus::Paused,
             Status::Playing => PlaybackStatus::Playing,
         };
@@ -146,7 +149,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn volume(&self) -> fdo::Result<Volume> {
-        let volume = self.state.volume.read().await;
+        let volume = self.volume_receiver.borrow();
         Ok(*volume as f64)
     }
 
@@ -198,6 +201,8 @@ pub async fn init(
     state: Arc<State>,
     position_receiver: PositionReceiver,
     mut tracklist_receiver: TracklistReceiver,
+    mut volume_receiver: VolumeReceiver,
+    mut status_receiver: StatusReceiver,
 ) {
     let mut receiver = state.broadcast.notify_receiver();
 
@@ -207,6 +212,8 @@ pub async fn init(
             state,
             position_receiver,
             tracklist_receiver: tracklist_receiver.clone(),
+            volume_receiver: volume_receiver.clone(),
+            status_receiver: status_receiver.clone(),
         },
     )
     .await
@@ -237,38 +244,40 @@ pub async fn init(
                         .unwrap();
                 }
             },
+            Ok(_) = volume_receiver.changed() => {
+                let volume = *volume_receiver.borrow_and_update();
+                server
+                    .properties_changed([Property::Volume(volume.into())])
+                    .await
+                    .unwrap();
+            },
+            Ok(_) = status_receiver.changed() => {
+                let status = *status_receiver.borrow_and_update();
+                let (can_play, can_pause) = match status {
+                    Status::Buffering => (false, false),
+                    Status::Paused => (true, true),
+                    Status::Playing => (true, true),
+                };
+
+                let playback_status = match status {
+                    Status::Paused | Status::Buffering => PlaybackStatus::Paused,
+                    Status::Playing => PlaybackStatus::Playing,
+                };
+
+                server
+                    .properties_changed([
+                        Property::CanPlay(can_play),
+                        Property::CanPause(can_pause),
+                        Property::PlaybackStatus(playback_status),
+                    ])
+                    .await
+                    .unwrap();
+            },
             notification = receiver.recv() => {
                 if let Ok(notification) = notification {
                     match notification {
                         Notification::Quit => return,
-                        Notification::Status { status } => {
-                            let (can_play, can_pause) = match status {
-                                Status::Buffering => (false, false),
-                                Status::Paused => (true, true),
-                                Status::Playing => (true, true),
-                            };
-
-                            let playback_status = match status {
-                                Status::Paused | Status::Buffering => PlaybackStatus::Paused,
-                                Status::Playing => PlaybackStatus::Playing,
-                            };
-
-                            server
-                                .properties_changed([
-                                    Property::CanPlay(can_play),
-                                    Property::CanPause(can_pause),
-                                    Property::PlaybackStatus(playback_status),
-                                ])
-                                .await
-                                .unwrap();
-                        }
-                        Notification::Message { message: _ } => {}
-                        Notification::Volume { volume } => {
-                            server
-                                .properties_changed([Property::Volume(volume.into())])
-                                .await
-                                .unwrap();
-                        }
+                        Notification::Message { message: _ } => (),
                         Notification::Play(_play_notification) => (),
                     }
                 }

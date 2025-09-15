@@ -62,8 +62,8 @@ async fn index(
         None => SearchResults::default(),
     };
 
-    let current_status = state.player_state.target_status.read().await;
-    let tracklist = state.tracklist_receiver.borrow().clone();
+    let current_status = state.status_receiver.borrow();
+    let tracklist = state.tracklist_receiver.borrow();
 
     let html = html! {
         <Page active_page=Page::Search current_status=*current_status tracklist=&tracklist>

@@ -31,7 +31,7 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let discover = get_discover(&state).await;
 
     let tracklist = state.tracklist_receiver.borrow().clone();
-    let current_status = state.player_state.target_status.read().await;
+    let current_status = state.status_receiver.borrow();
 
     let album_features = discover
         .albums

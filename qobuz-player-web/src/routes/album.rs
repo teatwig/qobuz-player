@@ -83,7 +83,7 @@ async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> imp
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
     let url = format!("/album/{id}/content");
-    let current_status = state.player_state.target_status.read().await;
+    let current_status = state.status_receiver.borrow();
     let tracklist = state.tracklist_receiver.borrow();
 
     render(html! {

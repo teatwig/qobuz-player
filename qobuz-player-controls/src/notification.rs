@@ -1,14 +1,10 @@
 use std::time::Duration;
 
-use crate::Status;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Notification {
     Play(PlayNotification),
-    Status { status: Status },
     Quit,
     Message { message: Message },
-    Volume { volume: f32 },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,4 +30,5 @@ pub enum PlayNotification {
     JumpForward,
     JumpBackward,
     Seek { time: Duration },
+    SetVolume { volume: f32 },
 }

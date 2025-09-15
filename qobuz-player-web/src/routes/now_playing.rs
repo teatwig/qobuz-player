@@ -86,9 +86,8 @@ async fn set_volume(
 }
 
 async fn status_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let status = *state.player_state.target_status.read().await;
-
-    render(html! { <PlayPause status=status /> })
+    let status = state.status_receiver.borrow();
+    render(html! { <PlayPause status=*status /> })
 }
 
 #[component]
@@ -156,9 +155,10 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let current_track = tracklist.current_track().cloned();
 
     let position_mseconds = state.position_receiver.borrow().as_millis();
-    let current_status = state.player_state.target_status.read().await;
+    let current_status = state.status_receiver.borrow();
     let current_status_copy = *current_status;
-    let current_volume = (*state.player_state.volume.read().await * 100.0) as u32;
+    let current_volume = state.volume_receiver.borrow();
+    let current_volume = (*current_volume * 100.0) as u32;
 
     render(html! {
         <Page active_page=Page::NowPlaying current_status=*current_status tracklist=&tracklist>
@@ -178,8 +178,9 @@ async fn now_playing_partial(State(state): State<Arc<AppState>>) -> impl IntoRes
     let current_track = tracklist.current_track().cloned();
 
     let position_mseconds = state.position_receiver.borrow().as_millis();
-    let current_status = state.player_state.target_status.read().await;
-    let current_volume = (*state.player_state.volume.read().await * 100.0) as u32;
+    let current_status = state.status_receiver.borrow();
+    let current_volume = state.volume_receiver.borrow();
+    let current_volume = (*current_volume * 100.0) as u32;
 
     render(html! {
         <NowPlaying

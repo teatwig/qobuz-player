@@ -87,7 +87,7 @@ async fn unset_favorite(
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
     let url = format!("/artist/{id}/content");
 
-    let current_status = state.player_state.target_status.read().await;
+    let current_status = state.status_receiver.borrow();
     let tracklist = state.tracklist_receiver.borrow().clone();
 
     render(html! {

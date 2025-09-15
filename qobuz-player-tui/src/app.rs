@@ -4,7 +4,9 @@ use crate::{
 };
 use core::fmt;
 use image::load_from_memory;
-use qobuz_player_controls::{PositionReceiver, Status, TracklistReceiver, tracklist::Tracklist};
+use qobuz_player_controls::{
+    PositionReceiver, Status, StatusReceiver, TracklistReceiver, tracklist::Tracklist,
+};
 use qobuz_player_state::State;
 use ratatui::{
     DefaultTerminal,
@@ -20,6 +22,7 @@ pub(crate) struct App {
     pub(crate) state: Arc<State>,
     pub(crate) position: PositionReceiver,
     pub(crate) tracklist: TracklistReceiver,
+    pub(crate) status: StatusReceiver,
     pub(crate) current_screen: Tab,
     pub(crate) exit: bool,
     pub(crate) should_draw: bool,
@@ -102,23 +105,24 @@ impl App {
                 Ok(_) = self.tracklist.changed() => {
                     let tracklist = self.tracklist.borrow_and_update().clone();
                     self.queue.queue.items = tracklist.queue().to_vec();
-                    let status = self.state.target_status.read().await;
-                    self.now_playing = get_current_state(tracklist, *status).await;
+                    let status = self.now_playing.status;
+                    self.now_playing = get_current_state(tracklist, status).await;
                     self.should_draw = true;
                 },
+                Ok(_) = self.status.changed() => {
+                    let status = self.status.borrow_and_update();
+                    self.now_playing.status = *status;
+                    self.should_draw = true;
+                }
+
                 maybe_notification = receiver.recv() => {
                     if let Ok(notification) = maybe_notification {
                         match notification {
-                            qobuz_player_controls::notification::Notification::Status { status } => {
-                                self.now_playing.status = status;
-                                self.should_draw = true;
-                            },
                             qobuz_player_controls::notification::Notification::Quit => {
                                 self.exit = true;
                             }
                             qobuz_player_controls::notification::Notification::Message { message: _ } => (),
-                            qobuz_player_controls::notification::Notification::Volume { volume: _ } => (),
-                            qobuz_player_controls::notification::Notification::Play(_play_notification) => {},
+                            qobuz_player_controls::notification::Notification::Play(_) => {},
                         }
                     }
                 }

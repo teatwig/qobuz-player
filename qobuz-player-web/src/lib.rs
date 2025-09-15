@@ -9,7 +9,7 @@ use futures::stream::Stream;
 use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
 use qobuz_player_controls::{
-    PositionReceiver, Status, TracklistReceiver,
+    PositionReceiver, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
     broadcast::Broadcast,
     models::{Album, AlbumSimple, Favorites, Playlist},
     notification::Notification,
@@ -36,12 +36,21 @@ pub async fn init(
     state: Arc<qobuz_player_state::State>,
     position_receiver: PositionReceiver,
     tracklist_receiver: TracklistReceiver,
+    volume_receiver: VolumeReceiver,
+    status_receiver: StatusReceiver,
 ) {
     let listener = tokio::net::TcpListener::bind(&state.web_interface)
         .await
         .unwrap();
 
-    let router = create_router(state.clone(), position_receiver, tracklist_receiver).await;
+    let router = create_router(
+        state.clone(),
+        position_receiver,
+        tracklist_receiver,
+        volume_receiver,
+        status_receiver,
+    )
+    .await;
 
     axum::serve(listener, router).await.unwrap();
 }
@@ -50,6 +59,8 @@ async fn create_router(
     state: Arc<qobuz_player_state::State>,
     position_receiver: PositionReceiver,
     tracklist_receiver: TracklistReceiver,
+    volume_receiver: VolumeReceiver,
+    status_receiver: StatusReceiver,
 ) -> Router {
     let (tx, _rx) = broadcast::channel::<ServerSentEvent>(100);
     let shared_state = Arc::new(AppState {
@@ -57,12 +68,16 @@ async fn create_router(
         player_state: state.clone(),
         position_receiver: position_receiver.clone(),
         tracklist_receiver: tracklist_receiver.clone(),
+        volume_receiver: volume_receiver.clone(),
+        status_receiver: status_receiver.clone(),
     });
     tokio::spawn(background_task(
         tx,
         state.broadcast.clone(),
         position_receiver,
         tracklist_receiver,
+        volume_receiver,
+        status_receiver,
     ));
 
     axum::Router::new()
@@ -90,6 +105,8 @@ async fn background_task(
     receiver: Arc<Broadcast>,
     mut position: PositionReceiver,
     mut tracklist: TracklistReceiver,
+    mut volume: VolumeReceiver,
+    mut status: StatusReceiver,
 ) {
     let mut receiver = receiver.notify_receiver();
 
@@ -112,22 +129,32 @@ async fn background_task(
                 };
                 _ = tx.send(event);
             },
+            Ok(_) = volume.changed() => {
+                let volume = *volume.borrow_and_update();
+                let volume = (volume * 100.0) as u32;
+                let event = ServerSentEvent {
+                    event_name: "volume".into(),
+                    event_data: volume.to_string(),
+                };
+                _ = tx.send(event);
+            }
+            Ok(_) = status.changed() => {
+                let status = status.borrow_and_update();
+                let message_data = match *status {
+                    Status::Paused => "pause",
+                    Status::Playing => "play",
+                    Status::Buffering => "buffering",
+                };
+
+                let event = ServerSentEvent {
+                    event_name: "status".into(),
+                    event_data: message_data.into(),
+                };
+                _ = tx.send(event);
+            }
             notification = receiver.recv() => {
                 if let Ok(notification) = notification {
                     match notification {
-                        Notification::Status { status } => {
-                            let message_data = match status {
-                                Status::Paused => "pause",
-                                Status::Playing => "play",
-                                Status::Buffering => "buffering",
-                            };
-
-                            let event = ServerSentEvent {
-                                event_name: "status".into(),
-                                event_data: message_data.into(),
-                            };
-                            _ = tx.send(event);
-                        }
                         Notification::Quit => break,
                         Notification::Message { message } => {
                             let toast = components::toast(message.clone()).to_html();
@@ -153,14 +180,6 @@ async fn background_task(
                                     event_name: "info".into(),
                                     event_data: toast,
                                 },
-                            };
-                            _ = tx.send(event);
-                        }
-                        Notification::Volume { volume } => {
-                            let volume = (volume * 100.0) as u32;
-                            let event = ServerSentEvent {
-                                event_name: "volume".into(),
-                                event_data: volume.to_string(),
                             };
                             _ = tx.send(event);
                         }
@@ -194,9 +213,11 @@ async fn sse_handler(
 
 pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
-    pub player_state: Arc<qobuz_player_state::State>,
-    pub position_receiver: PositionReceiver,
-    pub tracklist_receiver: TracklistReceiver,
+    pub(crate) player_state: Arc<qobuz_player_state::State>,
+    pub(crate) position_receiver: PositionReceiver,
+    pub(crate) tracklist_receiver: TracklistReceiver,
+    pub(crate) status_receiver: StatusReceiver,
+    pub(crate) volume_receiver: VolumeReceiver,
 }
 
 impl AppState {

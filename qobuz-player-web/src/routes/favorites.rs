@@ -28,7 +28,7 @@ async fn index(State(state): State<Arc<AppState>>, Path(tab): Path<Tab>) -> impl
     let favorites = state.get_favorites().await;
 
     let tracklist = state.tracklist_receiver.borrow().clone();
-    let current_status = state.player_state.target_status.read().await;
+    let current_status = state.status_receiver.borrow();
 
     render(html! {
         <Page active_page=Page::Favorites current_status=*current_status tracklist=&tracklist>

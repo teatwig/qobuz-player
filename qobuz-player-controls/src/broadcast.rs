@@ -99,7 +99,9 @@ impl Broadcast {
     }
 
     pub fn set_volume(&self, volume: f32) {
-        self.tx.send(Notification::Volume { volume }).unwrap();
+        self.tx
+            .send(Notification::Play(PlayNotification::SetVolume { volume }))
+            .unwrap();
     }
 
     pub fn seek(&self, time: Duration) {

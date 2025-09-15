@@ -3424,6 +3424,7 @@ dependencies = [
  "qobuz-player-controls",
  "qobuz-player-state",
  "rppal",
+ "tokio",
  "tracing",
 ]
 

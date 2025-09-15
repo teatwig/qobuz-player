@@ -35,7 +35,7 @@ async fn skip_to(
 }
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let current_status = state.player_state.target_status.read().await;
+    let current_status = state.status_receiver.borrow();
     let tracklist = state.tracklist_receiver.borrow();
     let tracklist_clone = tracklist.clone();
 
