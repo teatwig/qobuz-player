@@ -6,15 +6,15 @@ use tokio::{
 
 use crate::{
     PositionReceiver, Result, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
+    broadcast::Controls,
     models::{Album, Track, TrackStatus},
-    notification::{Notification, PlayNotification},
+    notification::PlayNotification,
     timer::Timer,
     tracklist::{SingleTracklist, TracklistType},
 };
 use std::{sync::Arc, time::Duration};
 
 use crate::{
-    broadcast::Broadcast,
     client::Client,
     sink::Sink,
     tracklist::{self, Tracklist},
@@ -25,7 +25,6 @@ pub struct Player {
     tracklist_rx: Receiver<Tracklist>,
     target_status: Sender<Status>,
     client: Arc<Client>,
-    broadcast: Arc<Broadcast>,
     sink: Sink,
     volume: Sender<f32>,
     position_timer: Timer,
@@ -34,11 +33,12 @@ pub struct Player {
     first_track_queried: bool,
     track_finished: Receiver<()>,
     done_buffering: Receiver<()>,
+    controls_rx: tokio::sync::mpsc::UnboundedReceiver<PlayNotification>,
+    controls: Controls,
 }
 
 impl Player {
     pub fn new(tracklist: Tracklist, client: Arc<Client>, volume: f32) -> Self {
-        let broadcast = Arc::new(Broadcast::new());
         let sink = Sink::new(volume).unwrap();
 
         let track_finished = sink.track_finished();
@@ -49,12 +49,16 @@ impl Player {
         let (target_status, _) = watch::channel(Default::default());
         let (tracklist_tx, tracklist_rx) = watch::channel(tracklist);
 
+        let (controls_tx, controls_rx) = tokio::sync::mpsc::unbounded_channel();
+        let controls = Controls::new(controls_tx);
+
         Self {
             tracklist_tx,
             tracklist_rx,
+            controls_rx,
+            controls,
             target_status,
             client,
-            broadcast,
             sink,
             volume,
             position_timer: Default::default(),
@@ -66,12 +70,12 @@ impl Player {
         }
     }
 
-    pub fn status(&self) -> StatusReceiver {
-        self.target_status.subscribe()
+    pub fn controls(&self) -> Controls {
+        self.controls.clone()
     }
 
-    pub fn broadcast(&self) -> Arc<Broadcast> {
-        self.broadcast.clone()
+    pub fn status(&self) -> StatusReceiver {
+        self.target_status.subscribe()
     }
 
     pub fn volume(&self) -> VolumeReceiver {
@@ -428,71 +432,54 @@ impl Player {
         Ok(())
     }
 
-    async fn handle_message(&mut self, notification: Notification) -> bool {
+    async fn handle_message(&mut self, notification: PlayNotification) {
         match notification {
-            Notification::Play(play) => match play {
-                PlayNotification::Album { id, index } => {
-                    self.play_album(&id, index).await.unwrap();
-                    false
-                }
-                PlayNotification::Playlist { id, index, shuffle } => {
-                    self.play_playlist(id, index, shuffle).await.unwrap();
-                    false
-                }
-                PlayNotification::ArtistTopTracks { artist_id, index } => {
-                    self.play_top_tracks(artist_id, index).await.unwrap();
-                    false
-                }
-                PlayNotification::Track { id } => {
-                    self.play_track(id).await.unwrap();
-                    false
-                }
-                PlayNotification::Next => {
-                    self.next().await.unwrap();
-                    false
-                }
-                PlayNotification::Previous => {
-                    self.previous().await.unwrap();
-                    false
-                }
-                PlayNotification::PlayPause => {
-                    self.play_pause().await.unwrap();
-                    false
-                }
-                PlayNotification::Play => {
-                    self.play().await.unwrap();
-                    false
-                }
-                PlayNotification::Pause => {
-                    self.pause().unwrap();
-                    false
-                }
-                PlayNotification::SkipToPosition {
-                    new_position,
-                    force,
-                } => {
-                    self.skip_to_position(new_position, force).await.unwrap();
-                    false
-                }
-                PlayNotification::JumpForward => {
-                    self.jump_forward().unwrap();
-                    false
-                }
-                PlayNotification::JumpBackward => {
-                    self.jump_backward().unwrap();
-                    false
-                }
-                PlayNotification::Seek { time } => {
-                    self.set_timer(time).unwrap();
-                    self.seek(time).unwrap();
-                    false
-                }
-                PlayNotification::SetVolume { volume } => {
-                    self.set_volume(volume).unwrap();
-                    false
-                }
-            },
-            Notification::Message { message: _ } => false,
+            PlayNotification::Album { id, index } => {
+                self.play_album(&id, index).await.unwrap();
+            }
+            PlayNotification::Playlist { id, index, shuffle } => {
+                self.play_playlist(id, index, shuffle).await.unwrap();
+            }
+            PlayNotification::ArtistTopTracks { artist_id, index } => {
+                self.play_top_tracks(artist_id, index).await.unwrap();
+            }
+            PlayNotification::Track { id } => {
+                self.play_track(id).await.unwrap();
+            }
+            PlayNotification::Next => {
+                self.next().await.unwrap();
+            }
+            PlayNotification::Previous => {
+                self.previous().await.unwrap();
+            }
+            PlayNotification::PlayPause => {
+                self.play_pause().await.unwrap();
+            }
+            PlayNotification::Play => {
+                self.play().await.unwrap();
+            }
+            PlayNotification::Pause => {
+                self.pause().unwrap();
+            }
+            PlayNotification::SkipToPosition {
+                new_position,
+                force,
+            } => {
+                self.skip_to_position(new_position, force).await.unwrap();
+            }
+            PlayNotification::JumpForward => {
+                self.jump_forward().unwrap();
+            }
+            PlayNotification::JumpBackward => {
+                self.jump_backward().unwrap();
+            }
+            PlayNotification::Seek { time } => {
+                self.set_timer(time).unwrap();
+                self.seek(time).unwrap();
+            }
+            PlayNotification::SetVolume { volume } => {
+                self.set_volume(volume).unwrap();
+            }
         }
     }
 
@@ -515,7 +502,6 @@ impl Player {
     }
 
     pub async fn player_loop(&mut self) -> Result<()> {
-        let mut receiver = self.broadcast.notify_receiver();
         let mut interval = tokio::time::interval(Duration::from_millis(500));
 
         loop {
@@ -524,11 +510,8 @@ impl Player {
                     self.tick().await?;
                 }
 
-                Ok(notification) = receiver.recv() => {
-                    let break_received = self.handle_message(notification).await;
-                    if break_received {
-                        break;
-                    }
+                Some(notification) = self.controls_rx.recv() => {
+                    self.handle_message(notification).await;
                 }
 
                 Ok(_) = self.track_finished.changed() => {
@@ -542,6 +525,5 @@ impl Player {
                 }
             }
         }
-        Ok(())
     }
 }

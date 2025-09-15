@@ -10,7 +10,7 @@ use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
 use qobuz_player_controls::{
     PositionReceiver, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
-    broadcast::Broadcast,
+    broadcast::{Broadcast, Controls},
     models::{Album, AlbumSimple, Favorites, Playlist},
     notification::Notification,
 };
@@ -34,6 +34,7 @@ mod view;
 
 pub async fn init(
     state: Arc<qobuz_player_state::State>,
+    controls: Controls,
     position_receiver: PositionReceiver,
     tracklist_receiver: TracklistReceiver,
     volume_receiver: VolumeReceiver,
@@ -45,6 +46,7 @@ pub async fn init(
 
     let router = create_router(
         state.clone(),
+        controls,
         position_receiver,
         tracklist_receiver,
         volume_receiver,
@@ -57,6 +59,7 @@ pub async fn init(
 
 async fn create_router(
     state: Arc<qobuz_player_state::State>,
+    controls: Controls,
     position_receiver: PositionReceiver,
     tracklist_receiver: TracklistReceiver,
     volume_receiver: VolumeReceiver,
@@ -64,6 +67,7 @@ async fn create_router(
 ) -> Router {
     let (tx, _rx) = broadcast::channel::<ServerSentEvent>(100);
     let shared_state = Arc::new(AppState {
+        controls,
         tx: tx.clone(),
         player_state: state.clone(),
         position_receiver: position_receiver.clone(),
@@ -213,6 +217,7 @@ async fn sse_handler(
 pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
     pub(crate) player_state: Arc<qobuz_player_state::State>,
+    pub(crate) controls: Controls,
     pub(crate) position_receiver: PositionReceiver,
     pub(crate) tracklist_receiver: TracklistReceiver,
     pub(crate) status_receiver: StatusReceiver,

@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use mpris_server::{
     LoopStatus, Metadata, PlaybackRate, PlaybackStatus, PlayerInterface, Property, RootInterface,
@@ -6,13 +6,12 @@ use mpris_server::{
     zbus::{self, fdo},
 };
 use qobuz_player_controls::{
-    PositionReceiver, Status, StatusReceiver, TracklistReceiver, VolumeReceiver, models::Track,
-    notification::Notification,
+    PositionReceiver, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
+    broadcast::Controls, models::Track,
 };
-use qobuz_player_state::State;
 
 struct MprisPlayer {
-    state: Arc<State>,
+    controls: Controls,
     position_receiver: PositionReceiver,
     tracklist_receiver: TracklistReceiver,
     volume_receiver: VolumeReceiver,
@@ -60,38 +59,38 @@ impl RootInterface for MprisPlayer {
 
 impl PlayerInterface for MprisPlayer {
     async fn next(&self) -> fdo::Result<()> {
-        self.state.broadcast.next();
+        self.controls.next();
         Ok(())
     }
 
     async fn previous(&self) -> fdo::Result<()> {
-        self.state.broadcast.previous();
+        self.controls.previous();
         Ok(())
     }
 
     async fn pause(&self) -> fdo::Result<()> {
-        self.state.broadcast.pause();
+        self.controls.pause();
         Ok(())
     }
 
     async fn play_pause(&self) -> fdo::Result<()> {
-        self.state.broadcast.play_pause();
+        self.controls.play_pause();
         Ok(())
     }
 
     async fn stop(&self) -> fdo::Result<()> {
-        self.state.broadcast.pause();
+        self.controls.pause();
         Ok(())
     }
 
     async fn play(&self) -> fdo::Result<()> {
-        self.state.broadcast.play();
+        self.controls.play();
         Ok(())
     }
 
     async fn seek(&self, offset: Time) -> fdo::Result<()> {
         let clock = Duration::from_secs(offset.as_secs() as u64);
-        self.state.broadcast.seek(clock);
+        self.controls.seek(clock);
         Ok(())
     }
 
@@ -153,7 +152,7 @@ impl PlayerInterface for MprisPlayer {
     }
 
     async fn set_volume(&self, volume: Volume) -> zbus::Result<()> {
-        self.state.broadcast.set_volume(volume as f32);
+        self.controls.set_volume(volume as f32);
         Ok(())
     }
 
@@ -197,18 +196,16 @@ impl PlayerInterface for MprisPlayer {
 }
 
 pub async fn init(
-    state: Arc<State>,
     position_receiver: PositionReceiver,
     mut tracklist_receiver: TracklistReceiver,
     mut volume_receiver: VolumeReceiver,
     mut status_receiver: StatusReceiver,
+    controls: Controls,
 ) {
-    let mut receiver = state.broadcast.notify_receiver();
-
     let server = Server::new(
         "com.github.sofusa-quboz-player",
         MprisPlayer {
-            state,
+            controls,
             position_receiver,
             tracklist_receiver: tracklist_receiver.clone(),
             volume_receiver: volume_receiver.clone(),
@@ -272,14 +269,6 @@ pub async fn init(
                     .await
                     .unwrap();
             },
-            notification = receiver.recv() => {
-                if let Ok(notification) = notification {
-                    match notification {
-                        Notification::Message { message: _ } => (),
-                        Notification::Play(_play_notification) => (),
-                    }
-                }
-            }
         }
     }
 }

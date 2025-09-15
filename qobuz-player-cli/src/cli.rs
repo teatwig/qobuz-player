@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
-use qobuz_player_controls::{AudioQuality, TracklistReceiver, client::Client, player::Player};
+use qobuz_player_controls::{
+    AudioQuality, TracklistReceiver, VolumeReceiver, broadcast::Broadcast, client::Client,
+    player::Player,
+};
 use qobuz_player_state::{State, database::Database};
 use snafu::prelude::*;
 
@@ -148,7 +151,7 @@ pub async fn run() -> Result<(), Error> {
             let client = Arc::new(Client::new(username, password, max_audio_quality));
 
             let mut player = Player::new(tracklist, client.clone(), volume);
-            let broadcast = player.broadcast();
+            let broadcast = Arc::new(Broadcast::new());
 
             let state = Arc::new(
                 State::new(
@@ -164,18 +167,18 @@ pub async fn run() -> Result<(), Error> {
 
             #[cfg(target_os = "linux")]
             if !cli.disable_mpris {
-                let state = state.clone();
                 let position_receiver = player.position();
                 let tracklist_receiver = player.tracklist();
                 let volume_receiver = player.volume();
                 let status_receiver = player.status();
+                let controls = player.controls();
                 tokio::spawn(async move {
                     qobuz_player_mpris::init(
-                        state,
                         position_receiver,
                         tracklist_receiver,
                         volume_receiver,
                         status_receiver,
+                        controls,
                     )
                     .await;
                 });
@@ -187,9 +190,11 @@ pub async fn run() -> Result<(), Error> {
                 let tracklist_receiver = player.tracklist();
                 let volume_receiver = player.volume();
                 let status_receiver = player.status();
+                let controls = player.controls();
                 tokio::spawn(async move {
                     qobuz_player_web::init(
                         state,
+                        controls,
                         position_receiver,
                         tracklist_receiver,
                         volume_receiver,
@@ -201,31 +206,34 @@ pub async fn run() -> Result<(), Error> {
 
             #[cfg(feature = "gpio")]
             if cli.gpio {
-                let state = state.clone();
                 let status_receiver = player.status();
                 tokio::spawn(async {
-                    qobuz_player_gpio::init(state, status_receiver).await;
+                    qobuz_player_gpio::init(status_receiver).await;
                 });
             }
 
             let state_persist = state.clone();
             let tracklist_receiver = player.tracklist();
+            let volume_receiver = player.volume();
             tokio::spawn(async move {
-                store_state_loop(state_persist, tracklist_receiver).await;
+                store_state_loop(state_persist, tracklist_receiver, volume_receiver).await;
             });
 
             if cli.rfid {
                 let tracklist_receiver = player.tracklist();
+                let controls = player.controls();
                 tokio::spawn(async move {
-                    qobuz_player_rfid::init(state, tracklist_receiver).await;
+                    qobuz_player_rfid::init(state, tracklist_receiver, controls).await;
                 });
             } else if !cli.disable_tui {
                 let position_receiver = player.position();
                 let tracklist_receiver = player.tracklist();
                 let status_receiver = player.status();
+                let controls = player.controls();
                 tokio::spawn(async move {
                     qobuz_player_tui::init(
                         state,
+                        controls,
                         position_receiver,
                         tracklist_receiver,
                         status_receiver,
@@ -271,28 +279,21 @@ pub async fn run() -> Result<(), Error> {
     }
 }
 
-async fn store_state_loop(state: Arc<State>, mut tracklist_receiver: TracklistReceiver) {
+async fn store_state_loop(
+    state: Arc<State>,
+    mut tracklist_receiver: TracklistReceiver,
+    mut volume_receiver: VolumeReceiver,
+) {
     loop {
-        if tracklist_receiver.changed().await.is_ok() {
-            let tracklist = tracklist_receiver.borrow_and_update().clone();
-            state.database.set_tracklist(&tracklist).await;
-        };
-        // tokio::select! {
-        //     Ok(_) = tracklist_receiver.changed() => {
-        //         let tracklist = tracklist_receiver.borrow_and_update().clone();
-        //         state.database.set_tracklist(&tracklist).await;
-        //     },
-        // }
-        // if let Ok(notification) = broadcast_receiver.recv().await {
-        //     match notification {
-        //         Notification::CurrentTrackList { tracklist } => {
-        //             state.database.set_tracklist(&tracklist).await;
-        //         }
-        //         Notification::Volume { volume } => {
-        //             state.database.set_volume(volume).await;
-        //         }
-        //         _ => (),
-        //     }
-        // }
+        tokio::select! {
+            Ok(_) = volume_receiver.changed() => {
+                let volume = *volume_receiver.borrow_and_update();
+                state.database.set_volume(volume).await;
+            }
+            Ok(_) = tracklist_receiver.changed() => {
+                let tracklist = tracklist_receiver.borrow_and_update().clone();
+                state.database.set_tracklist(&tracklist).await;
+            },
+        }
     }
 }

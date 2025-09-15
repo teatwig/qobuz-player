@@ -1,12 +1,12 @@
 use dialoguer::Input;
-use qobuz_player_controls::{TracklistReceiver, tracklist};
+use qobuz_player_controls::{TracklistReceiver, broadcast::Controls, tracklist};
 use qobuz_player_state::{
     State,
     database::{LinkRequest, ReferenceType},
 };
 use std::sync::Arc;
 
-pub async fn init(state: Arc<State>, tracklist_receiver: TracklistReceiver) {
+pub async fn init(state: Arc<State>, tracklist_receiver: TracklistReceiver, controls: Controls) {
     loop {
         match Input::<String>::new()
             .with_prompt("Scan rfid")
@@ -19,7 +19,8 @@ pub async fn init(state: Arc<State>, tracklist_receiver: TracklistReceiver) {
                         submit_link_playlist(state.clone(), &res, *playlist)
                     }
                 },
-                None => handle_play_scan(&state, &res, &tracklist_receiver).await,
+                // None => handle_play_scan(&state, &res, &tracklist_receiver).await,
+                None => handle_play_scan(&state, &controls, &res, &tracklist_receiver).await,
             },
 
             Err(_) => continue,
@@ -27,7 +28,12 @@ pub async fn init(state: Arc<State>, tracklist_receiver: TracklistReceiver) {
     }
 }
 
-async fn handle_play_scan(state: &State, res: &str, tracklist_receiver: &TracklistReceiver) {
+async fn handle_play_scan(
+    state: &State,
+    controls: &Controls,
+    res: &str,
+    tracklist_receiver: &TracklistReceiver,
+) {
     let reference = match state.database.get_reference(res).await {
         Some(reference) => reference,
         None => {
@@ -42,20 +48,19 @@ async fn handle_play_scan(state: &State, res: &str, tracklist_receiver: &Trackli
             if let tracklist::TracklistType::Album(now_playing) = now_playing
                 && now_playing.id == id
             {
-                state.broadcast.play_pause();
+                controls.play_pause();
                 return;
             }
-
-            state.broadcast.play_album(&id, 0)
+            controls.play_album(&id, 0);
         }
         LinkRequest::Playlist(id) => {
             if let tracklist::TracklistType::Playlist(now_playing) = now_playing
                 && now_playing.id == id
             {
-                state.broadcast.play_pause();
+                controls.play_pause();
                 return;
             }
-            state.broadcast.play_playlist(id, 0, false);
+            controls.play_playlist(id, 0, false);
         }
     }
 }

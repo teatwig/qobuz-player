@@ -5,7 +5,8 @@ use crate::{
 use core::fmt;
 use image::load_from_memory;
 use qobuz_player_controls::{
-    PositionReceiver, Status, StatusReceiver, TracklistReceiver, tracklist::Tracklist,
+    PositionReceiver, Status, StatusReceiver, TracklistReceiver, broadcast::Controls,
+    tracklist::Tracklist,
 };
 use qobuz_player_state::State;
 use ratatui::{
@@ -20,6 +21,7 @@ use tokio::time::{self, Duration};
 
 pub(crate) struct App {
     pub(crate) state: Arc<State>,
+    pub(crate) controls: Controls,
     pub(crate) position: PositionReceiver,
     pub(crate) tracklist: TracklistReceiver,
     pub(crate) status: StatusReceiver,
@@ -159,7 +161,7 @@ impl App {
                         }
 
                         if let Some(outcome) = popup.handle_event(key_event.code).await {
-                            self.handle_playoutcome(outcome).await;
+                            self.handle_playoutcome(outcome);
                             self.app_state = AppState::Normal;
                         };
 
@@ -188,7 +190,7 @@ impl App {
                         return Ok(());
                     }
                     Output::PlayOutcome(outcome) => {
-                        self.handle_playoutcome(outcome).await;
+                        self.handle_playoutcome(outcome);
                     }
                 }
 
@@ -218,23 +220,23 @@ impl App {
                         self.should_draw = true;
                     }
                     KeyCode::Char(' ') => {
-                        self.state.broadcast.play_pause();
+                        self.controls.play_pause();
                         self.should_draw = true;
                     }
                     KeyCode::Char('n') => {
-                        self.state.broadcast.next();
+                        self.controls.next();
                         self.should_draw = true;
                     }
                     KeyCode::Char('p') => {
-                        self.state.broadcast.previous();
+                        self.controls.previous();
                         self.should_draw = true;
                     }
                     KeyCode::Char('f') => {
-                        self.state.broadcast.jump_forward();
+                        self.controls.jump_forward();
                         self.should_draw = true;
                     }
                     KeyCode::Char('b') => {
-                        self.state.broadcast.jump_backward();
+                        self.controls.jump_backward();
                         self.should_draw = true;
                     }
                     _ => {}
@@ -247,22 +249,22 @@ impl App {
         Ok(())
     }
 
-    async fn handle_playoutcome(&mut self, outcome: PlayOutcome) {
+    fn handle_playoutcome(&mut self, outcome: PlayOutcome) {
         match outcome {
             PlayOutcome::Album(id) => {
-                self.state.broadcast.play_album(&id, 0);
+                self.controls.play_album(&id, 0);
             }
 
             PlayOutcome::Playlist(outcome) => {
-                self.state.broadcast.play_playlist(outcome.0, 0, outcome.1);
+                self.controls.play_playlist(outcome.0, 0, outcome.1);
             }
 
             PlayOutcome::Track(id) => {
-                self.state.broadcast.play_track(id);
+                self.controls.play_track(id);
             }
 
             PlayOutcome::SkipToPosition(index) => {
-                self.state.broadcast.skip_to_position(index, true);
+                self.controls.skip_to_position(index, true);
             }
         }
     }

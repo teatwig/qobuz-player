@@ -39,14 +39,11 @@ async fn play_track(
     State(state): State<Arc<AppState>>,
     Path((id, track_position)): Path<(u32, u32)>,
 ) -> impl IntoResponse {
-    state
-        .player_state
-        .broadcast
-        .play_playlist(id, track_position, false);
+    state.controls.play_playlist(id, track_position, false);
 }
 
 async fn play(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
-    state.player_state.broadcast.play_playlist(id, 0, false);
+    state.controls.play_playlist(id, 0, false);
 }
 
 async fn link(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
@@ -58,7 +55,7 @@ async fn link(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl I
 }
 
 async fn shuffle(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
-    state.player_state.broadcast.play_playlist(id, 0, true);
+    state.controls.play_playlist(id, 0, true);
 }
 
 async fn set_favorite(

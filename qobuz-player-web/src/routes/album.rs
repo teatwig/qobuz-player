@@ -38,7 +38,7 @@ async fn play_track(
     State(state): State<Arc<AppState>>,
     Path((id, track_position)): Path<(String, u32)>,
 ) -> impl IntoResponse {
-    state.player_state.broadcast.play_album(&id, track_position);
+    state.controls.play_album(&id, track_position);
 }
 
 async fn set_favorite(
@@ -70,7 +70,7 @@ async fn unset_favorite(
 }
 
 async fn play(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
-    state.player_state.broadcast.play_album(&id, 0);
+    state.controls.play_album(&id, 0);
 }
 
 async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {

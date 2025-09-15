@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use app::{App, FilteredListState, UnfilteredListState, get_current_state};
 use favorites::FavoritesState;
-use qobuz_player_controls::{PositionReceiver, StatusReceiver, TracklistReceiver};
+use qobuz_player_controls::{
+    PositionReceiver, StatusReceiver, TracklistReceiver, broadcast::Controls,
+};
 use queue::QueueState;
 use ratatui::{prelude::*, widgets::*};
 use search::SearchState;
@@ -20,6 +22,7 @@ mod ui;
 
 pub async fn init(
     state: Arc<qobuz_player_state::State>,
+    controls: Controls,
     position_receiver: PositionReceiver,
     tracklist_receiver: TracklistReceiver,
     status_receiver: StatusReceiver,
@@ -69,6 +72,7 @@ pub async fn init(
 
     let mut app = App {
         state,
+        controls,
         now_playing,
         position: position_receiver,
         tracklist: tracklist_receiver,

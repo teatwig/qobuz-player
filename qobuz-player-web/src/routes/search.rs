@@ -41,7 +41,7 @@ async fn play_track(
     State(state): State<Arc<AppState>>,
     Path(track_id): Path<u32>,
 ) -> impl IntoResponse {
-    state.player_state.broadcast.play_track(track_id);
+    state.controls.play_track(track_id);
 }
 
 #[derive(Deserialize, Clone)]

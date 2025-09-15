@@ -63,7 +63,7 @@ async fn set_position(
     axum::Form(parameters): axum::Form<SliderParameters>,
 ) -> impl IntoResponse {
     let time = Duration::from_millis(parameters.value as u64);
-    state.player_state.broadcast.seek(time);
+    state.controls.seek(time);
 }
 
 async fn set_volume(
@@ -82,7 +82,7 @@ async fn set_volume(
 
     let formatted_volume = volume as f32 / 100.0;
 
-    state.player_state.broadcast.set_volume(formatted_volume);
+    state.controls.set_volume(formatted_volume);
 }
 
 async fn status_partial(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -133,20 +133,20 @@ pub(crate) fn previous() -> impl IntoView {
 }
 
 async fn play(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    state.player_state.broadcast.play();
+    state.controls.play();
 }
 
 async fn pause(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    state.player_state.broadcast.pause();
+    state.controls.pause();
     render(html! { <PlayPause status=Status::Paused /> })
 }
 
 async fn previous(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    state.player_state.broadcast.previous();
+    state.controls.previous();
 }
 
 async fn next(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    state.player_state.broadcast.next();
+    state.controls.next();
 }
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {

@@ -28,10 +28,7 @@ async fn skip_to(
     State(state): State<Arc<AppState>>,
     Path(track_number): Path<u32>,
 ) -> impl IntoResponse {
-    state
-        .player_state
-        .broadcast
-        .skip_to_position(track_number, true);
+    state.controls.skip_to_position(track_number, true);
 }
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
