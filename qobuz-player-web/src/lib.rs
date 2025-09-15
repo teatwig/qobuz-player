@@ -155,7 +155,6 @@ async fn background_task(
             notification = receiver.recv() => {
                 if let Ok(notification) = notification {
                     match notification {
-                        Notification::Quit => break,
                         Notification::Message { message } => {
                             let toast = components::toast(message.clone()).to_html();
 

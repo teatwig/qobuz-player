@@ -27,8 +27,7 @@ impl RootInterface for MprisPlayer {
         Err(fdo::Error::NotSupported("Not supported".into()))
     }
     async fn quit(&self) -> fdo::Result<()> {
-        self.state.broadcast.quit();
-        Ok(())
+        std::process::exit(0);
     }
     async fn can_quit(&self) -> fdo::Result<bool> {
         Ok(true)
@@ -276,7 +275,6 @@ pub async fn init(
             notification = receiver.recv() => {
                 if let Ok(notification) = notification {
                     match notification {
-                        Notification::Quit => return,
                         Notification::Message { message: _ } => (),
                         Notification::Play(_play_notification) => (),
                     }

@@ -3,7 +3,6 @@ use std::time::Duration;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Notification {
     Play(PlayNotification),
-    Quit,
     Message { message: Message },
 }
 

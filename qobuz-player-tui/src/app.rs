@@ -118,9 +118,6 @@ impl App {
                 maybe_notification = receiver.recv() => {
                     if let Ok(notification) = maybe_notification {
                         match notification {
-                            qobuz_player_controls::notification::Notification::Quit => {
-                                self.exit = true;
-                            }
                             qobuz_player_controls::notification::Notification::Message { message: _ } => (),
                             qobuz_player_controls::notification::Notification::Play(_) => {},
                         }
@@ -289,7 +286,6 @@ impl App {
 
     fn exit(&mut self) {
         self.exit = true;
-        self.state.broadcast.quit();
     }
 }
 

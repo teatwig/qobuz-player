@@ -21,10 +21,6 @@ impl Broadcast {
         Ok(())
     }
 
-    pub fn quit(&self) {
-        self.tx.send(Notification::Quit).unwrap();
-    }
-
     pub fn next(&self) {
         self.tx
             .send(Notification::Play(PlayNotification::Next))

@@ -492,7 +492,6 @@ impl Player {
                     false
                 }
             },
-            Notification::Quit => true,
             Notification::Message { message: _ } => false,
         }
     }

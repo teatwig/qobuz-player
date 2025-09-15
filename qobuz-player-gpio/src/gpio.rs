@@ -31,9 +31,6 @@ pub async fn init(state: Arc<State>, mut status_receiver: StatusReceiver) {
         }
         if let Ok(notification) = receiver.recv().await {
             match notification {
-                Notification::Quit => {
-                    return;
-                }
                 Notification::Message { message: _ } => {}
                 Notification::Play(_) => {}
             }

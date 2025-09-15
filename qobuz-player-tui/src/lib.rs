@@ -135,6 +135,7 @@ pub async fn init(
 
     _ = app.run(&mut terminal).await;
     ratatui::restore();
+    std::process::exit(0);
 }
 
 fn draw_loading_screen<B: Backend>(terminal: &mut Terminal<B>) {
