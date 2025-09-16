@@ -64,8 +64,12 @@ async fn play(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> imp
 }
 
 async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
+    let Some(rfid_state) = state.rfid_state.clone() else {
+        return;
+    };
+
     qobuz_player_rfid::link(
-        state.rfid_state.clone(),
+        rfid_state,
         qobuz_player_database::LinkRequest::Album(id),
         state.broadcast.clone(),
     )
@@ -95,7 +99,7 @@ async fn content(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> 
             suggested_albums=album_data.suggested_albums
             is_favorite=is_favorite
             now_playing_id=currently_playing
-            rfid=state.rfid
+            rfid=state.rfid_state.is_some()
         />
     })
 }

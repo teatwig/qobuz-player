@@ -43,8 +43,7 @@ pub async fn init(
     status_receiver: StatusReceiver,
     port: u16,
     web_secret: Option<String>,
-    rfid: bool,
-    rfid_state: RfidState,
+    rfid_state: Option<RfidState>,
     broadcast: Arc<Broadcast>,
     client: Arc<Client>,
 ) {
@@ -58,7 +57,6 @@ pub async fn init(
         volume_receiver,
         status_receiver,
         web_secret,
-        rfid,
         rfid_state,
         broadcast,
         client,
@@ -76,8 +74,7 @@ async fn create_router(
     volume_receiver: VolumeReceiver,
     status_receiver: StatusReceiver,
     web_secret: Option<String>,
-    rfid: bool,
-    rfid_state: RfidState,
+    rfid_state: Option<RfidState>,
     broadcast: Arc<Broadcast>,
     client: Arc<Client>,
 ) -> Router {
@@ -86,7 +83,6 @@ async fn create_router(
     let shared_state = Arc::new(AppState {
         controls,
         web_secret,
-        rfid,
         rfid_state,
         broadcast,
         client,
@@ -236,8 +232,7 @@ async fn sse_handler(
 pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
     pub(crate) web_secret: Option<String>,
-    pub(crate) rfid: bool,
-    pub(crate) rfid_state: RfidState,
+    pub(crate) rfid_state: Option<RfidState>,
     pub(crate) broadcast: Arc<Broadcast>,
     pub(crate) client: Arc<Client>,
     pub(crate) controls: Controls,

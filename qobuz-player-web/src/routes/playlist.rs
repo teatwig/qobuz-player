@@ -47,8 +47,11 @@ async fn play(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl I
 }
 
 async fn link(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
+    let Some(rfid_state) = state.rfid_state.clone() else {
+        return;
+    };
     qobuz_player_rfid::link(
-        state.rfid_state.clone(),
+        rfid_state,
         qobuz_player_database::LinkRequest::Playlist(id),
         state.broadcast.clone(),
     )
@@ -99,7 +102,7 @@ async fn content(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> imp
             now_playing_id=currently_playing
             playlist=playlist
             is_favorite=is_favorite
-            rfid=state.rfid
+            rfid=state.rfid_state.is_some()
         />
     })
 }

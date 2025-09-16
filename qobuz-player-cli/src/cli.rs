@@ -153,7 +153,8 @@ pub async fn run() -> Result<(), Error> {
 
             let mut player = Player::new(tracklist, client.clone(), volume);
             let broadcast = Arc::new(Broadcast::new());
-            let rfid_state = RfidState::default();
+
+            let rfid_state = cli.rfid.then(RfidState::default);
 
             #[cfg(target_os = "linux")]
             if !cli.disable_mpris {
@@ -193,7 +194,6 @@ pub async fn run() -> Result<(), Error> {
                         status_receiver,
                         cli.port,
                         cli.web_secret,
-                        cli.rfid,
                         rfid_state,
                         broadcast,
                         client,
@@ -217,7 +217,7 @@ pub async fn run() -> Result<(), Error> {
                 store_state_loop(database_clone, tracklist_receiver, volume_receiver).await;
             });
 
-            if cli.rfid {
+            if let Some(rfid_state) = rfid_state {
                 let tracklist_receiver = player.tracklist();
                 let controls = player.controls();
                 tokio::spawn(async move {
