@@ -21,31 +21,39 @@ pub async fn init(
     broadcast: Arc<Broadcast>,
 ) {
     loop {
-        match Input::<String>::new()
-            .with_prompt("Scan rfid")
-            .interact_text()
-        {
-            Ok(res) => match &*state.link_request.lock().await {
-                Some(request) => match request {
-                    LinkRequest::Album(album) => submit_link_album(
-                        state.clone(),
-                        database.clone(),
-                        broadcast.clone(),
-                        &res,
-                        album,
-                    ),
-                    LinkRequest::Playlist(playlist) => submit_link_playlist(
-                        state.clone(),
-                        database.clone(),
-                        broadcast.clone(),
-                        &res,
-                        *playlist,
-                    ),
-                },
-                None => handle_play_scan(&database, &controls, &res, &tracklist_receiver).await,
-            },
+        let Ok(res) = tokio::task::spawn_blocking(|| {
+            Input::<String>::new()
+                .with_prompt("Scan rfid")
+                .interact_text()
+        })
+        .await
+        .expect("input thread panicked") else {
+            continue;
+        };
 
-            Err(_) => continue,
+        let maybe_request = {
+            let guard = state.link_request.lock().await;
+            guard.clone()
+        };
+
+        match maybe_request {
+            Some(LinkRequest::Album(album_id)) => submit_link_album(
+                state.clone(),
+                database.clone(),
+                broadcast.clone(),
+                &res,
+                &album_id,
+            ),
+            Some(LinkRequest::Playlist(playlist_id)) => submit_link_playlist(
+                state.clone(),
+                database.clone(),
+                broadcast.clone(),
+                &res,
+                playlist_id,
+            ),
+            None => {
+                handle_play_scan(&database, &controls, &res, &tracklist_receiver).await;
+            }
         };
     }
 }
@@ -88,10 +96,7 @@ async fn handle_play_scan(
 }
 
 pub async fn link(state: RfidState, request: LinkRequest, broadcast: Arc<Broadcast>) {
-    {
-        let mut request_lock = state.link_request.lock().await;
-        *request_lock = Some(request.clone());
-    }
+    set_state(&state, Some(request.clone())).await;
 
     let type_string = match request {
         LinkRequest::Album(_) => "album",
@@ -111,12 +116,12 @@ pub async fn link(state: RfidState, request: LinkRequest, broadcast: Arc<Broadca
             broadcast.send_message(qobuz_player_controls::notification::Message::Warning(
                 "Scan cancelled".to_string(),
             ));
-            set_state(state, None).await;
+            set_state(&state, None).await;
         }
     });
 }
 
-async fn set_state(state: RfidState, request: Option<LinkRequest>) {
+async fn set_state(state: &RfidState, request: Option<LinkRequest>) {
     let mut request_lock = state.link_request.lock().await;
     *request_lock = request;
 }
@@ -137,7 +142,7 @@ fn submit_link_album(
             "Link completed".to_string(),
         ));
 
-        set_state(state, None).await;
+        set_state(&state, None).await;
     });
 }
 
@@ -156,6 +161,6 @@ fn submit_link_playlist(
         broadcast.send_message(qobuz_player_controls::notification::Message::Success(
             "Link completed".to_string(),
         ));
-        set_state(state, None).await;
+        set_state(&state, None).await;
     });
 }

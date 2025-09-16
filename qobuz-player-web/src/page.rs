@@ -79,7 +79,7 @@ fn head(load_htmx: bool) -> impl IntoView {
             <title>Qobuz Player</title>
             <link rel="shortcut icon" href="/assets/favicon.svg" type="image/svg" />
             <link rel="manifest" href="/assets/manifest.json" />
-            <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+            <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
             <meta
                 name="viewport"
                 content="width=device-width, initial-scale=1, maximum-scale=5 viewport-fit=cover"
