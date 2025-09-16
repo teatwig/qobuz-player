@@ -54,9 +54,9 @@ struct Cli {
     /// Enable gpio interface for raspberry pi. Pin 16 (gpio-23) will be high when playing.
     gpio: bool,
 
-    #[clap(long, default_value = "0.0.0.0:9888")]
-    /// Specify a different interface and port for the web server to listen on.
-    interface: String,
+    #[clap(long, default_value_t = 9888)]
+    /// Specify port for the web server.
+    port: u16,
 
     #[clap(subcommand)]
     command: Commands,
@@ -191,7 +191,7 @@ pub async fn run() -> Result<(), Error> {
                         tracklist_receiver,
                         volume_receiver,
                         status_receiver,
-                        cli.interface,
+                        cli.port,
                         cli.web_secret,
                         cli.rfid,
                         rfid_state,

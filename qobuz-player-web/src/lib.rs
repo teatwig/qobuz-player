@@ -41,14 +41,15 @@ pub async fn init(
     tracklist_receiver: TracklistReceiver,
     volume_receiver: VolumeReceiver,
     status_receiver: StatusReceiver,
-    web_interface: String,
+    port: u16,
     web_secret: Option<String>,
     rfid: bool,
     rfid_state: RfidState,
     broadcast: Arc<Broadcast>,
     client: Arc<Client>,
 ) {
-    let listener = tokio::net::TcpListener::bind(&web_interface).await.unwrap();
+    let interface = format!("0.0.0.0:{port}");
+    let listener = tokio::net::TcpListener::bind(&interface).await.unwrap();
 
     let router = create_router(
         controls,
