@@ -1,5 +1,5 @@
 [package]
-name = "qobuz-player-state"
+name = "qobuz-player-database"
 version.workspace = true
 edition.workspace = true
 license-file.workspace = true

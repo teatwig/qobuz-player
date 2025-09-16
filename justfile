@@ -1,5 +1,5 @@
 init-database:
-    cargo sqlx db create && cargo sqlx migrate run --source qobuz-player-state/migrations
+    cargo sqlx db create && cargo sqlx migrate run --source qobuz-player-database/migrations
 
 git-reset:
     git fetch && git reset --hard origin

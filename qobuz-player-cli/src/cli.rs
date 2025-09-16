@@ -6,8 +6,8 @@ use qobuz_player_controls::{
     AudioQuality, TracklistReceiver, VolumeReceiver, broadcast::Broadcast, client::Client,
     player::Player,
 };
+use qobuz_player_database::Database;
 use qobuz_player_rfid::RfidState;
-use qobuz_player_state::database::Database;
 use snafu::prelude::*;
 
 #[derive(Parser)]

@@ -49,7 +49,7 @@ async fn play(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl I
 async fn link(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
     qobuz_player_rfid::link(
         state.rfid_state.clone(),
-        qobuz_player_state::database::LinkRequest::Playlist(id),
+        qobuz_player_database::LinkRequest::Playlist(id),
         state.broadcast.clone(),
     )
     .await;

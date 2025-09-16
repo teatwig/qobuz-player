@@ -3371,10 +3371,10 @@ dependencies = [
  "dialoguer",
  "qobuz-player-client",
  "qobuz-player-controls",
+ "qobuz-player-database",
  "qobuz-player-gpio",
  "qobuz-player-mpris",
  "qobuz-player-rfid",
- "qobuz-player-state",
  "qobuz-player-tui",
  "qobuz-player-web",
  "snafu",
@@ -3418,38 +3418,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "qobuz-player-gpio"
-version = "0.4.0"
-dependencies = [
- "qobuz-player-controls",
- "qobuz-player-state",
- "rppal",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "qobuz-player-mpris"
-version = "0.4.0"
-dependencies = [
- "mpris-server",
- "qobuz-player-controls",
- "qobuz-player-state",
- "tokio",
-]
-
-[[package]]
-name = "qobuz-player-rfid"
-version = "0.4.0"
-dependencies = [
- "dialoguer",
- "qobuz-player-controls",
- "qobuz-player-state",
- "tokio",
-]
-
-[[package]]
-name = "qobuz-player-state"
+name = "qobuz-player-database"
 version = "0.4.0"
 dependencies = [
  "dirs",
@@ -3463,12 +3432,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "qobuz-player-gpio"
+version = "0.4.0"
+dependencies = [
+ "qobuz-player-controls",
+ "qobuz-player-database",
+ "rppal",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "qobuz-player-mpris"
+version = "0.4.0"
+dependencies = [
+ "mpris-server",
+ "qobuz-player-controls",
+ "qobuz-player-database",
+ "tokio",
+]
+
+[[package]]
+name = "qobuz-player-rfid"
+version = "0.4.0"
+dependencies = [
+ "dialoguer",
+ "qobuz-player-controls",
+ "qobuz-player-database",
+ "tokio",
+]
+
+[[package]]
 name = "qobuz-player-tui"
 version = "0.4.0"
 dependencies = [
  "image",
  "qobuz-player-controls",
- "qobuz-player-state",
+ "qobuz-player-database",
  "ratatui",
  "ratatui-image",
  "reqwest",
@@ -3487,8 +3487,8 @@ dependencies = [
  "mime",
  "mime_guess",
  "qobuz-player-controls",
+ "qobuz-player-database",
  "qobuz-player-rfid",
- "qobuz-player-state",
  "rust-embed",
  "serde",
  "time",

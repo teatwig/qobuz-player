@@ -4,7 +4,7 @@ use qobuz_player_controls::{
     broadcast::{Broadcast, Controls},
     tracklist,
 };
-use qobuz_player_state::database::{Database, LinkRequest, ReferenceType};
+use qobuz_player_database::{Database, LinkRequest, ReferenceType};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
