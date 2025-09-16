@@ -3427,7 +3427,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
- "tokio",
  "tracing",
 ]
 
@@ -3436,9 +3435,7 @@ name = "qobuz-player-gpio"
 version = "0.4.0"
 dependencies = [
  "qobuz-player-controls",
- "qobuz-player-database",
  "rppal",
- "tokio",
  "tracing",
 ]
 
@@ -3448,7 +3445,6 @@ version = "0.4.0"
 dependencies = [
  "mpris-server",
  "qobuz-player-controls",
- "qobuz-player-database",
  "tokio",
 ]
 
@@ -3468,7 +3464,6 @@ version = "0.4.0"
 dependencies = [
  "image",
  "qobuz-player-controls",
- "qobuz-player-database",
  "ratatui",
  "ratatui-image",
  "reqwest",
