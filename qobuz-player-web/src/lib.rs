@@ -11,16 +11,18 @@ use leptos::{html::*, prelude::RenderHtml};
 use qobuz_player_controls::{
     PositionReceiver, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
     broadcast::{Broadcast, Controls},
+    client::Client,
     models::{Album, AlbumSimple, Favorites, Playlist},
     notification::Notification,
 };
+use qobuz_player_rfid::RfidState;
 use routes::{
     album, artist, auth, controls, discover, favorites, now_playing, playlist, queue, search,
 };
 use std::{convert::Infallible, sync::Arc};
 use tokio::{
     join,
-    sync::broadcast::{self, Sender},
+    sync::broadcast::{self, Receiver, Sender},
 };
 use tokio_stream::StreamExt as _;
 use tokio_stream::wrappers::BroadcastStream;
@@ -32,44 +34,62 @@ mod page;
 mod routes;
 mod view;
 
+#[allow(clippy::too_many_arguments)]
 pub async fn init(
-    state: Arc<qobuz_player_state::State>,
     controls: Controls,
     position_receiver: PositionReceiver,
     tracklist_receiver: TracklistReceiver,
     volume_receiver: VolumeReceiver,
     status_receiver: StatusReceiver,
+    web_interface: String,
+    web_secret: Option<String>,
+    rfid: bool,
+    rfid_state: RfidState,
+    broadcast: Arc<Broadcast>,
+    client: Arc<Client>,
 ) {
-    let listener = tokio::net::TcpListener::bind(&state.web_interface)
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind(&web_interface).await.unwrap();
 
     let router = create_router(
-        state.clone(),
         controls,
         position_receiver,
         tracklist_receiver,
         volume_receiver,
         status_receiver,
+        web_secret,
+        rfid,
+        rfid_state,
+        broadcast,
+        client,
     )
     .await;
 
     axum::serve(listener, router).await.unwrap();
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn create_router(
-    state: Arc<qobuz_player_state::State>,
     controls: Controls,
     position_receiver: PositionReceiver,
     tracklist_receiver: TracklistReceiver,
     volume_receiver: VolumeReceiver,
     status_receiver: StatusReceiver,
+    web_secret: Option<String>,
+    rfid: bool,
+    rfid_state: RfidState,
+    broadcast: Arc<Broadcast>,
+    client: Arc<Client>,
 ) -> Router {
     let (tx, _rx) = broadcast::channel::<ServerSentEvent>(100);
+    let broadcast_subscribe = broadcast.subscribe();
     let shared_state = Arc::new(AppState {
         controls,
+        web_secret,
+        rfid,
+        rfid_state,
+        broadcast,
+        client,
         tx: tx.clone(),
-        player_state: state.clone(),
         position_receiver: position_receiver.clone(),
         tracklist_receiver: tracklist_receiver.clone(),
         volume_receiver: volume_receiver.clone(),
@@ -77,7 +97,7 @@ async fn create_router(
     });
     tokio::spawn(background_task(
         tx,
-        state.broadcast.clone(),
+        broadcast_subscribe,
         position_receiver,
         tracklist_receiver,
         volume_receiver,
@@ -106,14 +126,12 @@ async fn create_router(
 
 async fn background_task(
     tx: Sender<ServerSentEvent>,
-    receiver: Arc<Broadcast>,
+    mut receiver: Receiver<Notification>,
     mut position: PositionReceiver,
     mut tracklist: TracklistReceiver,
     mut volume: VolumeReceiver,
     mut status: StatusReceiver,
 ) {
-    let mut receiver = receiver.notify_receiver();
-
     loop {
         tokio::select! {
             Ok(_) = position.changed() => {
@@ -216,7 +234,11 @@ async fn sse_handler(
 
 pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
-    pub(crate) player_state: Arc<qobuz_player_state::State>,
+    pub(crate) web_secret: Option<String>,
+    pub(crate) rfid: bool,
+    pub(crate) rfid_state: RfidState,
+    pub(crate) broadcast: Arc<Broadcast>,
+    pub(crate) client: Arc<Client>,
     pub(crate) controls: Controls,
     pub(crate) position_receiver: PositionReceiver,
     pub(crate) tracklist_receiver: TracklistReceiver,
@@ -226,14 +248,12 @@ pub(crate) struct AppState {
 
 impl AppState {
     pub async fn get_favorites(&self) -> Favorites {
-        self.player_state.client.favorites().await.unwrap()
+        self.client.favorites().await.unwrap()
     }
 
     pub async fn get_album(&self, id: &str) -> AlbumData {
-        let (album, suggested_albums) = join!(
-            self.player_state.client.album(id),
-            self.player_state.client.suggested_albums(id),
-        );
+        let (album, suggested_albums) =
+            join!(self.client.album(id), self.client.suggested_albums(id),);
 
         let album = album.unwrap();
         let suggested_albums = suggested_albums.unwrap();

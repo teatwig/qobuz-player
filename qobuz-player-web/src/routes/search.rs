@@ -58,7 +58,7 @@ async fn index(
         .query
         .and_then(|s| if s.is_empty() { None } else { Some(s) });
     let search_results = match query {
-        Some(query) => state.player_state.client.search(query).await.unwrap(),
+        Some(query) => state.client.search(query).await.unwrap(),
         None => SearchResults::default(),
     };
 
@@ -83,7 +83,7 @@ async fn search(
         .query
         .and_then(|s| if s.is_empty() { None } else { Some(s) });
     let search_results = match query.clone() {
-        Some(query) => state.player_state.client.search(query).await.unwrap(),
+        Some(query) => state.client.search(query).await.unwrap(),
         None => SearchResults::default(),
     };
 

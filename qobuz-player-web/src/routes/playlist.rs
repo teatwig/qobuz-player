@@ -48,8 +48,9 @@ async fn play(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl I
 
 async fn link(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
     qobuz_player_rfid::link(
-        state.player_state.clone(),
+        state.rfid_state.clone(),
         qobuz_player_state::database::LinkRequest::Playlist(id),
+        state.broadcast.clone(),
     )
     .await;
 }
@@ -62,12 +63,7 @@ async fn set_favorite(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    state
-        .player_state
-        .client
-        .add_favorite_playlist(&id)
-        .await
-        .unwrap();
+    state.client.add_favorite_playlist(&id).await.unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
 
@@ -75,12 +71,7 @@ async fn unset_favorite(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    state
-        .player_state
-        .client
-        .remove_favorite_playlist(&id)
-        .await
-        .unwrap();
+    state.client.remove_favorite_playlist(&id).await.unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
 
@@ -98,11 +89,9 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
 }
 
 async fn content(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
-    let playlist = state.player_state.client.playlist(id).await.unwrap();
+    let playlist = state.client.playlist(id).await.unwrap();
     let favorites = state.get_favorites().await;
     let is_favorite = favorites.playlists.iter().any(|playlist| playlist.id == id);
-
-    let rfid = state.player_state.rfid;
     let currently_playing = state.tracklist_receiver.borrow().currently_playing();
 
     render(html! {
@@ -110,7 +99,7 @@ async fn content(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> imp
             now_playing_id=currently_playing
             playlist=playlist
             is_favorite=is_favorite
-            rfid=rfid
+            rfid=state.rfid
         />
     })
 }
@@ -119,7 +108,7 @@ async fn tracks_partial(
     State(state): State<Arc<AppState>>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
-    let playlist = state.player_state.client.playlist(id).await.unwrap();
+    let playlist = state.client.playlist(id).await.unwrap();
     let currently_playing = state.tracklist_receiver.borrow().currently_playing();
 
     render(

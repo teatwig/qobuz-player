@@ -1,12 +1,25 @@
 use dialoguer::Input;
-use qobuz_player_controls::{TracklistReceiver, broadcast::Controls, tracklist};
-use qobuz_player_state::{
-    State,
-    database::{LinkRequest, ReferenceType},
+use qobuz_player_controls::{
+    TracklistReceiver,
+    broadcast::{Broadcast, Controls},
+    tracklist,
 };
+use qobuz_player_state::database::{Database, LinkRequest, ReferenceType};
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
-pub async fn init(state: Arc<State>, tracklist_receiver: TracklistReceiver, controls: Controls) {
+#[derive(Debug, Clone, Default)]
+pub struct RfidState {
+    link_request: Arc<Mutex<Option<LinkRequest>>>,
+}
+
+pub async fn init(
+    state: RfidState,
+    tracklist_receiver: TracklistReceiver,
+    controls: Controls,
+    database: Arc<Database>,
+    broadcast: Arc<Broadcast>,
+) {
     loop {
         match Input::<String>::new()
             .with_prompt("Scan rfid")
@@ -14,13 +27,22 @@ pub async fn init(state: Arc<State>, tracklist_receiver: TracklistReceiver, cont
         {
             Ok(res) => match &*state.link_request.lock().await {
                 Some(request) => match request {
-                    LinkRequest::Album(album) => submit_link_album(state.clone(), &res, album),
-                    LinkRequest::Playlist(playlist) => {
-                        submit_link_playlist(state.clone(), &res, *playlist)
-                    }
+                    LinkRequest::Album(album) => submit_link_album(
+                        state.clone(),
+                        database.clone(),
+                        broadcast.clone(),
+                        &res,
+                        album,
+                    ),
+                    LinkRequest::Playlist(playlist) => submit_link_playlist(
+                        state.clone(),
+                        database.clone(),
+                        broadcast.clone(),
+                        &res,
+                        *playlist,
+                    ),
                 },
-                // None => handle_play_scan(&state, &res, &tracklist_receiver).await,
-                None => handle_play_scan(&state, &controls, &res, &tracklist_receiver).await,
+                None => handle_play_scan(&database, &controls, &res, &tracklist_receiver).await,
             },
 
             Err(_) => continue,
@@ -29,12 +51,12 @@ pub async fn init(state: Arc<State>, tracklist_receiver: TracklistReceiver, cont
 }
 
 async fn handle_play_scan(
-    state: &State,
+    database: &Arc<Database>,
     controls: &Controls,
     res: &str,
     tracklist_receiver: &TracklistReceiver,
 ) {
-    let reference = match state.database.get_reference(res).await {
+    let reference = match database.get_reference(res).await {
         Some(reference) => reference,
         None => {
             return;
@@ -65,19 +87,20 @@ async fn handle_play_scan(
     }
 }
 
-pub async fn link(state: Arc<State>, request: LinkRequest) {
-    set_state(state.clone(), Some(request.clone())).await;
+pub async fn link(state: RfidState, request: LinkRequest, broadcast: Arc<Broadcast>) {
+    {
+        let mut request_lock = state.link_request.lock().await;
+        *request_lock = Some(request.clone());
+    }
 
     let type_string = match request {
         LinkRequest::Album(_) => "album",
         LinkRequest::Playlist(_) => "playlist",
     };
 
-    state
-        .broadcast
-        .send_message(qobuz_player_controls::notification::Message::Info(format!(
-            "Scan rfid to link {type_string}"
-        )));
+    broadcast.send_message(qobuz_player_controls::notification::Message::Info(format!(
+        "Scan rfid to link {type_string}"
+    )));
 
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
@@ -85,50 +108,54 @@ pub async fn link(state: Arc<State>, request: LinkRequest) {
         let request_ongoing = state.link_request.lock().await.is_some();
 
         if request_ongoing {
-            state
-                .broadcast
-                .send_message(qobuz_player_controls::notification::Message::Warning(
-                    "Scan cancelled".to_string(),
-                ));
+            broadcast.send_message(qobuz_player_controls::notification::Message::Warning(
+                "Scan cancelled".to_string(),
+            ));
             set_state(state, None).await;
         }
     });
 }
 
-async fn set_state(state: Arc<State>, request: Option<LinkRequest>) {
+async fn set_state(state: RfidState, request: Option<LinkRequest>) {
     let mut request_lock = state.link_request.lock().await;
     *request_lock = request;
 }
 
-fn submit_link_album(state: Arc<State>, rfid_id: &str, id: &str) {
+fn submit_link_album(
+    state: RfidState,
+    database: Arc<Database>,
+    broadcast: Arc<Broadcast>,
+    rfid_id: &str,
+    id: &str,
+) {
     let rfid_id = rfid_id.to_owned();
     let reference = ReferenceType::Album(id.to_owned());
 
     tokio::spawn(async move {
-        state.database.add_rfid_reference(rfid_id, reference).await;
-
-        state
-            .broadcast
-            .send_message(qobuz_player_controls::notification::Message::Success(
-                "Link completed".to_string(),
-            ));
+        database.add_rfid_reference(rfid_id, reference).await;
+        broadcast.send_message(qobuz_player_controls::notification::Message::Success(
+            "Link completed".to_string(),
+        ));
 
         set_state(state, None).await;
     });
 }
 
-fn submit_link_playlist(state: Arc<State>, rfid_id: &str, id: u32) {
+fn submit_link_playlist(
+    state: RfidState,
+    database: Arc<Database>,
+    broadcast: Arc<Broadcast>,
+    rfid_id: &str,
+    id: u32,
+) {
     let rfid_id = rfid_id.to_owned();
     let reference = ReferenceType::Playlist(id);
 
     tokio::spawn(async move {
-        state.database.add_rfid_reference(rfid_id, reference).await;
-
-        state
-            .broadcast
-            .send_message(qobuz_player_controls::notification::Message::Success(
-                "Link completed".to_string(),
-            ));
+        database.add_rfid_reference(rfid_id, reference).await;
+        broadcast.send_message(qobuz_player_controls::notification::Message::Success(
+            "Link completed".to_string(),
+        ));
         set_state(state, None).await;
     });
 }

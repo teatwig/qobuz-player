@@ -8,7 +8,6 @@ use qobuz_player_controls::{
     PositionReceiver, Status, StatusReceiver, TracklistReceiver, broadcast::Controls,
     tracklist::Tracklist,
 };
-use qobuz_player_state::State;
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
@@ -16,11 +15,10 @@ use ratatui::{
 };
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 use reqwest::Client;
-use std::{io, sync::Arc};
+use std::io;
 use tokio::time::{self, Duration};
 
 pub(crate) struct App {
-    pub(crate) state: Arc<State>,
     pub(crate) controls: Controls,
     pub(crate) position: PositionReceiver,
     pub(crate) tracklist: TracklistReceiver,
@@ -95,7 +93,6 @@ pub(crate) struct UnfilteredListState<T> {
 
 impl App {
     pub(crate) async fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        let mut receiver = self.state.broadcast.notify_receiver();
         let mut tick_interval = time::interval(Duration::from_millis(10));
 
         while !self.exit {
@@ -115,15 +112,6 @@ impl App {
                     let status = self.status.borrow_and_update();
                     self.now_playing.status = *status;
                     self.should_draw = true;
-                }
-
-                maybe_notification = receiver.recv() => {
-                    if let Ok(notification) = maybe_notification {
-                        match notification {
-                            qobuz_player_controls::notification::Notification::Message { message: _ } => (),
-                            qobuz_player_controls::notification::Notification::Play(_) => {},
-                        }
-                    }
                 }
 
                 _ = tick_interval.tick() => {

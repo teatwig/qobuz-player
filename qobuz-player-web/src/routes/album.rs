@@ -45,12 +45,7 @@ async fn set_favorite(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    state
-        .player_state
-        .client
-        .add_favorite_album(&id)
-        .await
-        .unwrap();
+    state.client.add_favorite_album(&id).await.unwrap();
 
     render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
@@ -59,12 +54,7 @@ async fn unset_favorite(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    state
-        .player_state
-        .client
-        .remove_favorite_album(&id)
-        .await
-        .unwrap();
+    state.client.remove_favorite_album(&id).await.unwrap();
 
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
@@ -75,8 +65,9 @@ async fn play(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> imp
 
 async fn link(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
     qobuz_player_rfid::link(
-        state.player_state.clone(),
+        state.rfid_state.clone(),
         qobuz_player_state::database::LinkRequest::Album(id),
+        state.broadcast.clone(),
     )
     .await;
 }
@@ -95,7 +86,6 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
 
 async fn content(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
     let album_data = state.get_album(&id).await;
-    let rfid = state.player_state.rfid;
     let currently_playing = state.tracklist_receiver.borrow().currently_playing();
     let is_favorite = state.is_album_favorite(&id).await;
 
@@ -105,7 +95,7 @@ async fn content(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> 
             suggested_albums=album_data.suggested_albums
             is_favorite=is_favorite
             now_playing_id=currently_playing
-            rfid=rfid
+            rfid=state.rfid
         />
     })
 }
@@ -114,7 +104,7 @@ async fn album_tracks_partial(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    let album = state.player_state.client.album(&id).await.unwrap();
+    let album = state.client.album(&id).await.unwrap();
     let tracklist = state.tracklist_receiver.borrow();
 
     render(html! {

@@ -39,7 +39,7 @@ async fn top_tracks_partial(
     State(state): State<Arc<AppState>>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
-    let artist = state.player_state.client.artist_page(id).await.unwrap();
+    let artist = state.client.artist_page(id).await.unwrap();
     let now_playing_id = state.tracklist_receiver.borrow().currently_playing();
 
     render(
@@ -58,12 +58,7 @@ async fn set_favorite(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    state
-        .player_state
-        .client
-        .add_favorite_artist(&id)
-        .await
-        .unwrap();
+    state.client.add_favorite_artist(&id).await.unwrap();
 
     render(html! { <ToggleFavorite id=id is_favorite=true /> })
 }
@@ -72,12 +67,7 @@ async fn unset_favorite(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    state
-        .player_state
-        .client
-        .remove_favorite_artist(&id)
-        .await
-        .unwrap();
+    state.client.remove_favorite_artist(&id).await.unwrap();
     render(html! { <ToggleFavorite id=id is_favorite=false /> })
 }
 
@@ -96,9 +86,9 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
 
 async fn content(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
     let (artist, albums, similar_artists) = join!(
-        state.player_state.client.artist_page(id),
-        state.player_state.client.artist_albums(id),
-        state.player_state.client.similar_artists(id),
+        state.client.artist_page(id),
+        state.client.artist_albums(id),
+        state.client.similar_artists(id),
     );
 
     let now_playing_id = state.tracklist_receiver.borrow().currently_playing();

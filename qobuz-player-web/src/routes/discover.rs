@@ -19,8 +19,8 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 
 async fn get_discover(state: &AppState) -> Discover {
     let (albums, playlists) = try_join!(
-        state.player_state.client.featured_albums(),
-        state.player_state.client.featured_playlists(),
+        state.client.featured_albums(),
+        state.client.featured_playlists(),
     )
     .unwrap();
 

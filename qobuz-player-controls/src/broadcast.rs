@@ -104,7 +104,7 @@ impl Broadcast {
         Ok(())
     }
 
-    pub fn notify_receiver(&self) -> Receiver<Notification> {
+    pub fn subscribe(&self) -> Receiver<Notification> {
         self.rx.resubscribe()
     }
 
