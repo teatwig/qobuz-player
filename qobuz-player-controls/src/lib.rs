@@ -4,8 +4,8 @@ pub use qobuz_player_client::client::AudioQuality;
 use tokio::sync::watch;
 
 use crate::{error::Error, tracklist::Tracklist};
-pub mod broadcast;
 pub mod client;
+pub mod controls;
 pub mod error;
 pub mod models;
 pub mod notification;

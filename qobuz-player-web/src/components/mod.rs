@@ -58,12 +58,12 @@ pub(crate) fn button_group(children: ChildrenFragment) -> impl IntoView {
     }
 }
 
-pub(crate) fn toast(message: notification::Message) -> impl IntoView {
+pub(crate) fn toast(message: notification::Notification) -> impl IntoView {
     let (message, severity) = match message {
-        notification::Message::Error(message) => (message, 1),
-        notification::Message::Warning(message) => (message, 2),
-        notification::Message::Success(message) => (message, 3),
-        notification::Message::Info(message) => (message, 4),
+        notification::Notification::Error(message) => (message, 1),
+        notification::Notification::Warning(message) => (message, 2),
+        notification::Notification::Success(message) => (message, 3),
+        notification::Notification::Info(message) => (message, 4),
     };
     html! {
         <div

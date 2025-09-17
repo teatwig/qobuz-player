@@ -3,8 +3,8 @@ use std::sync::Arc;
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
 use qobuz_player_controls::{
-    AudioQuality, TracklistReceiver, VolumeReceiver, broadcast::Broadcast, client::Client,
-    player::Player,
+    AudioQuality, TracklistReceiver, VolumeReceiver, client::Client,
+    notification::NotificationBroadcast, player::Player,
 };
 use qobuz_player_database::Database;
 use qobuz_player_rfid::RfidState;
@@ -152,7 +152,7 @@ pub async fn run() -> Result<(), Error> {
             let client = Arc::new(Client::new(username, password, max_audio_quality));
 
             let mut player = Player::new(tracklist, client.clone(), volume);
-            let broadcast = Arc::new(Broadcast::new());
+            let broadcast = Arc::new(NotificationBroadcast::new());
 
             let rfid_state = cli.rfid.then(RfidState::default);
 

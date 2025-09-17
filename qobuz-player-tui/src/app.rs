@@ -5,7 +5,7 @@ use crate::{
 use core::fmt;
 use image::load_from_memory;
 use qobuz_player_controls::{
-    PositionReceiver, Status, StatusReceiver, TracklistReceiver, broadcast::Controls,
+    PositionReceiver, Status, StatusReceiver, TracklistReceiver, controls::Controls,
     tracklist::Tracklist,
 };
 use ratatui::{

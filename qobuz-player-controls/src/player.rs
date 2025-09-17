@@ -6,9 +6,8 @@ use tokio::{
 
 use crate::{
     PositionReceiver, Result, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
-    broadcast::Controls,
+    controls::{ControlCommand, Controls},
     models::{Album, Track, TrackStatus},
-    notification::PlayNotification,
     timer::Timer,
     tracklist::{SingleTracklist, TracklistType},
 };
@@ -33,7 +32,7 @@ pub struct Player {
     first_track_queried: bool,
     track_finished: Receiver<()>,
     done_buffering: Receiver<()>,
-    controls_rx: tokio::sync::mpsc::UnboundedReceiver<PlayNotification>,
+    controls_rx: tokio::sync::mpsc::UnboundedReceiver<ControlCommand>,
     controls: Controls,
 }
 
@@ -432,52 +431,52 @@ impl Player {
         Ok(())
     }
 
-    async fn handle_message(&mut self, notification: PlayNotification) {
+    async fn handle_message(&mut self, notification: ControlCommand) {
         match notification {
-            PlayNotification::Album { id, index } => {
+            ControlCommand::Album { id, index } => {
                 self.play_album(&id, index).await.unwrap();
             }
-            PlayNotification::Playlist { id, index, shuffle } => {
+            ControlCommand::Playlist { id, index, shuffle } => {
                 self.play_playlist(id, index, shuffle).await.unwrap();
             }
-            PlayNotification::ArtistTopTracks { artist_id, index } => {
+            ControlCommand::ArtistTopTracks { artist_id, index } => {
                 self.play_top_tracks(artist_id, index).await.unwrap();
             }
-            PlayNotification::Track { id } => {
+            ControlCommand::Track { id } => {
                 self.play_track(id).await.unwrap();
             }
-            PlayNotification::Next => {
+            ControlCommand::Next => {
                 self.next().await.unwrap();
             }
-            PlayNotification::Previous => {
+            ControlCommand::Previous => {
                 self.previous().await.unwrap();
             }
-            PlayNotification::PlayPause => {
+            ControlCommand::PlayPause => {
                 self.play_pause().await.unwrap();
             }
-            PlayNotification::Play => {
+            ControlCommand::Play => {
                 self.play().await.unwrap();
             }
-            PlayNotification::Pause => {
+            ControlCommand::Pause => {
                 self.pause().unwrap();
             }
-            PlayNotification::SkipToPosition {
+            ControlCommand::SkipToPosition {
                 new_position,
                 force,
             } => {
                 self.skip_to_position(new_position, force).await.unwrap();
             }
-            PlayNotification::JumpForward => {
+            ControlCommand::JumpForward => {
                 self.jump_forward().unwrap();
             }
-            PlayNotification::JumpBackward => {
+            ControlCommand::JumpBackward => {
                 self.jump_backward().unwrap();
             }
-            PlayNotification::Seek { time } => {
+            ControlCommand::Seek { time } => {
                 self.set_timer(time).unwrap();
                 self.seek(time).unwrap();
             }
-            PlayNotification::SetVolume { volume } => {
+            ControlCommand::SetVolume { volume } => {
                 self.set_volume(volume).unwrap();
             }
         }

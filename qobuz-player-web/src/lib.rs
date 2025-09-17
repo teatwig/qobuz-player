@@ -10,10 +10,10 @@ use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
 use qobuz_player_controls::{
     PositionReceiver, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
-    broadcast::{Broadcast, Controls},
     client::Client,
+    controls::Controls,
     models::{Album, AlbumSimple, Favorites, Playlist},
-    notification::Notification,
+    notification::{Notification, NotificationBroadcast},
 };
 use qobuz_player_rfid::RfidState;
 use routes::{
@@ -44,7 +44,7 @@ pub async fn init(
     port: u16,
     web_secret: Option<String>,
     rfid_state: Option<RfidState>,
-    broadcast: Arc<Broadcast>,
+    broadcast: Arc<NotificationBroadcast>,
     client: Arc<Client>,
 ) {
     let interface = format!("0.0.0.0:{port}");
@@ -75,7 +75,7 @@ async fn create_router(
     status_receiver: StatusReceiver,
     web_secret: Option<String>,
     rfid_state: Option<RfidState>,
-    broadcast: Arc<Broadcast>,
+    broadcast: Arc<NotificationBroadcast>,
     client: Arc<Client>,
 ) -> Router {
     let (tx, _rx) = broadcast::channel::<ServerSentEvent>(100);
@@ -172,37 +172,32 @@ async fn background_task(
                 _ = tx.send(event);
             }
             notification = receiver.recv() => {
-                if let Ok(notification) = notification {
-                    match notification {
-                        Notification::Message { message } => {
-                            let toast = components::toast(message.clone()).to_html();
+                if let Ok(message) = notification {
+                    let toast = components::toast(message.clone()).to_html();
 
-                            let event = match message {
-                                qobuz_player_controls::notification::Message::Error(_) => ServerSentEvent {
-                                    event_name: "error".into(),
-                                    event_data: toast,
-                                },
-                                qobuz_player_controls::notification::Message::Warning(_) => {
-                                    ServerSentEvent {
-                                        event_name: "warn".into(),
-                                        event_data: toast,
-                                    }
-                                }
-                                qobuz_player_controls::notification::Message::Success(_) => {
-                                    ServerSentEvent {
-                                        event_name: "success".into(),
-                                        event_data: toast,
-                                    }
-                                }
-                                qobuz_player_controls::notification::Message::Info(_) => ServerSentEvent {
-                                    event_name: "info".into(),
-                                    event_data: toast,
-                                },
-                            };
-                            _ = tx.send(event);
+                    let event = match message {
+                        qobuz_player_controls::notification::Notification::Error(_) => ServerSentEvent {
+                            event_name: "error".into(),
+                            event_data: toast,
+                        },
+                        qobuz_player_controls::notification::Notification::Warning(_) => {
+                            ServerSentEvent {
+                                event_name: "warn".into(),
+                                event_data: toast,
+                            }
                         }
-                        Notification::Play(_) => (),
+                        qobuz_player_controls::notification::Notification::Success(_) => {
+                            ServerSentEvent {
+                                event_name: "success".into(),
+                                event_data: toast,
+                            }
+                        }
+                        qobuz_player_controls::notification::Notification::Info(_) => ServerSentEvent {
+                            event_name: "info".into(),
+                            event_data: toast,
+                        },
                     };
+                    _ = tx.send(event);
                 }
             }
         }
@@ -233,7 +228,7 @@ pub(crate) struct AppState {
     tx: Sender<ServerSentEvent>,
     pub(crate) web_secret: Option<String>,
     pub(crate) rfid_state: Option<RfidState>,
-    pub(crate) broadcast: Arc<Broadcast>,
+    pub(crate) broadcast: Arc<NotificationBroadcast>,
     pub(crate) client: Arc<Client>,
     pub(crate) controls: Controls,
     pub(crate) position_receiver: PositionReceiver,

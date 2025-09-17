@@ -3,7 +3,7 @@ use std::sync::Arc;
 use app::{App, FilteredListState, UnfilteredListState, get_current_state};
 use favorites::FavoritesState;
 use qobuz_player_controls::{
-    PositionReceiver, StatusReceiver, TracklistReceiver, broadcast::Controls, client::Client,
+    PositionReceiver, StatusReceiver, TracklistReceiver, client::Client, controls::Controls,
 };
 use queue::QueueState;
 use ratatui::{prelude::*, widgets::*};
