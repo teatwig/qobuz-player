@@ -6,7 +6,8 @@ const GPIO: u8 = 23;
 pub async fn init(mut status_receiver: StatusReceiver) -> Result<()> {
     let mut pin = Gpio::new()
         .or(Err(Error::GpioUnavailable { pin: GPIO }))?
-        .get(GPIO)?
+        .get(GPIO)
+        .or(Err(Error::GpioUnavailable { pin: GPIO }))?
         .into_output();
     tracing::info!("Pin claimed");
 

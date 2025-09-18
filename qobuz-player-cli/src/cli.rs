@@ -220,7 +220,7 @@ pub async fn run() -> Result<(), Error> {
             #[cfg(feature = "gpio")]
             if cli.gpio {
                 let status_receiver = player.status();
-                tokio::spawn(async {
+                tokio::spawn(async move {
                     if let Err(e) = qobuz_player_gpio::init(status_receiver).await {
                         exit(!cli.disable_tui && !cli.rfid, e.into());
                     }
