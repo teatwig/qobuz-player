@@ -22,7 +22,7 @@ repository = "https://github.com/sofusa/qobuz-player"
 name = "qobuz-player"
 
 [workspace.dependencies]
-axum = { version = "*", features = ["ws"] }
+axum = { version = "*" }
 axum-extra = { version = "*", features = ["cookie"] }
 time = "*"
 base64 = "*"
@@ -31,13 +31,13 @@ rust-embed = { version = "*", features = ["axum", "tokio", "mime_guess"] }
 dialoguer = "*"
 dirs = "*"
 futures = "*"
-leptos = { version = "*", features = ["ssr"] }
+leptos = { version = "*", default-features = false }
 md5 = "*"
 mime = "*"
 mime_guess = "*"
 rand = "*"
 regex = "*"
-reqwest = { version = "*", features = ["rustls-tls", "cookies", "stream", "multipart"] }
+reqwest = { version = "*", features = ["rustls-tls", "cookies"] }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 snafu = "*"
@@ -45,7 +45,7 @@ sqlx = { version = "*", features = ["runtime-tokio-rustls", "sqlite", "migrate",
 tokio = { version = "*", features = ["full"] }
 tokio-stream = { version = "*", features = ["sync"] }
 tracing = "*"
-tracing-subscriber = { version = "*", features = ["env-filter"] }
+tracing-subscriber = { version = "*" }
 url = "*"
 moka = { version = "*", features = ["future"]}
 rodio = "*"
