@@ -10,7 +10,7 @@ use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::models::{Album, AlbumSimple, Track};
 
 use crate::{
-    AppState,
+    AppState, ResponseResult,
     components::{
         ButtonGroup, Description, ToggleFavorite, button_class,
         list::{ListAlbumsVertical, ListTracks, TrackNumberDisplay},
@@ -18,6 +18,7 @@ use crate::{
     },
     html,
     icons::{Link, Play},
+    ok_or_broadcast, ok_or_error_component,
     page::Page,
     view::{LazyLoadComponent, render},
 };
@@ -44,19 +45,22 @@ async fn play_track(
 async fn set_favorite(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-) -> impl IntoResponse {
-    state.client.add_favorite_album(&id).await.unwrap();
+) -> ResponseResult {
+    ok_or_broadcast(&state.broadcast, state.client.add_favorite_album(&id).await)?;
 
-    render(html! { <ToggleFavorite id=id is_favorite=true /> })
+    Ok(render(html! { <ToggleFavorite id=id is_favorite=true /> }))
 }
 
 async fn unset_favorite(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-) -> impl IntoResponse {
-    state.client.remove_favorite_album(&id).await.unwrap();
+) -> ResponseResult {
+    ok_or_broadcast(
+        &state.broadcast,
+        state.client.remove_favorite_album(&id).await,
+    )?;
 
-    render(html! { <ToggleFavorite id=id is_favorite=false /> })
+    Ok(render(html! { <ToggleFavorite id=id is_favorite=false /> }))
 }
 
 async fn play(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
@@ -88,12 +92,12 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> im
     })
 }
 
-async fn content(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
-    let album_data = state.get_album(&id).await;
+async fn content(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> ResponseResult {
+    let album_data = ok_or_error_component(state.get_album(&id).await)?;
     let currently_playing = state.tracklist_receiver.borrow().currently_playing();
-    let is_favorite = state.is_album_favorite(&id).await;
+    let is_favorite = ok_or_error_component(state.is_album_favorite(&id).await)?;
 
-    render(html! {
+    Ok(render(html! {
         <Album
             album=album_data.album
             suggested_albums=album_data.suggested_albums
@@ -101,23 +105,23 @@ async fn content(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> 
             now_playing_id=currently_playing
             rfid=state.rfid_state.is_some()
         />
-    })
+    }))
 }
 
 async fn album_tracks_partial(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-) -> impl IntoResponse {
-    let album = state.client.album(&id).await.unwrap();
+) -> ResponseResult {
+    let album = ok_or_error_component(state.client.album(&id).await)?;
     let tracklist = state.tracklist_receiver.borrow();
 
-    render(html! {
+    Ok(render(html! {
         <AlbumTracks
             now_playing_id=tracklist.currently_playing()
             tracks=album.tracks
             album_id=album.id
         />
-    })
+    }))
 }
 
 #[component]

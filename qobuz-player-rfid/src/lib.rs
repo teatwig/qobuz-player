@@ -1,6 +1,7 @@
 use dialoguer::Input;
 use qobuz_player_controls::{
-    TracklistReceiver, controls::Controls, notification::NotificationBroadcast, tracklist,
+    Result, TracklistReceiver, controls::Controls, error::Error,
+    notification::NotificationBroadcast, tracklist,
 };
 use qobuz_player_database::{Database, LinkRequest, ReferenceType};
 use std::sync::Arc;
@@ -17,7 +18,7 @@ pub async fn init(
     controls: Controls,
     database: Arc<Database>,
     broadcast: Arc<NotificationBroadcast>,
-) {
+) -> Result<()> {
     loop {
         let Ok(res) = tokio::task::spawn_blocking(|| {
             Input::<String>::new()
@@ -25,7 +26,8 @@ pub async fn init(
                 .interact_text()
         })
         .await
-        .expect("input thread panicked") else {
+        .or(Err(Error::RfidInputPanic))?
+        else {
             continue;
         };
 
@@ -101,7 +103,7 @@ pub async fn link(state: RfidState, request: LinkRequest, broadcast: Arc<Notific
         LinkRequest::Playlist(_) => "playlist",
     };
 
-    broadcast.send_message(qobuz_player_controls::notification::Notification::Info(
+    broadcast.send(qobuz_player_controls::notification::Notification::Info(
         format!("Scan rfid to link {type_string}"),
     ));
 
@@ -111,7 +113,7 @@ pub async fn link(state: RfidState, request: LinkRequest, broadcast: Arc<Notific
         let request_ongoing = state.link_request.lock().await.is_some();
 
         if request_ongoing {
-            broadcast.send_message(qobuz_player_controls::notification::Notification::Warning(
+            broadcast.send(qobuz_player_controls::notification::Notification::Warning(
                 "Scan cancelled".to_string(),
             ));
             set_state(&state, None).await;
@@ -131,17 +133,8 @@ fn submit_link_album(
     rfid_id: &str,
     id: &str,
 ) {
-    let rfid_id = rfid_id.to_owned();
     let reference = ReferenceType::Album(id.to_owned());
-
-    tokio::spawn(async move {
-        database.add_rfid_reference(rfid_id, reference).await;
-        broadcast.send_message(qobuz_player_controls::notification::Notification::Success(
-            "Link completed".to_string(),
-        ));
-
-        set_state(&state, None).await;
-    });
+    submit_link(state, database, broadcast, rfid_id, reference);
 }
 
 fn submit_link_playlist(
@@ -151,14 +144,32 @@ fn submit_link_playlist(
     rfid_id: &str,
     id: u32,
 ) {
-    let rfid_id = rfid_id.to_owned();
     let reference = ReferenceType::Playlist(id);
+    submit_link(state, database, broadcast, rfid_id, reference);
+}
 
+fn submit_link(
+    state: RfidState,
+    database: Arc<Database>,
+    broadcast: Arc<NotificationBroadcast>,
+    rfid_id: &str,
+    reference: ReferenceType,
+) {
+    let rfid_id = rfid_id.to_owned();
     tokio::spawn(async move {
-        database.add_rfid_reference(rfid_id, reference).await;
-        broadcast.send_message(qobuz_player_controls::notification::Notification::Success(
-            "Link completed".to_string(),
-        ));
-        set_state(&state, None).await;
+        match database.add_rfid_reference(rfid_id, reference).await {
+            Ok(_) => {
+                broadcast.send(qobuz_player_controls::notification::Notification::Success(
+                    "Link completed".to_string(),
+                ));
+                set_state(&state, None).await;
+            }
+            Err(e) => {
+                broadcast.send(qobuz_player_controls::notification::Notification::Error(
+                    format!("{e}"),
+                ));
+                tracing::error!("{e}");
+            }
+        };
     });
 }

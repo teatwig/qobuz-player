@@ -7,6 +7,7 @@ use tokio::sync::watch::{self, Receiver, Sender};
 use tokio::task::JoinHandle;
 
 use crate::Result;
+use crate::notification::NotificationBroadcast;
 
 pub struct Sink {
     stream_handle: rodio::OutputStream,
@@ -15,10 +16,11 @@ pub struct Sink {
     current_download: Arc<Mutex<Option<JoinHandle<()>>>>,
     track_finished_tx: Sender<()>,
     done_buffering_tx: Sender<()>,
+    broadcast: Arc<NotificationBroadcast>,
 }
 
 impl Sink {
-    pub fn new(volume: f32) -> Result<Self> {
+    pub fn new(volume: f32, broadcast: Arc<NotificationBroadcast>) -> Result<Self> {
         let mut stream_handle = rodio::OutputStreamBuilder::open_default_stream()?;
         stream_handle.log_on_drop(false);
         let (sender, receiver) = queue(true);
@@ -37,6 +39,7 @@ impl Sink {
             current_download: Default::default(),
             track_finished_tx,
             done_buffering_tx,
+            broadcast,
         })
     }
 
@@ -89,24 +92,36 @@ impl Sink {
         let sender = self.sender.clone();
         let track_finished_tx = self.track_finished_tx.clone();
         let done_buffering_tx = self.done_buffering_tx.clone();
+        let broadcast = self.broadcast.clone();
 
         let handle = tokio::spawn(async move {
-            let resp = reqwest::get(&track_url).await.unwrap();
-            let cursor = Cursor::new(resp.bytes().await.unwrap());
+            let Ok(resp) = reqwest::get(&track_url).await else {
+                broadcast.send_error("Unable to get track audio file".to_string());
+                return;
+            };
+            let Ok(resp) = resp.bytes().await else {
+                broadcast.send_error("Unable to audio file bytes".to_string());
+                return;
+            };
 
-            let source = DecoderBuilder::new()
+            let cursor = Cursor::new(resp);
+
+            let Ok(source) = DecoderBuilder::new()
                 .with_data(cursor)
                 .with_seekable(true)
                 .build()
-                .unwrap();
+            else {
+                broadcast.send_error("Unable to decode audio file".to_string());
+                return;
+            };
 
             let signal = sender.append_with_signal(source);
 
-            done_buffering_tx.send(()).unwrap();
+            done_buffering_tx.send(()).expect("infailable");
 
             tokio::task::spawn_blocking(move || {
                 if signal.recv().is_ok() {
-                    track_finished_tx.send(()).unwrap();
+                    track_finished_tx.send(()).expect("infailable");
                 }
             });
         });

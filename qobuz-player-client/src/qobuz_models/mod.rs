@@ -49,62 +49,52 @@ pub enum UrlType {
 pub enum UrlTypeError {
     #[snafu(display("This uri contains an unfamiliar domain."))]
     WrongDomain,
-    #[snafu(display("the url contains an invalid path"))]
+    #[snafu(display("The URL contains an invalid path."))]
     InvalidPath,
-    #[snafu(display("the url is invalid."))]
+    #[snafu(display("The URL is invalid."))]
     InvalidUrl,
-    #[snafu(display("an unknown error has occurred"))]
+    #[snafu(display("An unknown error has occurred."))]
     Unknown,
 }
 
-pub type ParseUrlResult<T, E = UrlTypeError> = std::result::Result<T, E>;
+pub type ParseUrlResult<T, E = UrlTypeError> = Result<T, E>;
 
 pub fn parse_url(string_url: &str) -> ParseUrlResult<UrlType> {
-    if let Ok(url) = url::Url::parse(string_url) {
-        if let (Some(host), Some(mut path)) = (url.host_str(), url.path_segments()) {
-            if host == "play.qobuz.com" || host == "open.qobuz.com" {
-                tracing::debug!("got a qobuz url");
+    let url = url::Url::parse(string_url).map_err(|_| UrlTypeError::InvalidUrl)?;
 
-                match path.next() {
-                    Some("album") => {
-                        tracing::debug!("this is an album");
-                        let id = path.next().unwrap().to_string();
+    let host = url.host_str().ok_or(UrlTypeError::InvalidUrl)?;
+    let mut path = url.path_segments().ok_or(UrlTypeError::InvalidUrl)?;
 
-                        Ok(UrlType::Album { id })
-                    }
-                    Some("playlist") => {
-                        tracing::debug!("this is a playlist");
-                        let id = path
-                            .next()
-                            .unwrap()
-                            .parse::<i64>()
-                            .expect("failed to convert id");
+    if host != "play.qobuz.com" && host != "open.qobuz.com" {
+        return Err(UrlTypeError::WrongDomain);
+    }
 
-                        Ok(UrlType::Playlist { id })
-                    }
-                    Some("track") => {
-                        tracing::debug!("this is a track");
-                        let id = path
-                            .next()
-                            .unwrap()
-                            .parse::<i32>()
-                            .expect("failed to convert id");
-
-                        Ok(UrlType::Track { id })
-                    }
-                    None => {
-                        tracing::debug!("no path, cannot use path");
-                        Err(UrlTypeError::InvalidPath)
-                    }
-                    _ => Err(UrlTypeError::Unknown),
-                }
-            } else {
-                Err(UrlTypeError::WrongDomain)
-            }
-        } else {
-            Err(UrlTypeError::InvalidUrl)
+    match path.next() {
+        Some("album") => {
+            tracing::debug!("this is an album");
+            let id = path.next().ok_or(UrlTypeError::InvalidPath)?.to_string();
+            Ok(UrlType::Album { id })
         }
-    } else {
-        Err(UrlTypeError::InvalidUrl)
+        Some("playlist") => {
+            tracing::debug!("this is a playlist");
+            let id_str = path.next().ok_or(UrlTypeError::InvalidPath)?;
+            let id = id_str
+                .parse::<i64>()
+                .map_err(|_| UrlTypeError::InvalidPath)?;
+            Ok(UrlType::Playlist { id })
+        }
+        Some("track") => {
+            tracing::debug!("this is a track");
+            let id_str = path.next().ok_or(UrlTypeError::InvalidPath)?;
+            let id = id_str
+                .parse::<i32>()
+                .map_err(|_| UrlTypeError::InvalidPath)?;
+            Ok(UrlType::Track { id })
+        }
+        None => {
+            tracing::debug!("no path, cannot use path");
+            Err(UrlTypeError::InvalidPath)
+        }
+        _ => Err(UrlTypeError::Unknown),
     }
 }

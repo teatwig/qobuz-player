@@ -6,8 +6,8 @@ use mpris_server::{
     zbus::{self, fdo},
 };
 use qobuz_player_controls::{
-    PositionReceiver, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
-    controls::Controls, models::Track,
+    PositionReceiver, Result, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
+    controls::Controls, error::Error, models::Track,
 };
 
 struct MprisPlayer {
@@ -201,8 +201,8 @@ pub async fn init(
     mut volume_receiver: VolumeReceiver,
     mut status_receiver: StatusReceiver,
     controls: Controls,
-) {
-    let server = Server::new(
+) -> Result<()> {
+    let Ok(server) = Server::new(
         "com.github.sofusa-quboz-player",
         MprisPlayer {
             controls,
@@ -213,7 +213,9 @@ pub async fn init(
         },
     )
     .await
-    .unwrap();
+    else {
+        return Err(Error::MprisInitError);
+    };
 
     loop {
         tokio::select! {
@@ -230,22 +232,24 @@ pub async fn init(
                     let can_previous = current_position != 0;
                     let can_next = !(total_tracks != 0 && current_position == total_tracks - 1);
 
-                    server
+                    let Ok(_) = server
                         .properties_changed([
                             Property::Metadata(metadata),
                             Property::CanGoPrevious(can_previous),
                             Property::CanGoNext(can_next),
                         ])
-                        .await
-                        .unwrap();
+                        .await else {
+                            return Err(Error::MprisPropertyError { property: "Metadata, CanGoPrevious, CanGoNext".into() });
+                        };
                 }
             },
             Ok(_) = volume_receiver.changed() => {
                 let volume = *volume_receiver.borrow_and_update();
-                server
+                let Ok(_) = server
                     .properties_changed([Property::Volume(volume.into())])
-                    .await
-                    .unwrap();
+                    .await else {
+                        return Err(Error::MprisPropertyError { property: "Volume".into() });
+                    };
             },
             Ok(_) = status_receiver.changed() => {
                 let status = *status_receiver.borrow_and_update();
@@ -260,14 +264,15 @@ pub async fn init(
                     Status::Playing => PlaybackStatus::Playing,
                 };
 
-                server
+                    let Ok(_) = server
                     .properties_changed([
                         Property::CanPlay(can_play),
                         Property::CanPause(can_pause),
                         Property::PlaybackStatus(playback_status),
                     ])
-                    .await
-                    .unwrap();
+                    .await else {
+                        return Err(Error::MprisPropertyError { property: "CanPlay, CanPause, PlaybackStatus".into() });
+                    };
             },
         }
     }

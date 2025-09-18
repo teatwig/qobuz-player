@@ -73,20 +73,10 @@ pub async fn new(
     password: &str,
     max_audio_quality: AudioQuality,
 ) -> Result<Client> {
-    let mut headers = HeaderMap::new();
-    headers.insert(
-            "User-Agent",
-            HeaderValue::from_str(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
-            )
-            .unwrap(),
-        );
-
     let http_client = reqwest::Client::builder()
         .cookie_store(true)
-        .default_headers(headers)
         .build()
-        .unwrap();
+        .expect("infailable");
 
     let Secrets { secrets, app_id } = get_secrets(&http_client).await?;
 
@@ -632,7 +622,7 @@ async fn track_url(
 
 async fn handle_response(response: Response) -> Result<String> {
     if response.status() == StatusCode::OK {
-        let res = response.text().await.unwrap();
+        let res = response.text().await.unwrap_or_default();
         Ok(res)
     } else {
         Err(Error::Api {
@@ -666,21 +656,27 @@ fn client_headers(app_id: &str, user_token: Option<&str>) -> HeaderMap {
     let mut headers = HeaderMap::new();
 
     tracing::debug!("adding app_id to request headers: {}", app_id);
-    headers.insert("X-App-Id", HeaderValue::from_str(app_id).unwrap());
+    headers.insert(
+        "X-App-Id",
+        HeaderValue::from_str(app_id).expect("infailable"),
+    );
 
     if let Some(token) = user_token {
         tracing::debug!("adding token to request headers: {}", token);
-        headers.insert("X-User-Auth-Token", HeaderValue::from_str(token).unwrap());
+        headers.insert(
+            "X-User-Auth-Token",
+            HeaderValue::from_str(token).expect("infailable"),
+        );
     }
 
     headers.insert(
         "Access-Control-Request-Headers",
-        HeaderValue::from_str("x-app-id,x-user-auth-token").unwrap(),
+        HeaderValue::from_str("x-app-id,x-user-auth-token").expect("infailable"),
     );
 
     headers.insert(
         "Accept-Language",
-        HeaderValue::from_str("en,en-US;q=0.8,ko;q=0.6,zh;q=0.4,zh-CN;q=0.2").unwrap(),
+        HeaderValue::from_str("en,en-US;q=0.8,ko;q=0.6,zh;q=0.4,zh-CN;q=0.2").expect("infailable"),
     );
 
     headers
@@ -714,13 +710,20 @@ async fn login(
 
     match make_get_call(&endpoint, Some(&params), client, app_id, None).await {
         Ok(response) => {
-            let json: Value = serde_json::from_str(response.as_str()).unwrap();
+            let json: Value = serde_json::from_str(response.as_str())
+                .or(Err(Error::DeserializeJSON { message: response }))?;
             tracing::info!("Successfully logged in");
             tracing::debug!("{}", json);
             let mut user_token = json["user_auth_token"].to_string();
             user_token = user_token[1..user_token.len() - 1].to_string();
 
-            let user_id = json["user"]["id"].to_string().parse::<i64>().unwrap();
+            let user_id =
+                json["user"]["id"]
+                    .to_string()
+                    .parse::<i64>()
+                    .or(Err(Error::DeserializeJSON {
+                        message: json["user"].to_string(),
+                    }))?;
 
             Ok(LoginResult {
                 user_token,
@@ -746,20 +749,21 @@ async fn get_secrets(client: &reqwest::Client) -> Result<Secrets> {
     let play_url = "https://play.qobuz.com";
     let login_page = client.get(format!("{play_url}/login")).send().await?;
 
-    let contents = login_page.text().await.unwrap();
+    let contents = login_page.text().await.or(Err(Error::Login))?;
 
     let bundle_regex = regex::Regex::new(
         r#"<script src="(/resources/\d+\.\d+\.\d+-[a-z0-9]\d{3}/bundle\.js)"></script>"#,
     )
-    .unwrap();
+    .or(Err(Error::Login))?;
+
     let app_id_regex = regex::Regex::new(
         r#"production:\{api:\{appId:"(?P<app_id>\d{9})",appSecret:"(?P<app_secret>\w{32})""#,
     )
-    .unwrap();
+    .or(Err(Error::Login))?;
     let seed_regex = regex::Regex::new(
         r#"[a-z]\.initialSeed\("(?P<seed>[\w=]+)",window\.utimezone\.(?P<timezone>[a-z]+)\)"#,
     )
-    .unwrap();
+    .or(Err(Error::Login))?;
 
     let mut secrets = HashMap::new();
 
@@ -783,7 +787,7 @@ async fn get_secrets(client: &reqwest::Client) -> Result<Secrets> {
 
                             let info_regex = format!(r#"name:"\w+/(?P<timezone>{}([a-z]?))",info:"(?P<info>[\w=]+)",extras:"(?P<extras>[\w=]+)""#, &timezone);
                             regex::Regex::new(info_regex.as_str())
-                                .unwrap()
+                                .expect("Unable to create regex")
                                 .captures_iter(bundle_contents.as_str())
                                 .for_each(|c| {
                                     let timezone =

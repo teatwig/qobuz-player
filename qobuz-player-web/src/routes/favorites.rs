@@ -3,19 +3,18 @@ use std::sync::Arc;
 use axum::{
     Router,
     extract::{Path, State},
-    response::IntoResponse,
     routing::get,
 };
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::models::Favorites;
 
 use crate::{
-    AppState,
+    AppState, ResponseResult,
     components::{
         Tab,
         list::{ListAlbums, ListArtists, ListPlaylists},
     },
-    html,
+    html, ok_or_error_component,
     page::Page,
     view::render,
 };
@@ -24,17 +23,17 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new().route("/favorites/{tab}", get(index))
 }
 
-async fn index(State(state): State<Arc<AppState>>, Path(tab): Path<Tab>) -> impl IntoResponse {
-    let favorites = state.get_favorites().await;
+async fn index(State(state): State<Arc<AppState>>, Path(tab): Path<Tab>) -> ResponseResult {
+    let favorites = ok_or_error_component(state.get_favorites().await)?;
 
     let tracklist = state.tracklist_receiver.borrow().clone();
     let current_status = state.status_receiver.borrow();
 
-    render(html! {
+    Ok(render(html! {
         <Page active_page=Page::Favorites current_status=*current_status tracklist=&tracklist>
             <Favorites favorites=favorites tab=tab />
         </Page>
-    })
+    }))
 }
 
 #[component]

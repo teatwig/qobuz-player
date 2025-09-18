@@ -84,43 +84,43 @@ impl Client {
         }
     }
 
-    async fn init_client(&self) -> QobuzClient {
+    async fn init_client(&self) -> Result<QobuzClient> {
         let client = qobuz_player_client::client::new(
             &self.username,
             &self.password,
             self.max_audio_quality.clone(),
         )
-        .await
-        .expect("error making client");
+        .await?;
 
         tracing::info!("Done");
-        client
+        Ok(client)
     }
 
-    async fn get_client(&self) -> &QobuzClient {
+    async fn get_client(&self) -> Result<&QobuzClient> {
         if let Some(client) = self.qobuz_client.get() {
-            return client;
+            return Ok(client);
         }
 
         let mut inititiated = self.client_initiated.lock().await;
 
         if !*inititiated {
-            let client = self.init_client().await;
+            let client = self.init_client().await?;
 
-            self.qobuz_client.set(client).unwrap();
+            self.qobuz_client.set(client).or(Err(Error::Client {
+                message: "Unable to set client".into(),
+            }))?;
             *inititiated = true;
             drop(inititiated);
         }
 
-        self.qobuz_client.get().unwrap()
+        self.qobuz_client.get().ok_or_else(|| Error::Client {
+            message: "Unable to acquire client lock".to_string(),
+        })
     }
 
-    pub(crate) async fn track_url(
-        &self,
-        track_id: u32,
-    ) -> Result<String, qobuz_player_client::Error> {
-        let client = self.get_client().await;
-        client.track_url(track_id).await
+    pub(crate) async fn track_url(&self, track_id: u32) -> Result<String> {
+        let client = self.get_client().await?;
+        Ok(client.track_url(track_id).await?)
     }
 
     pub async fn album(&self, id: &str) -> Result<Album> {
@@ -128,7 +128,7 @@ impl Client {
             return Ok(cache);
         }
 
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         let album = client.album(id).await?;
         let album = parse_album(album, &self.max_audio_quality);
 
@@ -142,7 +142,7 @@ impl Client {
             return Ok(cache);
         }
 
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         let user_id = client.get_user_id();
 
         let results = client.search_all(&query, 20).await?;
@@ -157,7 +157,7 @@ impl Client {
             return Ok(cache);
         }
 
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         let artist = client.artist(id).await?;
         let artist: ArtistPage = artist.into();
 
@@ -170,7 +170,7 @@ impl Client {
             return Ok(cache);
         }
 
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         let similar_artists = client.similar_artists(id, None).await?;
 
         Ok(similar_artists
@@ -181,7 +181,7 @@ impl Client {
     }
 
     pub async fn track(&self, id: u32) -> Result<Track> {
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         Ok(parse_track(
             client.track(id).await?,
             &self.max_audio_quality,
@@ -193,7 +193,7 @@ impl Client {
             return Ok(cache);
         }
 
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         let suggested_albums = client.suggested_albums(id).await?;
 
         let suggested_albums: Vec<_> = suggested_albums
@@ -215,7 +215,7 @@ impl Client {
             return Ok(cache);
         }
 
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         let featured = client.featured_albums().await?;
 
         let featured: Vec<_> = featured
@@ -253,7 +253,7 @@ impl Client {
             return Ok(cache);
         }
 
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         let user_id = client.get_user_id();
         let featured = client.featured_playlists().await?;
 
@@ -285,7 +285,7 @@ impl Client {
             return Ok(cache);
         }
 
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         let user_id = client.get_user_id();
         let playlist = client.playlist(id).await?;
 
@@ -300,7 +300,7 @@ impl Client {
             return Ok(cache);
         }
 
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         let albums = client.artist_releases(id, None).await?;
 
         let albums: Vec<_> = albums.into_iter().map(|release| release.into()).collect();
@@ -311,42 +311,42 @@ impl Client {
     }
 
     pub async fn add_favorite_album(&self, id: &str) -> Result<()> {
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         client.add_favorite_album(id).await?;
         self.favorites_cache.clear().await;
         Ok(())
     }
 
     pub async fn remove_favorite_album(&self, id: &str) -> Result<()> {
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         client.remove_favorite_album(id).await?;
         self.favorites_cache.clear().await;
         Ok(())
     }
 
     pub async fn add_favorite_artist(&self, id: &str) -> Result<()> {
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         client.add_favorite_artist(id).await?;
         self.favorites_cache.clear().await;
         Ok(())
     }
 
     pub async fn remove_favorite_artist(&self, id: &str) -> Result<()> {
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         client.remove_favorite_artist(id).await?;
         self.favorites_cache.clear().await;
         Ok(())
     }
 
     pub async fn add_favorite_playlist(&self, id: &str) -> Result<()> {
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         client.add_favorite_playlist(id).await?;
         self.favorites_cache.clear().await;
         Ok(())
     }
 
     pub async fn remove_favorite_playlist(&self, id: &str) -> Result<()> {
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         client.remove_favorite_playlist(id).await?;
         self.favorites_cache.clear().await;
         Ok(())
@@ -357,7 +357,7 @@ impl Client {
             return Ok(cache);
         }
 
-        let client = self.get_client().await;
+        let client = self.get_client().await?;
         let (favorites, favorite_playlists) = tokio::join!(
             client.favorites(1000),
             user_playlists(client, &self.max_audio_quality)

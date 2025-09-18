@@ -1,29 +1,75 @@
 use crate::notification::Notification;
 use snafu::prelude::*;
 
-#[derive(Snafu, Debug, Clone, PartialEq)]
+#[derive(Snafu, Debug)]
 pub enum Error {
     #[snafu(display("{message}"))]
     FailedToPlay {
         message: String,
     },
-    #[snafu(display("failed to retrieve a track url"))]
-    TrackURL,
     #[snafu(display("failed to seek"))]
     Seek,
-    #[snafu(display("sorry, could not resume previous session"))]
-    Resume,
     #[snafu(display("{message}"))]
     Client {
         message: String,
     },
+    #[snafu(display("Unable to broadcast notification"))]
     Notification,
-    App,
     StreamError {
         message: String,
     },
     PoisonError,
     SendError,
+    #[snafu(display("Unable to init mpris. Is address already taken?"))]
+    MprisInitError,
+    #[snafu(display("Unable to set mpris property: {property}"))]
+    MprisPropertyError {
+        property: String,
+    },
+    #[snafu(display("Unable to connect to database"))]
+    DatabaseConnectError,
+    #[snafu(display("Unable to migrate database to latest version"))]
+    DatabaseMigrationError,
+    #[snafu(display("Unable to find database location"))]
+    DatabaseLocationError,
+    #[snafu(display("Database error: {source}"))]
+    DatabaseError {
+        #[snafu(source)]
+        source: sqlx::Error,
+    },
+    #[snafu(display("Serialization error: {source}"))]
+    SerializationError {
+        #[snafu(source)]
+        source: serde_json::Error,
+    },
+    #[snafu(display("Gpio pin {pin} is unavailable"))]
+    GpioUnavailable {
+        pin: u8,
+    },
+    #[snafu(display("Rfid prompt input error"))]
+    RfidInputPanic,
+    #[snafu(display("Port already in use: {port}"))]
+    PortInUse {
+        port: u16,
+    },
+}
+
+impl From<sqlx::migrate::MigrateError> for Error {
+    fn from(_value: sqlx::migrate::MigrateError) -> Self {
+        Self::DatabaseMigrationError
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(source: serde_json::Error) -> Self {
+        Self::SerializationError { source }
+    }
+}
+
+impl From<sqlx::Error> for Error {
+    fn from(source: sqlx::Error) -> Self {
+        Self::DatabaseError { source }
+    }
 }
 
 impl<T> From<tokio::sync::watch::error::SendError<T>> for Error {

@@ -20,12 +20,12 @@ where
                 Response::builder()
                     .header(axum::http::header::CONTENT_TYPE, mime.as_ref())
                     .body(body)
-                    .unwrap()
+                    .expect("infaliable")
             }
             None => Response::builder()
                 .status(axum::http::StatusCode::NOT_FOUND)
                 .body(axum::body::Body::empty())
-                .unwrap(),
+                .expect("infaliable"),
         }
     }
 }

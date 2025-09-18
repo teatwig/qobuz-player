@@ -7,20 +7,12 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, Snafu)]
 pub enum Error {
-    #[snafu(display("No username provided."))]
-    NoPassword,
-    #[snafu(display("No password provided."))]
-    NoUsername,
-    #[snafu(display("No username or password provided."))]
-    NoCredentials,
     #[snafu(display("Failed to get a usable secret from Qobuz."))]
     ActiveSecret,
     #[snafu(display("Failed to get an app id from Qobuz."))]
     AppID,
     #[snafu(display("Failed to login."))]
     Login,
-    #[snafu(display("Authorization missing."))]
-    Authorization,
     #[snafu(display("Failed to create client"))]
     Create,
     #[snafu(display("{message}"))]
@@ -38,7 +30,7 @@ impl From<reqwest::Error> for Error {
                 message: status.to_string(),
             },
             None => Error::Api {
-                message: "Error calling the API".to_string(),
+                message: "Unable to connect to Qobuz api".to_string(),
             },
         }
     }

@@ -9,9 +9,10 @@ use futures::stream::Stream;
 use leptos::*;
 use leptos::{html::*, prelude::RenderHtml};
 use qobuz_player_controls::{
-    PositionReceiver, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
+    PositionReceiver, Result, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
     client::Client,
     controls::Controls,
+    error::Error,
     models::{Album, AlbumSimple, Favorites, Playlist},
     notification::{Notification, NotificationBroadcast},
 };
@@ -21,11 +22,13 @@ use routes::{
 };
 use std::{convert::Infallible, sync::Arc};
 use tokio::{
-    join,
     sync::broadcast::{self, Receiver, Sender},
+    try_join,
 };
 use tokio_stream::StreamExt as _;
 use tokio_stream::wrappers::BroadcastStream;
+
+use crate::view::render;
 
 mod assets;
 mod components;
@@ -46,9 +49,11 @@ pub async fn init(
     rfid_state: Option<RfidState>,
     broadcast: Arc<NotificationBroadcast>,
     client: Arc<Client>,
-) {
+) -> Result<()> {
     let interface = format!("0.0.0.0:{port}");
-    let listener = tokio::net::TcpListener::bind(&interface).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(&interface)
+        .await
+        .or(Err(Error::PortInUse { port }))?;
 
     let router = create_router(
         controls,
@@ -63,7 +68,8 @@ pub async fn init(
     )
     .await;
 
-    axum::serve(listener, router).await.unwrap();
+    axum::serve(listener, router).await.expect("infailable");
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -219,7 +225,7 @@ async fn sse_handler(
     });
 
     let mut headers = axum::http::HeaderMap::new();
-    headers.insert("X-Accel-Buffering", "no".parse().unwrap());
+    headers.insert("X-Accel-Buffering", "no".parse().expect("infailable"));
 
     (headers, Sse::new(stream))
 }
@@ -238,26 +244,23 @@ pub(crate) struct AppState {
 }
 
 impl AppState {
-    pub async fn get_favorites(&self) -> Favorites {
-        self.client.favorites().await.unwrap()
+    pub async fn get_favorites(&self) -> Result<Favorites> {
+        self.client.favorites().await
     }
 
-    pub async fn get_album(&self, id: &str) -> AlbumData {
+    pub async fn get_album(&self, id: &str) -> Result<AlbumData> {
         let (album, suggested_albums) =
-            join!(self.client.album(id), self.client.suggested_albums(id),);
+            try_join!(self.client.album(id), self.client.suggested_albums(id))?;
 
-        let album = album.unwrap();
-        let suggested_albums = suggested_albums.unwrap();
-
-        AlbumData {
+        Ok(AlbumData {
             album,
             suggested_albums,
-        }
+        })
     }
 
-    pub async fn is_album_favorite(&self, id: &str) -> bool {
-        let favorites = self.get_favorites().await;
-        favorites.albums.iter().any(|album| album.id == id)
+    pub async fn is_album_favorite(&self, id: &str) -> Result<bool> {
+        let favorites = self.get_favorites().await?;
+        Ok(favorites.albums.iter().any(|album| album.id == id))
     }
 }
 
@@ -277,4 +280,35 @@ pub(crate) struct ServerSentEvent {
 pub(crate) struct Discover {
     pub albums: Vec<(String, Vec<AlbumSimple>)>,
     pub playlists: Vec<(String, Vec<Playlist>)>,
+}
+
+type ResponseResult = std::result::Result<axum::response::Response, axum::response::Response>;
+
+#[allow(clippy::result_large_err)]
+fn ok_or_error_component<T>(
+    value: Result<T, qobuz_player_controls::error::Error>,
+) -> Result<T, axum::response::Response> {
+    match value {
+        Ok(value) => Ok(value),
+        Err(err) => Err(render(html! { <div>{format!("{err}")}</div> })),
+    }
+}
+
+#[allow(clippy::result_large_err)]
+fn ok_or_broadcast<T>(
+    broadcast: &NotificationBroadcast,
+    value: Result<T, qobuz_player_controls::error::Error>,
+) -> Result<T, axum::response::Response> {
+    match value {
+        Ok(value) => Ok(value),
+        Err(err) => {
+            broadcast.send(Notification::Error(format!("{err}")));
+
+            let mut response = render(html! { <div></div> });
+            let headers = response.headers_mut();
+            headers.insert("HX-Reswap", "none".try_into().expect("infailable"));
+
+            Err(response)
+        }
+    }
 }

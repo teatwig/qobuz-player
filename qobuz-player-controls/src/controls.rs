@@ -29,23 +29,23 @@ impl Controls {
     }
 
     pub fn next(&self) {
-        self.tx.send(ControlCommand::Next).unwrap();
+        self.tx.send(ControlCommand::Next).expect("infailable");
     }
 
     pub fn previous(&self) {
-        self.tx.send(ControlCommand::Previous).unwrap();
+        self.tx.send(ControlCommand::Previous).expect("infailable");
     }
 
     pub fn play_pause(&self) {
-        self.tx.send(ControlCommand::PlayPause).unwrap();
+        self.tx.send(ControlCommand::PlayPause).expect("infailable");
     }
 
     pub fn play(&self) {
-        self.tx.send(ControlCommand::Play).unwrap();
+        self.tx.send(ControlCommand::Play).expect("infailable");
     }
 
     pub fn pause(&self) {
-        self.tx.send(ControlCommand::Pause).unwrap();
+        self.tx.send(ControlCommand::Pause).expect("infailable");
     }
 
     pub fn play_album(&self, id: &str, index: u32) {
@@ -54,23 +54,25 @@ impl Controls {
                 id: id.to_string(),
                 index,
             })
-            .unwrap();
+            .expect("infailable");
     }
 
     pub fn play_playlist(&self, id: u32, index: u32, shuffle: bool) {
         self.tx
             .send(ControlCommand::Playlist { id, index, shuffle })
-            .unwrap();
+            .expect("infailable");
     }
 
     pub fn play_track(&self, id: u32) {
-        self.tx.send(ControlCommand::Track { id }).unwrap();
+        self.tx
+            .send(ControlCommand::Track { id })
+            .expect("infailable");
     }
 
     pub fn play_top_tracks(&self, artist_id: u32, index: u32) {
         self.tx
             .send(ControlCommand::ArtistTopTracks { artist_id, index })
-            .unwrap();
+            .expect("infailable");
     }
 
     pub fn skip_to_position(&self, index: u32, force: bool) {
@@ -79,22 +81,30 @@ impl Controls {
                 new_position: index,
                 force,
             })
-            .unwrap();
+            .expect("infailable");
     }
 
     pub fn set_volume(&self, volume: f32) {
-        self.tx.send(ControlCommand::SetVolume { volume }).unwrap();
+        self.tx
+            .send(ControlCommand::SetVolume { volume })
+            .expect("infailable");
     }
 
     pub fn seek(&self, time: Duration) {
-        self.tx.send(ControlCommand::Seek { time }).unwrap();
+        self.tx
+            .send(ControlCommand::Seek { time })
+            .expect("infailable");
     }
 
     pub fn jump_forward(&self) {
-        self.tx.send(ControlCommand::JumpForward).unwrap();
+        self.tx
+            .send(ControlCommand::JumpForward)
+            .expect("infailable");
     }
 
     pub fn jump_backward(&self) {
-        self.tx.send(ControlCommand::JumpBackward).unwrap();
+        self.tx
+            .send(ControlCommand::JumpBackward)
+            .expect("infailable");
     }
 }

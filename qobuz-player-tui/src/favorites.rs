@@ -49,12 +49,18 @@ impl SubTab {
     pub(crate) const VALUES: [Self; 3] = [Self::Albums, Self::Artists, Self::Playlists];
 
     pub(crate) fn next(self) -> Self {
-        let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
+        let index = Self::VALUES
+            .iter()
+            .position(|&x| x == self)
+            .expect("infailable");
         Self::VALUES[(index + 1) % Self::VALUES.len()]
     }
 
     pub(crate) fn previous(self) -> Self {
-        let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
+        let index = Self::VALUES
+            .iter()
+            .position(|&x| x == self)
+            .expect("infailable");
         let len = Self::VALUES.len();
         Self::VALUES[(index + len - 1) % len]
     }
@@ -156,7 +162,10 @@ impl FavoritesState {
                                 };
 
                                 let artist_albums =
-                                    self.client.artist_albums(selected.id).await.unwrap();
+                                    match self.client.artist_albums(selected.id).await {
+                                        Ok(res) => res,
+                                        Err(err) => return Output::Error(format!("{err}")),
+                                    };
 
                                 Output::Popup(Popup::Artist(ArtistPopupState {
                                     artist_name: selected.name.clone(),

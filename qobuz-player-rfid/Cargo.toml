@@ -11,3 +11,4 @@ qobuz-player-database = { version = "*", path = "../qobuz-player-database" }
 
 tokio = { workspace = true }
 dialoguer = { workspace = true }
+tracing = { workspace = true }

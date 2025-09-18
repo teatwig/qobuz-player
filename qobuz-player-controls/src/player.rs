@@ -8,6 +8,7 @@ use crate::{
     PositionReceiver, Result, Status, StatusReceiver, TracklistReceiver, VolumeReceiver,
     controls::{ControlCommand, Controls},
     models::{Album, Track, TrackStatus},
+    notification::NotificationBroadcast,
     timer::Timer,
     tracklist::{SingleTracklist, TracklistType},
 };
@@ -20,6 +21,7 @@ use crate::{
 };
 
 pub struct Player {
+    broadcast: Arc<NotificationBroadcast>,
     tracklist_tx: Sender<Tracklist>,
     tracklist_rx: Receiver<Tracklist>,
     target_status: Sender<Status>,
@@ -37,8 +39,13 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(tracklist: Tracklist, client: Arc<Client>, volume: f32) -> Self {
-        let sink = Sink::new(volume).unwrap();
+    pub fn new(
+        tracklist: Tracklist,
+        client: Arc<Client>,
+        volume: f32,
+        broadcast: Arc<NotificationBroadcast>,
+    ) -> Result<Self> {
+        let sink = Sink::new(volume, broadcast.clone())?;
 
         let track_finished = sink.track_finished();
         let done_buffering = sink.done_buffering();
@@ -51,7 +58,8 @@ impl Player {
         let (controls_tx, controls_rx) = tokio::sync::mpsc::unbounded_channel();
         let controls = Controls::new(controls_tx);
 
-        Self {
+        Ok(Self {
+            broadcast,
             tracklist_tx,
             tracklist_rx,
             controls_rx,
@@ -66,7 +74,7 @@ impl Player {
             first_track_queried: false,
             track_finished,
             done_buffering,
-        }
+        })
     }
 
     pub fn controls(&self) -> Controls {
@@ -93,41 +101,46 @@ impl Player {
         let target_status = *self.target_status.borrow();
 
         match target_status {
-            Status::Playing | Status::Buffering => self.pause()?,
+            Status::Playing | Status::Buffering => self.pause(),
             Status::Paused => self.play().await?,
         }
 
         Ok(())
     }
 
-    fn start_timer(&mut self) -> Result<()> {
+    fn start_timer(&mut self) {
         self.position_timer.start();
-        self.position.send(self.position_timer.elapsed())?;
-        Ok(())
+        self.position
+            .send(self.position_timer.elapsed())
+            .expect("infailable");
     }
 
-    fn pause_timer(&mut self) -> Result<()> {
+    fn pause_timer(&mut self) {
         self.position_timer.pause();
-        self.position.send(self.position_timer.elapsed())?;
-        Ok(())
+        self.position
+            .send(self.position_timer.elapsed())
+            .expect("infailable");
     }
 
-    fn stop_timer(&mut self) -> Result<()> {
+    fn stop_timer(&mut self) {
         self.position_timer.stop();
-        self.position.send(self.position_timer.elapsed())?;
-        Ok(())
+        self.position
+            .send(self.position_timer.elapsed())
+            .expect("infailable");
     }
 
-    fn reset_timer(&mut self) -> Result<()> {
+    fn reset_timer(&mut self) {
         self.position_timer.reset();
-        self.position.send(self.position_timer.elapsed())?;
-        Ok(())
+        self.position
+            .send(self.position_timer.elapsed())
+            .expect("infailable");
     }
 
-    fn set_timer(&mut self, duration: Duration) -> Result<()> {
+    fn set_timer(&mut self, duration: Duration) {
         self.position_timer.set_time(duration);
-        self.position.send(self.position_timer.elapsed())?;
-        Ok(())
+        self.position
+            .send(self.position_timer.elapsed())
+            .expect("infailable");
     }
 
     async fn play(&mut self) -> Result<()> {
@@ -142,19 +155,18 @@ impl Player {
 
         self.set_target_status(Status::Playing);
         self.sink.play();
-        self.start_timer()?;
+        self.start_timer();
         Ok(())
     }
 
-    fn pause(&mut self) -> Result<()> {
+    fn pause(&mut self) {
         self.set_target_status(Status::Paused);
         self.sink.pause();
-        self.pause_timer()?;
-        Ok(())
+        self.pause_timer();
     }
 
     fn set_target_status(&self, status: Status) {
-        self.target_status.send(status).unwrap();
+        self.target_status.send(status).expect("infailable");
     }
 
     async fn track_url(&self, track_id: u32) -> Result<String> {
@@ -172,12 +184,13 @@ impl Player {
         Ok(())
     }
 
-    fn broadcast_tracklist(&self, tracklist: Tracklist) {
-        self.tracklist_tx.send(tracklist).unwrap();
+    fn broadcast_tracklist(&self, tracklist: Tracklist) -> Result<()> {
+        self.tracklist_tx.send(tracklist)?;
+        Ok(())
     }
 
     fn seek(&mut self, duration: Duration) -> Result<()> {
-        self.set_timer(duration)?;
+        self.set_timer(duration);
         self.sink.seek(duration)
     }
 
@@ -218,7 +231,7 @@ impl Player {
 
     /// Skip to a specific track in the tracklist.
     async fn skip_to_position(&mut self, new_position: u32, force: bool) -> Result<()> {
-        self.stop_timer()?;
+        self.stop_timer();
         let mut tracklist = self.tracklist_rx.borrow().clone();
         let current_position = tracklist.current_position();
         self.set_target_status(Status::Buffering);
@@ -253,7 +266,7 @@ impl Player {
             self.next_track_is_queried = false;
             self.query_track_url(&next_track_url)?;
             self.first_track_queried = true;
-            self.start_timer()?;
+            self.start_timer();
         } else {
             tracklist.reset();
             self.sink.clear().await?;
@@ -264,7 +277,7 @@ impl Player {
             self.position.send(Default::default())?;
         }
 
-        self.broadcast_tracklist(tracklist);
+        self.broadcast_tracklist(tracklist)?;
 
         Ok(())
     }
@@ -287,7 +300,7 @@ impl Player {
     }
 
     async fn new_queue(&mut self, tracklist: Tracklist) -> Result<()> {
-        self.stop_timer()?;
+        self.stop_timer();
         self.sink.clear().await?;
         self.next_track_is_queried = false;
         self.set_target_status(Status::Buffering);
@@ -298,7 +311,7 @@ impl Player {
             self.first_track_queried = true;
         }
 
-        self.broadcast_tracklist(tracklist);
+        self.broadcast_tracklist(tracklist)?;
 
         Ok(())
     }
@@ -431,59 +444,60 @@ impl Player {
         Ok(())
     }
 
-    async fn handle_message(&mut self, notification: ControlCommand) {
+    async fn handle_message(&mut self, notification: ControlCommand) -> Result<()> {
         match notification {
             ControlCommand::Album { id, index } => {
-                self.play_album(&id, index).await.unwrap();
+                self.play_album(&id, index).await?;
             }
             ControlCommand::Playlist { id, index, shuffle } => {
-                self.play_playlist(id, index, shuffle).await.unwrap();
+                self.play_playlist(id, index, shuffle).await?;
             }
             ControlCommand::ArtistTopTracks { artist_id, index } => {
-                self.play_top_tracks(artist_id, index).await.unwrap();
+                self.play_top_tracks(artist_id, index).await?;
             }
             ControlCommand::Track { id } => {
-                self.play_track(id).await.unwrap();
+                self.play_track(id).await?;
             }
             ControlCommand::Next => {
-                self.next().await.unwrap();
+                self.next().await?;
             }
             ControlCommand::Previous => {
-                self.previous().await.unwrap();
+                self.previous().await?;
             }
             ControlCommand::PlayPause => {
-                self.play_pause().await.unwrap();
+                self.play_pause().await?;
             }
             ControlCommand::Play => {
-                self.play().await.unwrap();
+                self.play().await?;
             }
             ControlCommand::Pause => {
-                self.pause().unwrap();
+                self.pause();
             }
             ControlCommand::SkipToPosition {
                 new_position,
                 force,
             } => {
-                self.skip_to_position(new_position, force).await.unwrap();
+                self.skip_to_position(new_position, force).await?;
             }
             ControlCommand::JumpForward => {
-                self.jump_forward().unwrap();
+                self.jump_forward()?;
             }
             ControlCommand::JumpBackward => {
-                self.jump_backward().unwrap();
+                self.jump_backward()?;
             }
             ControlCommand::Seek { time } => {
-                self.set_timer(time).unwrap();
-                self.seek(time).unwrap();
+                self.set_timer(time);
+                self.seek(time)?;
             }
             ControlCommand::SetVolume { volume } => {
-                self.set_volume(volume).unwrap();
+                self.set_volume(volume)?;
             }
         }
+        Ok(())
     }
 
     fn track_finished(&mut self) -> Result<()> {
-        self.reset_timer()?;
+        self.reset_timer();
         self.position_timer.reset();
         let mut tracklist = self.tracklist_rx.borrow().clone();
 
@@ -496,7 +510,7 @@ impl Player {
             self.position_timer.stop();
         };
         self.next_track_is_queried = false;
-        self.broadcast_tracklist(tracklist);
+        self.broadcast_tracklist(tracklist)?;
         Ok(())
     }
 
@@ -506,20 +520,26 @@ impl Player {
         loop {
             select! {
                 _ = interval.tick() => {
-                    self.tick().await?;
+                    if let Err(err) = self.tick().await {
+                        self.broadcast.send_error(format!("{err}"));
+                    };
                 }
 
                 Some(notification) = self.controls_rx.recv() => {
-                    self.handle_message(notification).await;
+                    if let Err(err) = self.handle_message(notification).await {
+                        self.broadcast.send_error(format!("{err}"));
+                    };
                 }
 
                 Ok(_) = self.track_finished.changed() => {
-                    self.track_finished()?;
+                    if let Err(err) = self.track_finished() {
+                        self.broadcast.send_error(format!("{err}"));
+                    };
                 }
 
                 Ok(_) = self.done_buffering.changed() => {
                     self.position_timer.reset();
-                    self.start_timer()?;
+                    self.start_timer();
                     self.set_target_status(Status::Playing);
                 }
             }

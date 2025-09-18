@@ -1,10 +1,13 @@
-use qobuz_player_controls::StatusReceiver;
+use qobuz_player_controls::{Result, StatusReceiver, error::Error};
 use rppal::gpio::Gpio;
 
 const GPIO: u8 = 23;
 
-pub async fn init(mut status_receiver: StatusReceiver) {
-    let mut pin = Gpio::new().unwrap().get(GPIO).unwrap().into_output();
+pub async fn init(mut status_receiver: StatusReceiver) -> Result<()> {
+    let mut pin = Gpio::new()
+        .or(Err(Error::GpioUnavailable { pin: GPIO }))?
+        .get(GPIO)?
+        .into_output();
     tracing::info!("Pin claimed");
 
     loop {

@@ -1,6 +1,7 @@
 use std::{fmt, sync::Arc};
 
 use qobuz_player_controls::{
+    Result,
     client::Client,
     models::{Album, Artist, Playlist, Track},
 };
@@ -53,12 +54,18 @@ impl SubTab {
         [Self::Albums, Self::Artists, Self::Playlists, Self::Tracks];
 
     pub(crate) fn next(self) -> Self {
-        let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
+        let index = Self::VALUES
+            .iter()
+            .position(|&x| x == self)
+            .expect("infailable");
         Self::VALUES[(index + 1) % Self::VALUES.len()]
     }
 
     pub(crate) fn previous(self) -> Self {
-        let index = Self::VALUES.iter().position(|&x| x == self).unwrap();
+        let index = Self::VALUES
+            .iter()
+            .position(|&x| x == self)
+            .expect("unfailable");
         let len = Self::VALUES.len();
         Self::VALUES[(index + len - 1) % len]
     }
@@ -171,7 +178,10 @@ impl SearchState {
                                 };
 
                                 let artist_albums =
-                                    self.client.artist_albums(selected.id).await.unwrap();
+                                    match self.client.artist_albums(selected.id).await {
+                                        Ok(res) => res,
+                                        Err(err) => return Output::Error(format!("{err}")),
+                                    };
 
                                 Output::Popup(Popup::Artist(ArtistPopupState {
                                     artist_name: selected.name.clone(),
@@ -211,7 +221,9 @@ impl SearchState {
                     true => match key_event.code {
                         KeyCode::Esc | KeyCode::Enter => {
                             self.stop_editing();
-                            self.update_search().await;
+                            if let Err(err) = self.update_search().await {
+                                return Output::Error(format!("{err}"));
+                            };
                             Output::Consumed
                         }
                         _ => {
@@ -225,19 +237,17 @@ impl SearchState {
         }
     }
 
-    async fn update_search(&mut self) {
+    async fn update_search(&mut self) -> Result<()> {
         if !self.filter.value().trim().is_empty() {
-            let search_results = self
-                .client
-                .search(self.filter.value().to_string())
-                .await
-                .unwrap();
+            let search_results = self.client.search(self.filter.value().to_string()).await?;
 
             self.albums.items = search_results.albums;
             self.artists.items = search_results.artists;
             self.playlists.items = search_results.playlists;
             self.tracks.items = search_results.tracks;
         }
+
+        Ok(())
     }
 
     fn start_editing(&mut self) {

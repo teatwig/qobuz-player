@@ -324,7 +324,7 @@ pub(crate) fn list_tracks(
                                                 <div class="flex overflow-hidden flex-col">
                                                     <h2 class="truncate">{track.title}</h2>
                                                     <h3 class="text-sm text-gray-400 truncate">
-                                                        {track.artist_name.unwrap()}
+                                                        {track.artist_name.unwrap_or_default()}
                                                     </h3>
                                                 </div>
                                             }

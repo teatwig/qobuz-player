@@ -3,7 +3,8 @@ use std::sync::Arc;
 use app::{App, FilteredListState, UnfilteredListState, get_current_state};
 use favorites::FavoritesState;
 use qobuz_player_controls::{
-    PositionReceiver, StatusReceiver, TracklistReceiver, client::Client, controls::Controls,
+    PositionReceiver, Result, StatusReceiver, TracklistReceiver, client::Client,
+    controls::Controls, notification::NotificationBroadcast,
 };
 use queue::QueueState;
 use ratatui::{prelude::*, widgets::*};
@@ -22,11 +23,12 @@ mod ui;
 
 pub async fn init(
     client: Arc<Client>,
+    broadcast: Arc<NotificationBroadcast>,
     controls: Controls,
     position_receiver: PositionReceiver,
     tracklist_receiver: TracklistReceiver,
     status_receiver: StatusReceiver,
-) {
+) -> Result<()> {
     let mut terminal = ratatui::init();
 
     draw_loading_screen(&mut terminal);
@@ -35,8 +37,7 @@ pub async fn init(
         client.favorites(),
         client.featured_albums(),
         client.featured_playlists(),
-    )
-    .unwrap();
+    )?;
 
     let featured_albums = featured_albums
         .into_iter()
@@ -71,6 +72,7 @@ pub async fn init(
     let client_clone = client.clone();
 
     let mut app = App {
+        broadcast,
         controls,
         now_playing,
         position: position_receiver,
@@ -159,5 +161,5 @@ fn draw_loading_screen<B: Backend>(terminal: &mut Terminal<B>) {
                 .wrap(Wrap { trim: false });
             f.render_widget(paragraph, area);
         })
-        .unwrap();
+        .expect("infailable");
 }

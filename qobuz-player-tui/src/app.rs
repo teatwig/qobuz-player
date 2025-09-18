@@ -6,7 +6,7 @@ use core::fmt;
 use image::load_from_memory;
 use qobuz_player_controls::{
     PositionReceiver, Status, StatusReceiver, TracklistReceiver, controls::Controls,
-    tracklist::Tracklist,
+    notification::NotificationBroadcast, tracklist::Tracklist,
 };
 use ratatui::{
     DefaultTerminal,
@@ -15,7 +15,7 @@ use ratatui::{
 };
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 use reqwest::Client;
-use std::io;
+use std::{io, sync::Arc};
 use tokio::time::{self, Duration};
 
 pub(crate) struct App {
@@ -32,6 +32,7 @@ pub(crate) struct App {
     pub(crate) search: SearchState,
     pub(crate) queue: QueueState,
     pub(crate) discover: DiscoverState,
+    pub(crate) broadcast: Arc<NotificationBroadcast>,
 }
 
 #[derive(Default, PartialEq)]
@@ -47,6 +48,7 @@ pub(crate) enum Output {
     NotConsumed,
     Popup(Popup),
     PlayOutcome(PlayOutcome),
+    Error(String),
 }
 
 pub(crate) enum PlayOutcome {
@@ -101,6 +103,7 @@ impl App {
                     self.now_playing.duration_ms = self.position.borrow_and_update().as_millis() as u32;
                     self.should_draw = true;
                 },
+
                 Ok(_) = self.tracklist.changed() => {
                     let tracklist = self.tracklist.borrow_and_update().clone();
                     self.queue.queue.items = tracklist.queue().to_vec();
@@ -108,6 +111,7 @@ impl App {
                     self.now_playing = get_current_state(tracklist, status).await;
                     self.should_draw = true;
                 },
+
                 Ok(_) = self.status.changed() => {
                     let status = self.status.borrow_and_update();
                     self.now_playing.status = *status;
@@ -116,7 +120,7 @@ impl App {
 
                 _ = tick_interval.tick() => {
                     if event::poll(Duration::from_millis(0))? {
-                        self.handle_events().await.unwrap();
+                        self.handle_events().await.expect("infailable");
                     }
                 }
             }
@@ -179,6 +183,9 @@ impl App {
                     }
                     Output::PlayOutcome(outcome) => {
                         self.handle_playoutcome(outcome);
+                    }
+                    Output::Error(err) => {
+                        self.broadcast.send_error(err);
                     }
                 }
 

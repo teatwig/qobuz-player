@@ -1,4 +1,3 @@
-use crate::Result;
 use tokio::sync::broadcast::{self, Receiver, Sender};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -20,17 +19,19 @@ impl NotificationBroadcast {
         let (tx, rx) = broadcast::channel(20);
         Self { tx, rx }
     }
-    pub fn send(&self, notification: Notification) -> Result<()> {
-        self.tx.send(notification)?;
-        Ok(())
+
+    pub fn send(&self, notification: Notification) {
+        self.tx.send(notification).expect("infailable");
+    }
+
+    pub fn send_error(&self, message: String) {
+        self.tx
+            .send(Notification::Error(message))
+            .expect("infailable");
     }
 
     pub fn subscribe(&self) -> Receiver<Notification> {
         self.rx.resubscribe()
-    }
-
-    pub fn send_message(&self, message: Notification) {
-        self.tx.send(message).unwrap();
     }
 }
 

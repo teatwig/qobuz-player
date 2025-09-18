@@ -8,16 +8,17 @@ use axum::{
 };
 use leptos::prelude::*;
 use qobuz_player_controls::models::{self, AlbumSimple, Artist, ArtistPage};
-use tokio::join;
+use tokio::try_join;
 
 use crate::{
-    AppState,
+    AppState, ResponseResult,
     components::{
         ButtonGroup, Description, Info, ToggleFavorite, button_class,
         list::{ListAlbumsVertical, ListArtistsVertical},
     },
     html,
     icons::Play,
+    ok_or_broadcast, ok_or_error_component,
     page::Page,
     view::{LazyLoadComponent, render},
 };
@@ -38,13 +39,13 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
 async fn top_tracks_partial(
     State(state): State<Arc<AppState>>,
     Path(id): Path<u32>,
-) -> impl IntoResponse {
-    let artist = state.client.artist_page(id).await.unwrap();
+) -> ResponseResult {
+    let artist = ok_or_error_component(state.client.artist_page(id).await)?;
     let now_playing_id = state.tracklist_receiver.borrow().currently_playing();
 
-    render(
+    Ok(render(
         html! { <ListTracks artist_id=artist.id tracks=artist.top_tracks now_playing_id=now_playing_id /> },
-    )
+    ))
 }
 
 async fn play_top_track(
@@ -57,18 +58,23 @@ async fn play_top_track(
 async fn set_favorite(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-) -> impl IntoResponse {
-    state.client.add_favorite_artist(&id).await.unwrap();
-
-    render(html! { <ToggleFavorite id=id is_favorite=true /> })
+) -> ResponseResult {
+    ok_or_broadcast(
+        &state.broadcast,
+        state.client.add_favorite_artist(&id).await,
+    )?;
+    Ok(render(html! { <ToggleFavorite id=id is_favorite=true /> }))
 }
 
 async fn unset_favorite(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-) -> impl IntoResponse {
-    state.client.remove_favorite_artist(&id).await.unwrap();
-    render(html! { <ToggleFavorite id=id is_favorite=false /> })
+) -> ResponseResult {
+    ok_or_broadcast(
+        &state.broadcast,
+        state.client.remove_favorite_artist(&id).await,
+    )?;
+    Ok(render(html! { <ToggleFavorite id=id is_favorite=false /> }))
 }
 
 async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
@@ -84,23 +90,19 @@ async fn index(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl 
     })
 }
 
-async fn content(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> impl IntoResponse {
-    let (artist, albums, similar_artists) = join!(
+async fn content(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> ResponseResult {
+    let (artist, albums, similar_artists) = ok_or_error_component(try_join!(
         state.client.artist_page(id),
         state.client.artist_albums(id),
         state.client.similar_artists(id),
-    );
+    ))?;
 
     let now_playing_id = state.tracklist_receiver.borrow().currently_playing();
-
-    let artist = artist.unwrap();
-    let similar_artists = similar_artists.unwrap();
-    let albums = albums.unwrap();
-    let favorites = state.get_favorites().await;
+    let favorites = ok_or_error_component(state.get_favorites().await)?;
 
     let is_favorite = favorites.artists.iter().any(|artist| artist.id == id);
 
-    render(html! {
+    Ok(render(html! {
         <Artist
             artist=artist
             albums=albums
@@ -108,7 +110,7 @@ async fn content(State(state): State<Arc<AppState>>, Path(id): Path<u32>) -> imp
             similar_artists=similar_artists
             now_playing_id=now_playing_id
         />
-    })
+    }))
 }
 
 #[component]

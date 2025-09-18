@@ -86,8 +86,8 @@ fn render_help(frame: &mut Frame) {
         ["q", "Exit"],
     ];
 
-    let max_left = rows.iter().map(|x| x[0].len()).max().unwrap();
-    let max_right = rows.iter().map(|x| x[1].len()).max().unwrap();
+    let max_left = rows.iter().map(|x| x[0].len()).max().expect("infailable");
+    let max_right = rows.iter().map(|x| x[1].len()).max().expect("infailable");
     let max = max_left + max_right;
 
     let rows: Vec<_> = rows.into_iter().map(Row::new).collect();

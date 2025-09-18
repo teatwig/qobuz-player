@@ -3377,6 +3377,7 @@ dependencies = [
  "qobuz-player-rfid",
  "qobuz-player-tui",
  "qobuz-player-web",
+ "ratatui",
  "snafu",
  "tokio",
  "tracing",
@@ -3411,7 +3412,9 @@ dependencies = [
  "reqwest",
  "rodio",
  "serde",
+ "serde_json",
  "snafu",
+ "sqlx",
  "time",
  "tokio",
  "tracing",
@@ -3456,6 +3459,7 @@ dependencies = [
  "qobuz-player-controls",
  "qobuz-player-database",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -3489,6 +3493,7 @@ dependencies = [
  "time",
  "tokio",
  "tokio-stream",
+ "tracing",
 ]
 
 [[package]]

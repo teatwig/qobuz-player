@@ -1,4 +1,5 @@
-use qobuz_player_controls::{AudioQuality, tracklist::Tracklist};
+use qobuz_player_controls::error::Error;
+use qobuz_player_controls::{AudioQuality, Result, tracklist::Tracklist};
 use serde_json::to_string;
 use sqlx::types::Json;
 use sqlx::{Pool, Sqlite, SqlitePool, sqlite::SqliteConnectOptions};
@@ -10,15 +11,19 @@ pub struct Database {
 }
 
 impl Database {
-    pub async fn new() -> Self {
+    pub async fn new() -> Result<Self> {
         let database_url = if let Ok(url) = std::env::var("DATABASE_URL") {
             PathBuf::from(url.replace("sqlite://", ""))
         } else {
-            let mut url = dirs::data_local_dir().unwrap();
+            let Some(mut url) = dirs::data_local_dir() else {
+                return Err(Error::DatabaseLocationError);
+            };
             url.push("qobuz-player");
 
             if !url.exists() {
-                std::fs::create_dir_all(&url).expect("failed to create database directory");
+                let Ok(_) = std::fs::create_dir_all(&url) else {
+                    return Err(Error::DatabaseLocationError);
+                };
             }
 
             url.push("data.db");
@@ -33,22 +38,17 @@ impl Database {
             .filename(database_url)
             .create_if_missing(true);
 
-        let pool = SqlitePool::connect_with(options)
-            .await
-            .expect("failed to open database");
+        let pool = SqlitePool::connect_with(options).await?;
 
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await
-            .expect("migration failed");
+        sqlx::migrate!("./migrations").run(&pool).await?;
 
-        create_credentials_row(&pool).await;
-        create_configuration(&pool).await;
+        create_credentials_row(&pool).await?;
+        create_configuration(&pool).await?;
 
-        Self { pool }
+        Ok(Self { pool })
     }
 
-    pub async fn set_username(&self, username: String) {
+    pub async fn set_username(&self, username: String) -> Result<()> {
         sqlx::query!(
             r#"
             UPDATE credentials
@@ -58,11 +58,11 @@ impl Database {
             username
         )
         .execute(&self.pool)
-        .await
-        .expect("database failure");
+        .await?;
+        Ok(())
     }
 
-    pub async fn set_password(&self, password: String) {
+    pub async fn set_password(&self, password: String) -> Result<()> {
         let md5_pw = format!("{:x}", md5::compute(password));
         sqlx::query!(
             r#"
@@ -73,12 +73,13 @@ impl Database {
             md5_pw
         )
         .execute(&self.pool)
-        .await
-        .expect("database failure");
+        .await?;
+
+        Ok(())
     }
 
-    pub async fn set_tracklist(&self, tracklist: &Tracklist) {
-        let serialized = to_string(&tracklist).unwrap();
+    pub async fn set_tracklist(&self, tracklist: &Tracklist) -> Result<()> {
+        let serialized = to_string(&tracklist)?;
 
         sqlx::query!(
             r#"
@@ -86,8 +87,7 @@ impl Database {
         "#
         )
         .execute(&self.pool)
-        .await
-        .expect("database failure");
+        .await?;
 
         sqlx::query!(
             r#"
@@ -96,8 +96,9 @@ impl Database {
             serialized
         )
         .execute(&self.pool)
-        .await
-        .expect("failed to insert new tracklist");
+        .await?;
+
+        Ok(())
     }
 
     pub async fn get_tracklist(&self) -> Option<Tracklist> {
@@ -113,15 +114,14 @@ impl Database {
         row.ok().map(|x| x.tracklist.0)
     }
 
-    pub async fn set_volume(&self, volume: f32) {
+    pub async fn set_volume(&self, volume: f32) -> Result<()> {
         sqlx::query!(
             r#"
            delete from volume
         "#
         )
         .execute(&self.pool)
-        .await
-        .expect("database failure");
+        .await?;
 
         sqlx::query!(
             r#"
@@ -130,8 +130,9 @@ impl Database {
             volume
         )
         .execute(&self.pool)
-        .await
-        .expect("failed to insert new volume");
+        .await?;
+
+        Ok(())
     }
 
     pub async fn get_volume(&self) -> Option<f32> {
@@ -147,7 +148,7 @@ impl Database {
         row.ok().map(|x| x.volume as f32)
     }
 
-    pub async fn set_max_audio_quality(&self, quality: AudioQuality) {
+    pub async fn set_max_audio_quality(&self, quality: AudioQuality) -> Result<()> {
         let quality_id = quality as i32;
 
         sqlx::query!(
@@ -159,12 +160,13 @@ impl Database {
             quality_id
         )
         .execute(&self.pool)
-        .await
-        .expect("database failure");
+        .await?;
+
+        Ok(())
     }
 
-    pub async fn get_credentials(&self) -> DatabaseCredentials {
-        sqlx::query_as!(
+    pub async fn get_credentials(&self) -> Result<DatabaseCredentials> {
+        Ok(sqlx::query_as!(
             DatabaseCredentials,
             r#"
             SELECT * FROM credentials
@@ -172,12 +174,11 @@ impl Database {
             "#
         )
         .fetch_one(&self.pool)
-        .await
-        .unwrap()
+        .await?)
     }
 
-    pub async fn get_configuration(&self) -> DatabaseConfiguration {
-        sqlx::query_as!(
+    pub async fn get_configuration(&self) -> Result<DatabaseConfiguration> {
+        Ok(sqlx::query_as!(
             DatabaseConfiguration,
             r#"
             SELECT * FROM configuration
@@ -185,11 +186,14 @@ impl Database {
             "#
         )
         .fetch_one(&self.pool)
-        .await
-        .unwrap()
+        .await?)
     }
 
-    pub async fn add_rfid_reference(&self, rfid_id: String, reference: ReferenceType) {
+    pub async fn add_rfid_reference(
+        &self,
+        rfid_id: String,
+        reference: ReferenceType,
+    ) -> Result<()> {
         match reference {
             ReferenceType::Album(id) => {
                 let id = Some(id);
@@ -200,7 +204,7 @@ impl Database {
                     1,
                     id,
                     None::<u32>,
-                ).fetch_one(&self.pool).await.unwrap();
+                ).fetch_one(&self.pool).await?;
             }
             ReferenceType::Playlist(id) => {
                 let id = Some(id);
@@ -211,9 +215,10 @@ impl Database {
                     2,
                     None::<String>,
                     id,
-                ).fetch_one(&self.pool).await.unwrap();
+                ).fetch_one(&self.pool).await?;
             }
         }
+        Ok(())
     }
 
     pub async fn get_reference(&self, id: &str) -> Option<LinkRequest> {
@@ -230,12 +235,10 @@ impl Database {
         };
 
         match db_reference.reference_type {
-            ReferenceTypeDatabase::Album => {
-                Some(LinkRequest::Album(db_reference.album_id.unwrap()))
+            ReferenceTypeDatabase::Album => Some(LinkRequest::Album(db_reference.album_id?)),
+            ReferenceTypeDatabase::Playlist => {
+                Some(LinkRequest::Playlist(db_reference.playlist_id? as u32))
             }
-            ReferenceTypeDatabase::Playlist => Some(LinkRequest::Playlist(
-                db_reference.playlist_id.unwrap() as u32,
-            )),
         }
     }
 }
@@ -294,7 +297,7 @@ struct VolumeDb {
     volume: f64,
 }
 
-async fn create_credentials_row(pool: &Pool<Sqlite>) {
+async fn create_credentials_row(pool: &Pool<Sqlite>) -> Result<()> {
     let rowid = 1;
 
     sqlx::query!(
@@ -304,11 +307,11 @@ async fn create_credentials_row(pool: &Pool<Sqlite>) {
         rowid
     )
     .execute(pool)
-    .await
-    .expect("database failure");
+    .await?;
+    Ok(())
 }
 
-async fn create_configuration(pool: &Pool<Sqlite>) {
+async fn create_configuration(pool: &Pool<Sqlite>) -> Result<()> {
     let rowid = 1;
     sqlx::query!(
         r#"
@@ -317,6 +320,6 @@ async fn create_configuration(pool: &Pool<Sqlite>) {
         rowid
     )
     .execute(pool)
-    .await
-    .expect("database failure");
+    .await?;
+    Ok(())
 }

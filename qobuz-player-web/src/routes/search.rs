@@ -20,13 +20,14 @@ pub(crate) enum Tab {
 }
 
 use crate::{
-    AppState,
+    AppState, ResponseResult,
     components::{
         Info,
         list::{List, ListAlbums, ListArtists, ListItem, ListPlaylists},
     },
     html,
     icons::MagnifyingGlass,
+    ok_or_broadcast,
     page::Page,
     view::render,
 };
@@ -53,47 +54,43 @@ async fn index(
     State(state): State<Arc<AppState>>,
     Path(tab): Path<Tab>,
     Query(parameters): Query<SearchParameters>,
-) -> impl IntoResponse {
+) -> ResponseResult {
     let query = parameters
         .query
         .and_then(|s| if s.is_empty() { None } else { Some(s) });
     let search_results = match query {
-        Some(query) => state.client.search(query).await.unwrap(),
+        Some(query) => ok_or_broadcast(&state.broadcast, state.client.search(query).await)?,
         None => SearchResults::default(),
     };
 
     let current_status = state.status_receiver.borrow();
     let tracklist = state.tracklist_receiver.borrow();
 
-    let html = html! {
+    Ok(render(html! {
         <Page active_page=Page::Search current_status=*current_status tracklist=&tracklist>
             <Search search_results=search_results tab=tab />
         </Page>
-    };
-
-    render(html)
+    }))
 }
 
 async fn search(
     State(state): State<Arc<AppState>>,
     Path(tab): Path<Tab>,
     Form(parameters): Form<SearchParameters>,
-) -> impl IntoResponse {
+) -> ResponseResult {
     let query = parameters
         .query
         .and_then(|s| if s.is_empty() { None } else { Some(s) });
     let search_results = match query.clone() {
-        Some(query) => state.client.search(query).await.unwrap(),
+        Some(query) => ok_or_broadcast(&state.broadcast, state.client.search(query).await)?,
         None => SearchResults::default(),
     };
 
-    let html = html! {
+    Ok(render(html! {
         <SearchPartial search_results=search_results tab=tab.clone() />
 
         {html! { <TabBar query=query.unwrap_or_default() tab=tab /> }.attr("hx-swap-oob", "true")}
-    };
-
-    render(html)
+    }))
 }
 
 #[component]

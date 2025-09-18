@@ -97,6 +97,10 @@ pub enum Error {
     PlayerError { error: String },
     #[snafu(display("{error}"))]
     TerminalError { error: String },
+    #[snafu(display("No username found. Set with config or arguments"))]
+    UsernameMissing,
+    #[snafu(display("No password found. Set with config or arguments"))]
+    PasswordMissing,
 }
 
 impl From<qobuz_player_client::Error> for Error {
@@ -118,7 +122,7 @@ impl From<qobuz_player_controls::error::Error> for Error {
 pub async fn run() -> Result<(), Error> {
     let cli = Cli::parse();
 
-    let database = Arc::new(Database::new().await);
+    let database = Arc::new(Database::new().await?);
 
     tracing_subscriber::fmt()
         .with_max_level(cli.verbosity)
@@ -128,31 +132,36 @@ pub async fn run() -> Result<(), Error> {
 
     match cli.command {
         Commands::Open => {
-            let database_credentials = database.get_credentials().await;
-            let database_configuration = database.get_configuration().await;
+            let database_credentials = database.get_credentials().await?;
+            let database_configuration = database.get_configuration().await?;
             let tracklist = database.get_tracklist().await.unwrap_or_default();
             let volume = database.get_volume().await.unwrap_or(1.0);
 
-            let username = cli.username.unwrap_or_else(|| {
-                database_credentials
+            let username = match cli.username {
+                Some(username) => username,
+                None => database_credentials
                     .username
-                    .expect("No username. Set with config or arguments")
-            });
+                    .ok_or(Error::UsernameMissing)?,
+            };
 
-            let password = cli.password.unwrap_or_else(|| {
-                database_credentials
+            let password = match cli.password {
+                Some(p) => p,
+                None => database_credentials
                     .password
-                    .expect("No username. Set with config or arguments")
-            });
+                    .ok_or(Error::PasswordMissing)?,
+            };
 
-            let max_audio_quality = cli
-                .max_audio_quality
-                .unwrap_or_else(|| database_configuration.max_audio_quality.try_into().unwrap());
+            let max_audio_quality = cli.max_audio_quality.unwrap_or_else(|| {
+                database_configuration
+                    .max_audio_quality
+                    .try_into()
+                    .expect("This should always convert")
+            });
 
             let client = Arc::new(Client::new(username, password, max_audio_quality));
 
-            let mut player = Player::new(tracklist, client.clone(), volume);
             let broadcast = Arc::new(NotificationBroadcast::new());
+            let mut player = Player::new(tracklist, client.clone(), volume, broadcast.clone())?;
 
             let rfid_state = cli.rfid.then(RfidState::default);
 
@@ -164,14 +173,17 @@ pub async fn run() -> Result<(), Error> {
                 let status_receiver = player.status();
                 let controls = player.controls();
                 tokio::spawn(async move {
-                    qobuz_player_mpris::init(
+                    if let Err(e) = qobuz_player_mpris::init(
                         position_receiver,
                         tracklist_receiver,
                         volume_receiver,
                         status_receiver,
                         controls,
                     )
-                    .await;
+                    .await
+                    {
+                        exit(!cli.disable_tui && !cli.rfid, e.into());
+                    }
                 });
             }
 
@@ -186,7 +198,7 @@ pub async fn run() -> Result<(), Error> {
                 let client = client.clone();
 
                 tokio::spawn(async move {
-                    qobuz_player_web::init(
+                    if let Err(e) = qobuz_player_web::init(
                         controls,
                         position_receiver,
                         tracklist_receiver,
@@ -198,7 +210,10 @@ pub async fn run() -> Result<(), Error> {
                         broadcast,
                         client,
                     )
-                    .await;
+                    .await
+                    {
+                        exit(!cli.disable_tui && !cli.rfid, e.into());
+                    }
                 });
             }
 
@@ -206,7 +221,9 @@ pub async fn run() -> Result<(), Error> {
             if cli.gpio {
                 let status_receiver = player.status();
                 tokio::spawn(async {
-                    qobuz_player_gpio::init(status_receiver).await;
+                    if let Err(e) = qobuz_player_gpio::init(status_receiver).await {
+                        exit(!cli.disable_tui && !cli.rfid, e.into());
+                    }
                 });
             }
 
@@ -214,21 +231,28 @@ pub async fn run() -> Result<(), Error> {
             let volume_receiver = player.volume();
             let database_clone = database.clone();
             tokio::spawn(async move {
-                store_state_loop(database_clone, tracklist_receiver, volume_receiver).await;
+                if let Err(e) =
+                    store_state_loop(database_clone, tracklist_receiver, volume_receiver).await
+                {
+                    exit(!cli.disable_tui && !cli.rfid, e);
+                }
             });
 
             if let Some(rfid_state) = rfid_state {
                 let tracklist_receiver = player.tracklist();
                 let controls = player.controls();
                 tokio::spawn(async move {
-                    qobuz_player_rfid::init(
+                    if let Err(e) = qobuz_player_rfid::init(
                         rfid_state,
                         tracklist_receiver,
                         controls,
                         database,
                         broadcast,
                     )
-                    .await;
+                    .await
+                    {
+                        exit(!cli.disable_tui && !cli.rfid, e.into());
+                    }
                 });
             } else if !cli.disable_tui {
                 let position_receiver = player.position();
@@ -236,19 +260,24 @@ pub async fn run() -> Result<(), Error> {
                 let status_receiver = player.status();
                 let controls = player.controls();
                 let client = client.clone();
+                let broadcast = broadcast.clone();
                 tokio::spawn(async move {
-                    qobuz_player_tui::init(
+                    if let Err(e) = qobuz_player_tui::init(
                         client,
+                        broadcast,
                         controls,
                         position_receiver,
                         tracklist_receiver,
                         status_receiver,
                     )
-                    .await;
+                    .await
+                    {
+                        exit(!cli.disable_tui && !cli.rfid, e.into());
+                    };
                 });
             };
 
-            player.player_loop().await.unwrap();
+            player.player_loop().await?;
             Ok(())
         }
         Commands::Config { command } => match command {
@@ -257,7 +286,7 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your username / email")
                     .interact_text()
                 {
-                    database.set_username(username).await;
+                    database.set_username(username).await?;
 
                     println!("Username saved.");
                 }
@@ -268,14 +297,14 @@ pub async fn run() -> Result<(), Error> {
                     .with_prompt("Enter your password (hidden)")
                     .interact()
                 {
-                    database.set_password(password).await;
+                    database.set_password(password).await?;
 
                     println!("Password saved.");
                 }
                 Ok(())
             }
             ConfigCommands::MaxAudioQuality { quality } => {
-                database.set_max_audio_quality(quality).await;
+                database.set_max_audio_quality(quality).await?;
 
                 println!("Max audio quality saved.");
 
@@ -289,17 +318,26 @@ async fn store_state_loop(
     database: Arc<Database>,
     mut tracklist_receiver: TracklistReceiver,
     mut volume_receiver: VolumeReceiver,
-) {
+) -> Result<(), Error> {
     loop {
         tokio::select! {
             Ok(_) = volume_receiver.changed() => {
                 let volume = *volume_receiver.borrow_and_update();
-                database.set_volume(volume).await;
+                database.set_volume(volume).await?;
             }
             Ok(_) = tracklist_receiver.changed() => {
                 let tracklist = tracklist_receiver.borrow_and_update().clone();
-                database.set_tracklist(&tracklist).await;
+                database.set_tracklist(&tracklist).await?;
             },
         }
     }
+}
+
+fn exit(cli: bool, error: Error) {
+    if cli {
+        ratatui::restore();
+    }
+
+    eprintln!("{error}");
+    std::process::exit(1);
 }
