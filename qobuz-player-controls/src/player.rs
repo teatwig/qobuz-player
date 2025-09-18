@@ -414,7 +414,7 @@ impl Player {
 
         if let Some(duration) = duration {
             let position = position.as_secs();
-            let track_about_to_finish = (duration as i16 - position as i16) < 10;
+            let track_about_to_finish = (duration as i16 - position as i16) < 60;
 
             if track_about_to_finish && !self.next_track_is_queried {
                 let tracklist = self.tracklist_rx.borrow();
