@@ -11,24 +11,7 @@ The web interface is ideal for a setup with a single board computer, e.g. Raspbe
 ![TUI Screenshot](/assets/qobuz-player.png?raw=true)
 
 #### Keyboard Shortcuts
-
-| Command             | Key(s)                                 |
-| ------------------- | -------------------------------------- |
-| Favorites           | <kbd>1</kbd>                           |
-| Search              | <kbd>2</kbd>                           |
-| Queue               | <kbd>3</kbd>                           |
-| Discover            | <kbd>4</kbd>                           |
-| Play/Pause          | <kbd>space</kbd>                       |
-| Next track          | <kbd>n</kbd>                           |
-| Previous track      | <kbd>p</kbd>                           |
-| Jump forward        | <kbd>l</kbd>                           |
-| Jump backward       | <kbd>h</kbd>                           |
-| Quit                | <kbd>ctrl</kbd> + <kbd>c</kbd>         |
-| Move up in list     | <kbd>up arrow</kbd>                    |
-| Move down in list   | <kbd>down arrow</kbd>                  |
-| Select item in list | <kbd>enter</kbd>                       |
-| Dismiss popup       | <kbd>esc</kbd>                         |
-
+Press <kbd>h</kbd> for an overview of all available keyboard shortcuts
 
 ### Web UI
 <img src="/assets/qobuz-player-webui.png?raw=true" width="240">
