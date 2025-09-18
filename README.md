@@ -10,6 +10,9 @@ The web interface is ideal for a setup with a single board computer, e.g. Raspbe
 ### Terminal UI
 ![TUI Screenshot](/assets/qobuz-player.png?raw=true)
 
+#### Keyboard Shortcuts
+Press <kbd>h</kbd> for an overview of all available keyboard shortcuts
+
 ### Web UI
 <img src="/assets/qobuz-player-webui.png?raw=true" width="240">
 
