@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use clap::{Parser, Subcommand};
 use qobuz_player_controls::{
@@ -65,6 +65,10 @@ enum Commands {
         #[clap(long, default_value_t = 9888)]
         /// Specify port for the web server.
         port: u16,
+
+        #[clap(long)]
+        /// Cache audio files in directory.
+        audio_cache: Option<PathBuf>,
     },
     /// Persist configurations
     Config {
@@ -143,6 +147,7 @@ pub async fn run() -> Result<(), Error> {
         port: Default::default(),
         #[cfg(feature = "gpio")]
         gpio: Default::default(),
+        audio_cache: Default::default(),
     }) {
         Commands::Open {
             username,
@@ -157,6 +162,7 @@ pub async fn run() -> Result<(), Error> {
             port,
             #[cfg(feature = "gpio")]
             gpio,
+            audio_cache,
         } => {
             let database_credentials = database.get_credentials().await?;
             let database_configuration = database.get_configuration().await?;
@@ -187,7 +193,13 @@ pub async fn run() -> Result<(), Error> {
             let client = Arc::new(Client::new(username, password, max_audio_quality));
 
             let broadcast = Arc::new(NotificationBroadcast::new());
-            let mut player = Player::new(tracklist, client.clone(), volume, broadcast.clone())?;
+            let mut player = Player::new(
+                tracklist,
+                client.clone(),
+                volume,
+                broadcast.clone(),
+                audio_cache,
+            )?;
 
             let rfid_state = rfid.then(RfidState::default);
 

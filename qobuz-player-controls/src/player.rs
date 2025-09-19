@@ -12,7 +12,7 @@ use crate::{
     timer::Timer,
     tracklist::{SingleTracklist, TracklistType},
 };
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use crate::{
     client::Client,
@@ -44,8 +44,9 @@ impl Player {
         client: Arc<Client>,
         volume: f32,
         broadcast: Arc<NotificationBroadcast>,
+        audio_cache: Option<PathBuf>,
     ) -> Result<Self> {
-        let sink = Sink::new(volume, broadcast.clone())?;
+        let sink = Sink::new(volume, broadcast.clone(), audio_cache)?;
 
         let track_finished = sink.track_finished();
         let done_buffering = sink.done_buffering();
@@ -148,8 +149,7 @@ impl Player {
             && let Some(current_track) = self.tracklist_rx.borrow().current_track()
         {
             self.set_target_status(Status::Buffering);
-            let track_url = self.track_url(current_track.id).await?;
-            self.query_track_url(&track_url)?;
+            self.query_track_url(current_track).await?;
             self.first_track_queried = true;
         }
 
@@ -174,8 +174,9 @@ impl Player {
         Ok(track_url)
     }
 
-    fn query_track_url(&self, track_url: &str) -> Result<()> {
-        self.sink.query_track_url(track_url)
+    async fn query_track_url(&self, track: &Track) -> Result<()> {
+        let track_url = self.track_url(track.id).await?;
+        self.sink.query_track_url(&track_url, track)
     }
 
     fn set_volume(&self, volume: f32) -> Result<()> {
@@ -261,10 +262,9 @@ impl Player {
         }
 
         if let Some(next_track) = tracklist.skip_to_track(new_position) {
-            let next_track_url = self.track_url(next_track.id).await?;
             self.sink.clear().await?;
             self.next_track_is_queried = false;
-            self.query_track_url(&next_track_url)?;
+            self.query_track_url(next_track).await?;
             self.first_track_queried = true;
             self.start_timer();
         } else {
@@ -306,8 +306,7 @@ impl Player {
         self.set_target_status(Status::Buffering);
 
         if let Some(first_track) = tracklist.current_track() {
-            let track_url = self.track_url(first_track.id).await?;
-            self.query_track_url(&track_url)?;
+            self.query_track_url(first_track).await?;
             self.first_track_queried = true;
         }
 
@@ -433,8 +432,7 @@ impl Player {
                 let tracklist = self.tracklist_rx.borrow();
 
                 if let Some(next_track) = tracklist.next_track() {
-                    let next_track_url = self.track_url(next_track.id).await?;
-                    self.query_track_url(&next_track_url)?;
+                    self.query_track_url(next_track).await?;
                     self.first_track_queried = true;
                     self.next_track_is_queried = true;
                 }
