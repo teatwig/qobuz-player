@@ -20,14 +20,14 @@ pub struct Sink {
     track_finished_tx: Sender<()>,
     done_buffering_tx: Sender<()>,
     broadcast: Arc<NotificationBroadcast>,
-    cache_dir: Option<PathBuf>,
+    audio_cache_dir: PathBuf,
 }
 
 impl Sink {
     pub fn new(
         volume: f32,
         broadcast: Arc<NotificationBroadcast>,
-        audio_cache: Option<PathBuf>,
+        audio_cache_dir: PathBuf,
     ) -> Result<Self> {
         let mut stream_handle = rodio::OutputStreamBuilder::open_default_stream()?;
         stream_handle.log_on_drop(false);
@@ -48,7 +48,7 @@ impl Sink {
             track_finished_tx,
             done_buffering_tx,
             broadcast,
-            cache_dir: audio_cache,
+            audio_cache_dir,
         })
     }
 
@@ -103,7 +103,7 @@ impl Sink {
         let done_buffering_tx = self.done_buffering_tx.clone();
         let broadcast = self.broadcast.clone();
 
-        let cache_path: Option<PathBuf> = self.cache_dir.as_ref().map(|base| {
+        let cache_path = {
             let artist_name = track.artist_name.as_deref().unwrap_or("unknown");
             let artist_id = track
                 .artist_id
@@ -114,25 +114,24 @@ impl Sink {
             let track_title = &track.title;
 
             let artist_dir = format!(
-                "{}({})",
+                "{} ({})",
                 sanitize_name(artist_name),
                 sanitize_name(&artist_id),
             );
             let album_dir = format!(
-                "{}({})",
+                "{} ({})",
                 sanitize_name(album_title),
                 sanitize_name(album_id),
             );
             let track_file = format!("{}_{}.mp3", track.number, sanitize_name(track_title));
-            base.join(artist_dir).join(album_dir).join(track_file)
-        });
+            self.audio_cache_dir
+                .join(artist_dir)
+                .join(album_dir)
+                .join(track_file)
+        };
 
         let handle = tokio::spawn(async move {
-            let maybe_cached_bytes = if let Some(ref path) = cache_path {
-                (fs::read(path).await).ok()
-            } else {
-                None
-            };
+            let maybe_cached_bytes = (fs::read(&cache_path).await).ok();
 
             let bytes: Vec<u8> = if let Some(bytes) = maybe_cached_bytes {
                 bytes
@@ -147,20 +146,18 @@ impl Sink {
                 };
                 let bytes = body.to_vec();
 
-                if let Some(ref path) = cache_path {
-                    if let Some(parent) = path.parent()
-                        && let Err(e) = fs::create_dir_all(parent).await
-                    {
-                        broadcast.send_error(format!("Unable to create cache directory: {e}"));
-                    }
+                if let Some(parent) = cache_path.parent()
+                    && let Err(e) = fs::create_dir_all(parent).await
+                {
+                    broadcast.send_error(format!("Unable to create cache directory: {e}"));
+                }
 
-                    let tmp = path.with_extension("partial");
-                    if let Err(e) = fs::write(&tmp, &bytes).await {
-                        broadcast.send_error(format!("Unable to write cache temp file: {e}"));
-                    } else if let Err(e) = fs::rename(&tmp, path).await {
-                        let _ = fs::remove_file(&tmp).await;
-                        broadcast.send_error(format!("Unable to finalize cache file: {e}"));
-                    }
+                let tmp = cache_path.with_extension("partial");
+                if let Err(e) = fs::write(&tmp, &bytes).await {
+                    broadcast.send_error(format!("Unable to write cache temp file: {e}"));
+                } else if let Err(e) = fs::rename(&tmp, cache_path).await {
+                    let _ = fs::remove_file(&tmp).await;
+                    broadcast.send_error(format!("Unable to finalize cache file: {e}"));
                 }
 
                 bytes

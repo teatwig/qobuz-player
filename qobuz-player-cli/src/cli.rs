@@ -169,6 +169,12 @@ pub async fn run() -> Result<(), Error> {
             let tracklist = database.get_tracklist().await.unwrap_or_default();
             let volume = database.get_volume().await.unwrap_or(1.0);
 
+            let audio_cache = audio_cache.unwrap_or_else(|| {
+                let mut cache_dir = std::env::temp_dir();
+                cache_dir.push("qobuz-player-cache");
+                cache_dir
+            });
+
             let username = match username {
                 Some(username) => username,
                 None => database_credentials

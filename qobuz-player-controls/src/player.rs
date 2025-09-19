@@ -44,9 +44,9 @@ impl Player {
         client: Arc<Client>,
         volume: f32,
         broadcast: Arc<NotificationBroadcast>,
-        audio_cache: Option<PathBuf>,
+        audio_cache_dir: PathBuf,
     ) -> Result<Self> {
-        let sink = Sink::new(volume, broadcast.clone(), audio_cache)?;
+        let sink = Sink::new(volume, broadcast.clone(), audio_cache_dir)?;
 
         let track_finished = sink.track_finished();
         let done_buffering = sink.done_buffering();
@@ -536,9 +536,11 @@ impl Player {
                 }
 
                 Ok(_) = self.done_buffering.changed() => {
-                    self.position_timer.reset();
-                    self.start_timer();
-                    self.set_target_status(Status::Playing);
+                    if *self.target_status.borrow() != Status::Playing {
+                        self.position_timer.reset();
+                        self.start_timer();
+                        self.set_target_status(Status::Playing);
+                    }
                 }
             }
         }
