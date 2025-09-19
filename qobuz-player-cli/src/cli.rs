@@ -135,6 +135,7 @@ pub async fn run() -> Result<(), Error> {
         password: Default::default(),
         max_audio_quality: Default::default(),
         disable_tui: Default::default(),
+        #[cfg(target_os = "linux")]
         disable_mpris: Default::default(),
         web: Default::default(),
         web_secret: Default::default(),
@@ -148,6 +149,7 @@ pub async fn run() -> Result<(), Error> {
             password,
             max_audio_quality,
             disable_tui,
+            #[cfg(target_os = "linux")]
             disable_mpris,
             web,
             web_secret,
