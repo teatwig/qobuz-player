@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
-use dialoguer::{Input, Password};
 use qobuz_player_controls::{
     AudioQuality, TracklistReceiver, VolumeReceiver, client::Client,
     notification::NotificationBroadcast, player::Player,
@@ -13,60 +12,61 @@ use snafu::prelude::*;
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
-    /// Provide a username. (overrides any database value)
-    #[clap(short, long)]
-    username: Option<String>,
-
-    #[clap(short, long)]
-    /// Provide a password. (overrides any database value)
-    password: Option<String>,
-
-    #[clap(short, long, default_value_t = false)]
-    /// Disable the TUI interface.
-    disable_tui: bool,
-
-    #[cfg(target_os = "linux")]
-    #[clap(long, default_value_t = false)]
-    /// Disable the mpris interface.
-    disable_mpris: bool,
-
-    #[clap(short, long)]
-    max_audio_quality: Option<AudioQuality>,
-
     #[clap(short, long)]
     /// Log level
     verbosity: Option<tracing::Level>,
 
-    #[clap(short, long, default_value_t = false)]
-    /// Start web server with websocket API and embedded UI.
-    web: bool,
-
-    #[clap(long)]
-    /// Secret used for web ui auth.
-    web_secret: Option<String>,
-
-    #[clap(long, default_value_t = false)]
-    /// Enable rfid interface.
-    rfid: bool,
-
-    #[cfg(feature = "gpio")]
-    #[clap(long, default_value_t = false)]
-    /// Enable gpio interface for raspberry pi. Pin 16 (gpio-23) will be high when playing.
-    gpio: bool,
-
-    #[clap(long, default_value_t = 9888)]
-    /// Specify port for the web server.
-    port: u16,
-
     #[clap(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Open the player
-    Open,
-    /// Set configuration options
+    /// Default. Starts the player
+    Open {
+        /// Provide a username. (overrides any configured value)
+        #[clap(short, long)]
+        username: Option<String>,
+
+        #[clap(short, long)]
+        /// Provide a password. (overrides any configured value)
+        password: Option<String>,
+
+        #[clap(short, long)]
+        /// Provide max audio quality. (overrides any configured value)
+        max_audio_quality: Option<AudioQuality>,
+
+        #[clap(short, long, default_value_t = false)]
+        /// Disable the TUI interface.
+        disable_tui: bool,
+
+        #[cfg(target_os = "linux")]
+        #[clap(long, default_value_t = false)]
+        /// Disable the mpris interface.
+        disable_mpris: bool,
+
+        #[clap(short, long, default_value_t = false)]
+        /// Start web server with websocket API and embedded UI.
+        web: bool,
+
+        #[clap(long)]
+        /// Secret used for web ui auth.
+        web_secret: Option<String>,
+
+        #[clap(long, default_value_t = false)]
+        /// Enable rfid interface.
+        rfid: bool,
+
+        #[cfg(feature = "gpio")]
+        #[clap(long, default_value_t = false)]
+        /// Enable gpio interface for raspberry pi. Pin 16 (gpio-23) will be high when playing.
+        gpio: bool,
+
+        #[clap(long, default_value_t = 9888)]
+        /// Specify port for the web server.
+        port: u16,
+    },
+    /// Persist configurations
     Config {
         #[clap(subcommand)]
         command: ConfigCommands,
@@ -77,10 +77,10 @@ enum Commands {
 pub enum ConfigCommands {
     /// Set username.
     #[clap(value_parser)]
-    Username {},
+    Username { username: String },
     /// Set password.
     #[clap(value_parser)]
-    Password {},
+    Password { password: String },
     /// Set max audio quality.
     #[clap(value_parser)]
     MaxAudioQuality {
@@ -130,28 +130,52 @@ pub async fn run() -> Result<(), Error> {
         .compact()
         .init();
 
-    match cli.command {
-        Commands::Open => {
+    match cli.command.unwrap_or(Commands::Open {
+        username: Default::default(),
+        password: Default::default(),
+        max_audio_quality: Default::default(),
+        disable_tui: Default::default(),
+        disable_mpris: Default::default(),
+        web: Default::default(),
+        web_secret: Default::default(),
+        rfid: Default::default(),
+        port: Default::default(),
+        #[cfg(feature = "gpio")]
+        gpio: Default::default(),
+    }) {
+        Commands::Open {
+            username,
+            password,
+            max_audio_quality,
+            disable_tui,
+            disable_mpris,
+            web,
+            web_secret,
+            rfid,
+            port,
+            #[cfg(feature = "gpio")]
+            gpio,
+        } => {
             let database_credentials = database.get_credentials().await?;
             let database_configuration = database.get_configuration().await?;
             let tracklist = database.get_tracklist().await.unwrap_or_default();
             let volume = database.get_volume().await.unwrap_or(1.0);
 
-            let username = match cli.username {
+            let username = match username {
                 Some(username) => username,
                 None => database_credentials
                     .username
                     .ok_or(Error::UsernameMissing)?,
             };
 
-            let password = match cli.password {
+            let password = match password {
                 Some(p) => p,
                 None => database_credentials
                     .password
                     .ok_or(Error::PasswordMissing)?,
             };
 
-            let max_audio_quality = cli.max_audio_quality.unwrap_or_else(|| {
+            let max_audio_quality = max_audio_quality.unwrap_or_else(|| {
                 database_configuration
                     .max_audio_quality
                     .try_into()
@@ -163,10 +187,10 @@ pub async fn run() -> Result<(), Error> {
             let broadcast = Arc::new(NotificationBroadcast::new());
             let mut player = Player::new(tracklist, client.clone(), volume, broadcast.clone())?;
 
-            let rfid_state = cli.rfid.then(RfidState::default);
+            let rfid_state = rfid.then(RfidState::default);
 
             #[cfg(target_os = "linux")]
-            if !cli.disable_mpris {
+            if !disable_mpris {
                 let position_receiver = player.position();
                 let tracklist_receiver = player.tracklist();
                 let volume_receiver = player.volume();
@@ -182,12 +206,12 @@ pub async fn run() -> Result<(), Error> {
                     )
                     .await
                     {
-                        exit(!cli.disable_tui && !cli.rfid, e.into());
+                        exit(!disable_tui && !rfid, e.into());
                     }
                 });
             }
 
-            if cli.web {
+            if web {
                 let position_receiver = player.position();
                 let tracklist_receiver = player.tracklist();
                 let volume_receiver = player.volume();
@@ -204,25 +228,25 @@ pub async fn run() -> Result<(), Error> {
                         tracklist_receiver,
                         volume_receiver,
                         status_receiver,
-                        cli.port,
-                        cli.web_secret,
+                        port,
+                        web_secret,
                         rfid_state,
                         broadcast,
                         client,
                     )
                     .await
                     {
-                        exit(!cli.disable_tui && !cli.rfid, e.into());
+                        exit(!disable_tui && !rfid, e.into());
                     }
                 });
             }
 
             #[cfg(feature = "gpio")]
-            if cli.gpio {
+            if gpio {
                 let status_receiver = player.status();
                 tokio::spawn(async move {
                     if let Err(e) = qobuz_player_gpio::init(status_receiver).await {
-                        exit(!cli.disable_tui && !cli.rfid, e.into());
+                        exit(!disable_tui && !rfid, e.into());
                     }
                 });
             }
@@ -234,7 +258,7 @@ pub async fn run() -> Result<(), Error> {
                 if let Err(e) =
                     store_state_loop(database_clone, tracklist_receiver, volume_receiver).await
                 {
-                    exit(!cli.disable_tui && !cli.rfid, e);
+                    exit(!disable_tui && !rfid, e);
                 }
             });
 
@@ -251,10 +275,10 @@ pub async fn run() -> Result<(), Error> {
                     )
                     .await
                     {
-                        exit(!cli.disable_tui && !cli.rfid, e.into());
+                        exit(!disable_tui && !rfid, e.into());
                     }
                 });
-            } else if !cli.disable_tui {
+            } else if !disable_tui {
                 let position_receiver = player.position();
                 let tracklist_receiver = player.tracklist();
                 let status_receiver = player.status();
@@ -272,7 +296,7 @@ pub async fn run() -> Result<(), Error> {
                     )
                     .await
                     {
-                        exit(!cli.disable_tui && !cli.rfid, e.into());
+                        exit(!disable_tui && !rfid, e.into());
                     };
                 });
             };
@@ -281,26 +305,14 @@ pub async fn run() -> Result<(), Error> {
             Ok(())
         }
         Commands::Config { command } => match command {
-            ConfigCommands::Username {} => {
-                if let Ok(username) = Input::new()
-                    .with_prompt("Enter your username / email")
-                    .interact_text()
-                {
-                    database.set_username(username).await?;
-
-                    println!("Username saved.");
-                }
+            ConfigCommands::Username { username } => {
+                database.set_username(username).await?;
+                println!("Username saved.");
                 Ok(())
             }
-            ConfigCommands::Password {} => {
-                if let Ok(password) = Password::new()
-                    .with_prompt("Enter your password (hidden)")
-                    .interact()
-                {
-                    database.set_password(password).await?;
-
-                    println!("Password saved.");
-                }
+            ConfigCommands::Password { password } => {
+                database.set_password(password).await?;
+                println!("Password saved.");
                 Ok(())
             }
             ConfigCommands::MaxAudioQuality { quality } => {

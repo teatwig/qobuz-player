@@ -3359,7 +3359,6 @@ name = "qobuz-player"
 version = "0.4.0"
 dependencies = [
  "clap",
- "dialoguer",
  "qobuz-player-client",
  "qobuz-player-controls",
  "qobuz-player-database",

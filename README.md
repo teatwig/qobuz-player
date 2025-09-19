@@ -42,20 +42,20 @@ Run `qobuz-player --help` or `qobuz-player <subcommand> --help` to see all avail
 To get started:
 
 ```shell
-qobuz-player config username # enter username at prompt
-qobuz-player config password # enter password at prompt
+qobuz-player config username {USERNAME}
+qobuz-player config password {PASSWORD}
 
 # open player
-qobuz-player open
+qobuz-player
 
 # open player with web ui
-qobuz-player --web open
+qobuz-player --web 
 ```
 
 ## Web UI
 
 The player can start an embedded web interface. This is disabled by default and must be started with the `--web` argument. It also listens on `0.0.0.0:9888` by default,
-but an inteface can be specified with the `--interface` argument.
+but an interface can be specified with the `--interface` argument.
 
 Go to `http://<ip>:9888` to view the UI.
 

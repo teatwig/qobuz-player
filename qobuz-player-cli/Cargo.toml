@@ -19,7 +19,6 @@ qobuz-player-database = { version = "*", path = "../qobuz-player-database" }
 qobuz-player-gpio = { version = "*", path = "../qobuz-player-gpio", optional = true }
 
 clap = { workspace = true }
-dialoguer = { workspace = true }
 snafu = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
