@@ -45,11 +45,11 @@ To get started:
 qobuz-player config username {USERNAME}
 qobuz-player config password {PASSWORD}
 
-# open player
+# open tui player
 qobuz-player
 
 # open player with web ui
-qobuz-player --web 
+qobuz-player open --web 
 ```
 
 ## Web UI
