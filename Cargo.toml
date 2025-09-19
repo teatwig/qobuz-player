@@ -31,7 +31,7 @@ rust-embed = { version = "*", features = ["axum", "tokio", "mime_guess"] }
 dialoguer = "*"
 dirs = "*"
 futures = "*"
-leptos = { version = "*", default-features = false }
+leptos = { version = "*", default-features = false, features = ["ssr"] }
 md5 = "*"
 mime = "*"
 mime_guess = "*"
