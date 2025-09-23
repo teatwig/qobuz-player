@@ -135,12 +135,8 @@ impl Sink {
                 .join(track_file)
         };
 
-        let track_id = track.id;
-
         let handle = tokio::spawn(async move {
-            database
-                .set_cache_entry(track_id, cache_path.as_path())
-                .await;
+            database.set_cache_entry(cache_path.as_path()).await;
 
             let maybe_cached_bytes = (fs::read(&cache_path).await).ok();
 

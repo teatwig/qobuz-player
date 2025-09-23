@@ -273,7 +273,7 @@ impl Database {
         Ok(paths)
     }
 
-    pub async fn set_cache_entry(&self, track_id: u32, path: &Path) {
+    pub async fn set_cache_entry(&self, path: &Path) {
         let now = time::OffsetDateTime::now_utc()
             .format(&time::format_description::well_known::Rfc3339)
             .expect("infailable");
@@ -282,13 +282,12 @@ impl Database {
 
         sqlx::query!(
             r#"
-                INSERT INTO cache_entries (track_id, path, last_opened)
-                VALUES (?, ?, ?)
-                ON CONFLICT(track_id) DO UPDATE SET
+                INSERT INTO cache_entries (path, last_opened)
+                VALUES (?, ?)
+                ON CONFLICT(path) DO UPDATE SET
                     path = excluded.path,
                     last_opened = excluded.last_opened
             "#,
-            track_id,
             path_str,
             now
         )
@@ -388,10 +387,12 @@ mod tests {
     async fn clean_up_cache_entries(pool: sqlx::Pool<sqlx::Sqlite>) {
         let db = Database::init(pool).await.unwrap();
 
-        let old_path = Path::new("path/old");
-        let new_path = Path::new("path/new");
-        db.set_cache_entry(1, old_path).await;
-        db.set_cache_entry(2, new_path).await;
+        let old_path_str = "path/old";
+        let old_path = Path::new(old_path_str);
+        let new_path_str = "path/new";
+        let new_path = Path::new(new_path_str);
+        db.set_cache_entry(old_path).await;
+        db.set_cache_entry(new_path).await;
 
         let old_time = OffsetDateTime::now_utc() - Duration::days(10);
         let old_time = old_time
@@ -399,9 +400,9 @@ mod tests {
             .unwrap();
 
         sqlx::query!(
-            "UPDATE cache_entries SET last_opened = ? WHERE track_id = ?",
+            "UPDATE cache_entries SET last_opened = ? WHERE path = ?",
             old_time,
-            1
+            old_path_str
         )
         .execute(&db.pool)
         .await
@@ -409,15 +410,15 @@ mod tests {
 
         let deleted = db.clean_up_cache_entries(Duration::days(5)).await.unwrap();
 
-        let remaining: Vec<u32> = sqlx::query!("SELECT track_id FROM cache_entries")
+        let remaining: Vec<_> = sqlx::query!("SELECT path FROM cache_entries")
             .fetch_all(&db.pool)
             .await
             .unwrap()
             .into_iter()
-            .map(|row| row.track_id as u32)
+            .map(|row| row.path)
             .collect();
 
-        assert_eq!(remaining, vec![2]);
+        assert_eq!(remaining, vec![new_path_str]);
         assert_eq!(deleted, vec![old_path]);
     }
 }
