@@ -2,7 +2,7 @@ use crate::{
     Error, Result,
     qobuz_models::{
         TrackURL,
-        album_suggestion::{AlbumSuggestion, AlbumSuggestionResponse},
+        album_suggestion::{AlbumOfTheWeekQuery, AlbumSuggestion, AlbumSuggestionResponse},
         artist::{self, ArtistsResponse},
         artist_page,
         favorites::Favorites,
@@ -128,6 +128,7 @@ enum Endpoint {
     FavoritePlaylistRemove,
     AlbumSuggest,
     AlbumFeatured,
+    AlbumOfTheWeek,
     PlaylistFeatured,
 }
 
@@ -156,6 +157,7 @@ impl Display for Endpoint {
             Endpoint::FavoritePlaylistRemove => "playlist/unsubscribe",
             Endpoint::AlbumSuggest => "album/suggest",
             Endpoint::AlbumFeatured => "album/getFeatured",
+            Endpoint::AlbumOfTheWeek => "discover/albumOfTheWeek",
             Endpoint::PlaylistFeatured => "playlist/getFeatured",
         };
 
@@ -207,6 +209,20 @@ impl Client {
             async move { get!(self, &endpoint, Some(&params)) }
         };
 
+        let album_of_the_week: AlbumOfTheWeekQuery = get!(
+            self,
+            &format!("{}{}", self.base_url, Endpoint::AlbumOfTheWeek),
+            None
+        )?;
+
+        let album_of_the_week = album_of_the_week
+            .items
+            .into_iter()
+            .map(|a| parse_album_simple(a, &self.max_audio_quality))
+            .collect();
+
+        let mut albums = vec![("Album of the week".to_string(), album_of_the_week)];
+
         let (a, b, c, d) = try_join!(
             make_call("press-awards"),
             make_call("new-releases-full"),
@@ -214,12 +230,16 @@ impl Client {
             make_call("ideal-discography"),
         )?;
 
-        Ok(parse_featured_albums(vec![
+        let mut other = parse_featured_albums(vec![
             ("Press awards".to_string(), a),
             ("New releases".to_string(), b),
             ("Qobuzissims".to_string(), c),
             ("Ideal discography".to_string(), d),
-        ]))
+        ]);
+
+        albums.append(&mut other);
+
+        Ok(albums)
     }
 
     pub async fn featured_playlists(

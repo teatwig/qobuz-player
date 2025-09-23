@@ -33,3 +33,9 @@ pub struct AlbumSuggestions {
     pub limit: i64,
     pub items: Vec<AlbumSuggestion>,
 }
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AlbumOfTheWeekQuery {
+    has_more: bool,
+    pub items: Vec<AlbumSuggestion>,
+}
