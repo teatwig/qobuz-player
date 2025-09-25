@@ -30,10 +30,10 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         .route("/playlist/{id}/tracks", get(tracks_partial))
         .route("/playlist/{id}/set-favorite", put(set_favorite))
         .route("/playlist/{id}/unset-favorite", put(unset_favorite))
-        .route("/playlist/{id}/play", get(play))
-        .route("/playlist/{id}/play/shuffle", get(shuffle))
-        .route("/playlist/{id}/play/{track_position}", get(play_track))
-        .route("/playlist/{id}/link", get(link))
+        .route("/playlist/{id}/play", put(play))
+        .route("/playlist/{id}/play/shuffle", put(shuffle))
+        .route("/playlist/{id}/play/{track_position}", put(play_track))
+        .route("/playlist/{id}/link", put(link))
 }
 
 async fn play_track(
@@ -177,7 +177,7 @@ fn playlist(
                             <button
                                 class=button_class()
                                 hx-swap="none"
-                                hx-get=format!("{}/play", playlist.id.clone())
+                                hx-put=format!("{}/play", playlist.id.clone())
                             >
                                 <span class="size-6">
                                     <Play />
@@ -188,7 +188,7 @@ fn playlist(
                             <button
                                 class=button_class()
                                 hx-swap="none"
-                                hx-get=format!("{}/play/shuffle", playlist.id.clone())
+                                hx-put=format!("{}/play/shuffle", playlist.id.clone())
                             >
                                 <span class="size-6">
                                     <Play />
@@ -212,7 +212,7 @@ fn playlist(
                                         <button
                                             class=button_class()
                                             hx-swap="none"
-                                            hx-get=format!("{}/link", playlist.id.clone())
+                                            hx-put=format!("{}/link", playlist.id.clone())
                                         >
                                             <span class="size-6">
                                                 <Link />

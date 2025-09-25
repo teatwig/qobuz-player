@@ -30,9 +30,9 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         .route("/album/{id}/tracks", get(album_tracks_partial))
         .route("/album/{id}/set-favorite", put(set_favorite))
         .route("/album/{id}/unset-favorite", put(unset_favorite))
-        .route("/album/{id}/play", get(play))
-        .route("/album/{id}/play/{track_position}", get(play_track))
-        .route("/album/{id}/link", get(link))
+        .route("/album/{id}/play", put(play))
+        .route("/album/{id}/play/{track_position}", put(play_track))
+        .route("/album/{id}/link", put(link))
 }
 
 async fn play_track(
@@ -194,7 +194,7 @@ fn album(
                     <button
                         class=button_class()
                         hx-swap="none"
-                        hx-get=format!("{}/play", album_id_clone_1)
+                        hx-put=format!("{}/play", album_id_clone_1)
                     >
                         <span class="size-6">
                             <Play />
@@ -210,7 +210,7 @@ fn album(
                                 <button
                                     class=button_class()
                                     hx-swap="none"
-                                    hx-get=format!("{}/link", album_id_clone_1)
+                                    hx-put=format!("{}/link", album_id_clone_1)
                                 >
                                     <span class="size-6">
                                         <Link />

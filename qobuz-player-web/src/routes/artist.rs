@@ -32,7 +32,7 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         .route("/artist/{id}/unset-favorite", put(unset_favorite))
         .route(
             "/artist/{artist_id}/play-top-track/{track_index}",
-            get(play_top_track),
+            put(play_top_track),
         )
 }
 
@@ -140,7 +140,7 @@ fn artist(
                     <button
                         class=button_class()
                         hx-swap="none"
-                        hx-get=format!("{}/play-top-track/0", artist.id)
+                        hx-put=format!("{}/play-top-track/0", artist.id)
                     >
                         <span class="size-6">
                             <Play />
@@ -212,7 +212,7 @@ fn track(artist_id: u32, track: Track, index: usize, is_playing: bool) -> impl I
     html! {
         <button
             class="flex gap-4 items-center w-5/6 max-w-lg rounded cursor-pointer"
-            hx-get=format!("{}/play-top-track/{}", artist_id, index)
+            hx-put=format!("{}/play-top-track/{}", artist_id, index)
             hx-swap="none"
         >
             <img

@@ -4,7 +4,7 @@ use axum::{
     Router,
     extract::State,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::{
@@ -26,10 +26,10 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
         .route("/", get(index))
         .route("/status", get(status_partial))
         .route("/now-playing", get(now_playing_partial))
-        .route("/play", get(play))
-        .route("/pause", get(pause))
-        .route("/previous", get(previous))
-        .route("/next", get(next))
+        .route("/play", put(play))
+        .route("/pause", put(pause))
+        .route("/previous", put(previous))
+        .route("/next", put(next))
         .route("/volume", post(set_volume))
         .route("/position", post(set_position))
 }
@@ -107,7 +107,7 @@ fn play_pause(status: Status) -> impl IntoView {
         <button
             class="transition-colors cursor-pointer"
             hx-swap="none"
-            hx-get=format!("{}", if playing { "/pause" } else { "/play" })
+            hx-put=format!("{}", if playing { "/pause" } else { "/play" })
         >
             {status_icon}
         </button>
@@ -117,7 +117,7 @@ fn play_pause(status: Status) -> impl IntoView {
 #[component]
 pub(crate) fn next() -> impl IntoView {
     html! {
-        <button hx-swap="none" hx-get="/next" class="transition-colors cursor-pointer">
+        <button hx-swap="none" hx-put="/next" class="transition-colors cursor-pointer">
             <Forward />
         </button>
     }
@@ -126,7 +126,7 @@ pub(crate) fn next() -> impl IntoView {
 #[component]
 pub(crate) fn previous() -> impl IntoView {
     html! {
-        <button hx-swap="none" hx-get="/previous" class="transition-colors cursor-pointer">
+        <button hx-swap="none" hx-put="/previous" class="transition-colors cursor-pointer">
             <Backward />
         </button>
     }
