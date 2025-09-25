@@ -266,7 +266,7 @@ pub(crate) fn list_tracks(
                         <ListItem>
                             <button
                                 hx-swap="none"
-                                hx-put=api_call.run((index,))
+                                hx-get=api_call.run((index,))
                                 class=format!(
                                     "flex justify-between items-center w-full text-left cursor-pointer disabled:text-gray-500 disabled:cursor-default {}",
                                     if dim_played { "disabled:text-gray-500" } else { "" },

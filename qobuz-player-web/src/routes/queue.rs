@@ -4,7 +4,7 @@ use axum::{
     Router,
     extract::{Path, State},
     response::IntoResponse,
-    routing::{get, put},
+    routing::get,
 };
 use leptos::{IntoView, component, prelude::*};
 use qobuz_player_controls::tracklist::{Tracklist, TracklistType};
@@ -21,7 +21,7 @@ pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new()
         .route("/queue", get(index))
         .route("/queue/list", get(queue_partial))
-        .route("/queue/skip-to/{track_number}", put(skip_to))
+        .route("/queue/skip-to/{track_number}", get(skip_to))
 }
 
 async fn skip_to(

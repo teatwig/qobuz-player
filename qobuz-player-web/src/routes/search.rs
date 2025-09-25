@@ -4,7 +4,7 @@ use axum::{
     Form, Router,
     extract::{Path, Query, State},
     response::IntoResponse,
-    routing::{get, put},
+    routing::get,
 };
 use leptos::{component, prelude::*};
 use qobuz_player_models::SearchResults;
@@ -35,7 +35,7 @@ use crate::{
 pub(crate) fn routes() -> Router<std::sync::Arc<crate::AppState>> {
     Router::new()
         .route("/search/{tab}", get(index).post(search))
-        .route("/play-track/{track_id}", put(play_track))
+        .route("/play-track/{track_id}", get(play_track))
 }
 
 async fn play_track(
@@ -144,7 +144,7 @@ fn track(track: qobuz_player_models::Track) -> impl IntoView {
     html! {
         <button
             class="flex gap-4 items-center w-full cursor-pointer"
-            hx-put=format!("/play-track/{}", track.id)
+            hx-get=format!("/play-track/{}", track.id)
             hx-swap="none"
         >
             <img
