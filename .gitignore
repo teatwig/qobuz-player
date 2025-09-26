@@ -8,3 +8,5 @@ todo.txt
 result*
 node_modules
 styles.css
+
+.direnv/
