@@ -44,6 +44,8 @@ To get started:
 ```shell
 qobuz-player config username {USERNAME}
 qobuz-player config password {PASSWORD}
+# or to get prompted for the password
+qobuz-player config password
 
 # open tui player
 qobuz-player

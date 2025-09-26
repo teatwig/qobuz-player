@@ -1,4 +1,8 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    io::{Write, stdin, stdout},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use clap::{Parser, Subcommand};
 use qobuz_player_controls::{
@@ -86,9 +90,9 @@ pub enum ConfigCommands {
     /// Set username.
     #[clap(value_parser)]
     Username { username: String },
-    /// Set password.
+    /// Set password. Leave empty to get a password prompt.
     #[clap(value_parser)]
-    Password { password: String },
+    Password { password: Option<String> },
     /// Set max audio quality.
     #[clap(value_parser)]
     MaxAudioQuality {
@@ -122,6 +126,14 @@ impl From<qobuz_player_client::Error> for Error {
 impl From<qobuz_player_controls::error::Error> for Error {
     fn from(error: qobuz_player_controls::error::Error) -> Self {
         Error::PlayerError {
+            error: error.to_string(),
+        }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Self {
+        Error::ClientError {
             error: error.to_string(),
         }
     }
@@ -346,6 +358,14 @@ pub async fn run() -> Result<(), Error> {
                 Ok(())
             }
             ConfigCommands::Password { password } => {
+                let password = match password {
+                    Some(password) => password,
+                    None => {
+                        print!("Password: ");
+                        stdout().flush()?;
+                        stdin().lines().next().expect("encountered EOF")?
+                    }
+                };
                 database.set_password(password).await?;
                 println!("Password saved.");
                 Ok(())
