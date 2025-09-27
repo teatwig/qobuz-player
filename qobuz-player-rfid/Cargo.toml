@@ -9,5 +9,4 @@ repository.workspace = true
 qobuz-player-controls = { version = "*", path = "../qobuz-player-controls" }
 
 tokio = { workspace = true }
-dialoguer = { workspace = true }
 tracing = { workspace = true }
