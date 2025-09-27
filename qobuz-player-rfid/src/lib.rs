@@ -1,4 +1,3 @@
-use dialoguer::Input;
 use qobuz_player_controls::{
     Result, TracklistReceiver,
     controls::Controls,
@@ -8,7 +7,10 @@ use qobuz_player_controls::{
     tracklist,
 };
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt},
+    sync::Mutex,
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct RfidState {
@@ -22,17 +24,27 @@ pub async fn init(
     database: Arc<Database>,
     broadcast: Arc<NotificationBroadcast>,
 ) -> Result<()> {
+    let mut reader = tokio::io::BufReader::new(tokio::io::stdin());
+    let mut out = tokio::io::stdout();
+    let mut line = String::new();
+
     loop {
-        let Ok(res) = tokio::task::spawn_blocking(|| {
-            Input::<String>::new()
-                .with_prompt("Scan rfid")
-                .interact_text()
-        })
-        .await
-        .or(Err(Error::RfidInputPanic))?
-        else {
+        out.write_all(b"Scan RFID: ")
+            .await
+            .or(Err(Error::RfidInputPanic))?;
+        out.flush().await.or(Err(Error::RfidInputPanic))?;
+
+        line.clear();
+
+        let n = reader
+            .read_line(&mut line)
+            .await
+            .or(Err(Error::RfidInputPanic))?;
+        if n == 0 {
             continue;
-        };
+        }
+
+        let res = line.trim();
 
         let maybe_request = {
             let guard = state.link_request.lock().await;
@@ -44,18 +56,18 @@ pub async fn init(
                 state.clone(),
                 database.clone(),
                 broadcast.clone(),
-                &res,
+                res,
                 &album_id,
             ),
             Some(LinkRequest::Playlist(playlist_id)) => submit_link_playlist(
                 state.clone(),
                 database.clone(),
                 broadcast.clone(),
-                &res,
+                res,
                 playlist_id,
             ),
             None => {
-                handle_play_scan(&database, &controls, &res, &tracklist_receiver).await;
+                handle_play_scan(&database, &controls, res, &tracklist_receiver).await;
             }
         };
     }

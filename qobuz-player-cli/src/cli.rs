@@ -104,8 +104,6 @@ pub enum ConfigCommands {
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display("{error}"))]
-    ClientError { error: String },
-    #[snafu(display("{error}"))]
     PlayerError { error: String },
     #[snafu(display("{error}"))]
     TerminalError { error: String },
@@ -113,27 +111,13 @@ pub enum Error {
     UsernameMissing,
     #[snafu(display("No password found. Set with config or arguments"))]
     PasswordMissing,
-}
-
-impl From<qobuz_player_client::Error> for Error {
-    fn from(error: qobuz_player_client::Error) -> Self {
-        Error::ClientError {
-            error: error.to_string(),
-        }
-    }
+    #[snafu(display("Error reading error prompt"))]
+    PasswordError,
 }
 
 impl From<qobuz_player_controls::error::Error> for Error {
     fn from(error: qobuz_player_controls::error::Error) -> Self {
         Error::PlayerError {
-            error: error.to_string(),
-        }
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(error: std::io::Error) -> Self {
-        Error::ClientError {
             error: error.to_string(),
         }
     }
@@ -362,8 +346,12 @@ pub async fn run() -> Result<(), Error> {
                     Some(password) => password,
                     None => {
                         print!("Password: ");
-                        stdout().flush()?;
-                        stdin().lines().next().expect("encountered EOF")?
+                        stdout().flush().or(Err(Error::PasswordError))?;
+                        stdin()
+                            .lines()
+                            .next()
+                            .expect("encountered EOF")
+                            .or(Err(Error::PasswordError))?
                     }
                 };
                 database.set_password(password).await?;
